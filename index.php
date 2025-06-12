@@ -233,6 +233,11 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
         .loading.show {
             display: block;
         }
+
+        .prenda-card img {
+            border-top-left-radius: 0.5rem;
+            border-top-right-radius: 0.5rem;
+        }
     </style>
 </head>
 
@@ -467,6 +472,15 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
                                         <?php while ($row = $result_prendas->fetch_assoc()): ?>
                                             <div class="col-md-6 mb-3">
                                                 <div class="card prenda-card">
+                                                    <!-- Imagen de la prenda o fondo gris si no hay -->
+                                                    <?php if (!empty($row['foto'])): ?>
+                                                        <img src="<?php echo $row['foto']; ?>" class="card-img-top" alt="Imagen de <?php echo $row['nombre']; ?>" style="object-fit: cover; max-height: 200px;">
+                                                    <?php else: ?>
+                                                        <div class="card-img-top d-flex align-items-center justify-content-center bg-secondary text-white" style="height: 200px;">
+                                                            <span>Sin imagen</span>
+                                                        </div>
+                                                    <?php endif; ?>
+
                                                     <div class="card-body">
                                                         <div class="d-flex justify-content-between align-items-start">
                                                             <div>
@@ -476,19 +490,24 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
                                                                     <small><?php echo $row['tela']; ?> • <?php echo $row['textura']; ?></small>
                                                                 </p>
 
-                                                                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalEditar_<?php echo $row['id']; ?>">
-                                                                    Editar
-                                                                </button>
-                                                            </div>
 
+                                                            </div>
                                                         </div>
+
                                                         <div class="mt-2">
                                                             <span class="badge clima-<?php echo $row['clima_apropiado']; ?>"><?php echo $row['clima_apropiado']; ?></span>
                                                             <span class="badge formalidad-<?php echo $row['formalidad']; ?>"><?php echo $row['formalidad']; ?></span>
                                                             <span class="badge bg-<?php echo $row['estado'] === 'disponible' ? 'success' : 'warning'; ?>"><?php echo $row['estado']; ?></span>
                                                         </div>
+                                                        <div class="text-center mt-2">
+                                                            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalEditar_<?php echo $row['id']; ?>">
+                                                                Editar
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </div>
+
+
                                             </div>
 
                                             <!-- Modal simple por prenda -->
@@ -729,6 +748,18 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
                     console.error('Error al obtener sugerencias:', error);
                     document.getElementById('sugerenciaDia').innerHTML = '<p class="text-danger">Error al cargar sugerencias</p>';
                 });
+        }
+
+        function previewImage(input, previewId) {
+            const preview = document.getElementById(previewId);
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
         }
     </script>
 </body>

@@ -1,7 +1,7 @@
 <div class="modal fade" id="modalEditar_<?php echo $row['id']; ?>" tabindex="-1" aria-labelledby="labelEditar_<?php echo $row['id']; ?>" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content shadow">
-            <form action="update_prenda.php" method="post" id="formulario-prenda" enctype="multipart/form-data">
+            <form action="update_prenda.php" method="post" id="formulario-prenda-<?php echo $row['id']; ?>" enctype="multipart/form-data">
                 <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title" id="labelEditar_<?php echo $row['id']; ?>">
                         Editar Prenda #<?php echo $row['id']; ?>
@@ -92,13 +92,26 @@
                         </div>
 
                         <div class="col-md-12">
-                            <label class="form-label">Foto (URL)</label>
-                            <input type="text" class="form-control mb-2" name="foto" value="<?php echo $row['foto']; ?>">
-                            <input type="file" class="form-control" name="foto_file" accept="image/*" onchange="previewImage(this, 'previewPrenda')">
+                            <label class="form-label">Foto</label>
+
+                            <!-- Imagen actual -->
+                            <?php if (!empty($row['foto']) && file_exists($row['foto'])): ?>
+                                <img src="<?php echo $row['foto']; ?>" alt="Imagen de la prenda" class="img-thumbnail mb-2" style="max-width: 200px;">
+                            <?php else: ?>
+                                <div class="img-thumbnail mb-2 bg-secondary d-flex justify-content-center align-items-center text-white" style="width: 200px; height: 200px;">
+                                    Sin imagen
+                                </div>
+                            <?php endif; ?>
+
+                            <!-- Campo para nueva imagen -->
+                            <input type="file" class="form-control" name="foto" accept="image/*" onchange="previewImage(this, 'preview_<?php echo $row['id']; ?>')">
+
+                            <!-- Vista previa -->
                             <div class="mt-2">
-                                <img id="previewPrenda" class="image-preview img-thumbnail" style="max-height: 150px; display: none;">
+                                <img id="preview_<?php echo $row['id']; ?>" class="image-preview img-thumbnail" style="max-height: 150px; display: none;">
                             </div>
                         </div>
+
 
 
                     </div>
@@ -114,26 +127,40 @@
 </div>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-    document.getElementById('formulario-prenda').addEventListener('submit', function(e) {
-        e.preventDefault();
-        const form = e.target;
-        const formData = new FormData(form);
+    document.querySelectorAll('formulario-prenda').forEach(form => {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(form);
 
-        fetch('update_prenda.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    Swal.fire('¡Actualizado!', data.message, 'success')
-                        .then(() => location.reload());
-                } else {
-                    Swal.fire('Error', data.message, 'error');
-                }
-            })
-            .catch(err => {
-                Swal.fire('Error', 'Error en la solicitud: ' + err, 'error');
-            });
+            fetch('update_prenda.php', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire('¡Actualizado!', data.message, 'success')
+                            .then(() => location.reload());
+                    } else {
+                        Swal.fire('Error', data.message, 'error');
+                    }
+                })
+                .catch(err => {
+                    Swal.fire('Error', 'Error en la solicitud: ' + err, 'error');
+                });
+        });
     });
+
+
+    function previewImage(input, previewId) {
+        const preview = document.getElementById(previewId);
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
 </script>

@@ -1,4 +1,6 @@
 <?php
+
+
 include 'bd.php';
 header('Content-Type: application/json');
 
@@ -69,4 +71,10 @@ try {
     echo json_encode(['success' => true, 'message' => 'Prenda actualizada correctamente']);
 } catch (PDOException $e) {
     echo json_encode(['success' => false, 'message' => 'Error al guardar: ' . $e->getMessage()]);
+}
+
+// Si la petición NO es AJAX, redirigir a index.php
+if (empty($_SERVER['HTTP_X_REQUESTED_WITH']) || strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) !== 'xmlhttprequest') {
+    header('Location: index.php');
+    exit;
 }
