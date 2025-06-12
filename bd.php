@@ -6,6 +6,14 @@ $user = 'root';
 $pass = '';
 $charset = 'utf8';
 
+date_default_timezone_set('America/Santiago');
+
+$fecha_actual = date('Y-m-d');
+$datetime_actual = date('Y-m-d H:i:s');
+
+include 'funciones.php';
+
+
 // MÉTODO 1: CONEXIÓN PDO
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$db;charset=$charset", $user, $pass);

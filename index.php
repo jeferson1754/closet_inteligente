@@ -724,31 +724,51 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
         // Agregar prenda
         document.getElementById('formPrenda').addEventListener('submit', function(e) {
             e.preventDefault();
-            const formData = new FormData(e.target);
-            const prenda = {
-                id: idCounter++,
-                nombre: formData.get('nombre'),
-                tipo: formData.get('tipo'),
-                color_principal: formData.get('color_principal'),
-                tela: formData.get('tela'),
-                textura: formData.get('textura'),
-                estampado: formData.get('estampado'),
-                clima_apropiado: formData.get('clima_apropiado'),
-                formalidad: formData.get('formalidad'),
-                estado: 'disponible',
-                foto: null // En implementación real, manejar upload de imagen
-            };
+            const form = e.target;
+            const formData = new FormData(form);
 
-            prendas.push(prenda);
-            actualizarDashboard();
-            cargarPrendas();
-            cargarSelectorPrendas();
-            e.target.reset();
-            document.getElementById('previewPrenda').style.display = 'none';
+            // Enviar datos al servidor mediante AJAX
+            fetch('crear_prenda.php', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json()) // Asegúrate de que tu backend devuelva JSON
+                .then(data => {
+                    if (data.success) {
+                        // Puedes usar los datos del servidor o los del formulario, según necesites
+                        const prenda = {
+                            id: data.id || Date.now(), // Usa el ID que devuelva el backend o uno temporal
+                            nombre: formData.get('nombre'),
+                            tipo: formData.get('tipo'),
+                            color_principal: formData.get('color_principal'),
+                            tela: formData.get('tela'),
+                            textura: formData.get('textura'),
+                            estampado: formData.get('estampado'),
+                            clima_apropiado: formData.get('clima_apropiado'),
+                            formalidad: formData.get('formalidad'),
+                            estado: 'disponible',
+                            foto: null // Aquí puedes gestionar la foto si también se guarda
+                        };
 
-            // Mostrar mensaje de éxito
-            mostrarAlerta('Prenda agregada exitosamente', 'success');
+                        prendas.push(prenda);
+                        actualizarDashboard();
+                        cargarPrendas();
+                        cargarSelectorPrendas();
+                        form.reset();
+                        document.getElementById('previewPrenda').style.display = 'none';
+
+                        // Mostrar mensaje de éxito
+                        mostrarAlerta('Prenda agregada exitosamente', 'success');
+                    } else {
+                        mostrarAlerta('Error al agregar la prenda: ' + (data.message || 'Error desconocido'), 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error en la solicitud AJAX:', error);
+                    mostrarAlerta('Ocurrió un error al enviar el formulario', 'error');
+                });
         });
+
 
         function cargarPrendas() {
             const lista = document.getElementById('listaPrendas');
