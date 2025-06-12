@@ -2,50 +2,16 @@
 include 'bd.php'; // conexión a la base de datos
 
 // Consulta para obtener prendas disponibles
-$sql = "SELECT id,nombre,tipo, color_principal,tela,textura,estampado, clima_apropiado,formalidad,estado,foto FROM prendas";
+$sql = "SELECT * FROM prendas";
 $result = $mysqli_obj->query($sql);
+$result_prendas = $mysqli_obj->query($sql);
 
-$prendas = [];
 
-if ($result) {
-    while ($row = $result->fetch_assoc()) {
-        // Convertir null en null real para JSON (si es necesario)
-        $row['foto'] = $row['foto'] ?? null;
-        $prendas[] = $row;
-    }
-} else {
-    die("Error en la consulta: " . $mysqli_obj->error);
-}
 
 // Consulta para obtener prendas disponibles
 $sql2 = "SELECT * FROM `historial_usos`";
 $result2 = $mysqli_obj->query($sql2);
 
-$historial = [];
-
-if ($result2) {
-    while ($row = $result2->fetch_assoc()) {
-        // Convertir null en null real para JSON (si es necesario)
-        $historial[] = $row;
-    }
-} else {
-    die("Error en la consulta: " . $mysqli_obj->error);
-}
-
-// Consulta para obtener prendas disponibles
-$sql2 = "SELECT * FROM `historial_usos`";
-$result2 = $mysqli_obj->query($sql2);
-
-$historial = [];
-
-if ($result2) {
-    while ($row = $result2->fetch_assoc()) {
-        // Convertir null en null real para JSON (si es necesario)
-        $historial[] = $row;
-    }
-} else {
-    die("Error en la consulta: " . $mysqli_obj->error);
-}
 
 $city = $_GET['city'] ?? 'Santiago';
 $api_key = "22524bcc23b8c0635c013a41f40f6a4c";
@@ -81,8 +47,15 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Clóset Inteligente</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Bootstrap JS Bundle (incluye Popper) al final del <body> -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+
     <style>
         body {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -92,12 +65,10 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
 
         .main-container {
             background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
             border-radius: 20px;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
             margin: 20px auto;
             max-width: 1200px;
-            overflow: hidden;
         }
 
         .nav-pills .nav-link {
@@ -119,7 +90,7 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
             transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
 
-        .card:hover {
+        body:not(.modal-open) .card:hover {
             transform: translateY(-5px);
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
         }
@@ -143,10 +114,6 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
             transition: all 0.3s ease;
         }
 
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
 
         .badge {
             border-radius: 15px;
@@ -495,9 +462,43 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
                                         <i class="fas fa-spinner fa-spin fa-2x"></i>
                                         <p>Cargando prendas...</p>
                                     </div>
-                                    <div id="listaPrendas" class="row">
-                                        <!-- Las prendas se cargarán aquí dinámicamente -->
+
+                                    <div class="row">
+                                        <?php while ($row = $result_prendas->fetch_assoc()): ?>
+                                            <div class="col-md-6 mb-3">
+                                                <div class="card prenda-card">
+                                                    <div class="card-body">
+                                                        <div class="d-flex justify-content-between align-items-start">
+                                                            <div>
+                                                                <h6 class="card-title"><?php echo $row['nombre']; ?></h6>
+                                                                <p class="card-text">
+                                                                    <small class="text-muted"><?php echo $row['tipo']; ?> • <?php echo $row['color_principal']; ?></small><br>
+                                                                    <small><?php echo $row['tela']; ?> • <?php echo $row['textura']; ?></small>
+                                                                </p>
+
+                                                                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalEditar_<?php echo $row['id']; ?>">
+                                                                    Editar
+                                                                </button>
+                                                            </div>
+
+                                                        </div>
+                                                        <div class="mt-2">
+                                                            <span class="badge clima-<?php echo $row['clima_apropiado']; ?>"><?php echo $row['clima_apropiado']; ?></span>
+                                                            <span class="badge formalidad-<?php echo $row['formalidad']; ?>"><?php echo $row['formalidad']; ?></span>
+                                                            <span class="badge bg-<?php echo $row['estado'] === 'disponible' ? 'success' : 'warning'; ?>"><?php echo $row['estado']; ?></span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Modal simple por prenda -->
+
+                                        <?php
+                                            include('modal_editar.php');
+                                        endwhile; ?>
                                     </div>
+
+
                                 </div>
                             </div>
                         </div>
@@ -540,9 +541,7 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">Seleccionar Prendas</label>
-                                            <div id="selectorPrendas" class="border rounded p-3" style="max-height: 300px; overflow-y: auto;">
-                                                <!-- Las prendas disponibles se cargarán aquí -->
-                                            </div>
+
                                         </div>
                                         <button type="submit" class="btn btn-primary w-100">
                                             <i class="fas fa-save me-2"></i>Crear Outfit
@@ -558,13 +557,8 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
                                     <h5><i class="fas fa-palette me-2"></i>Mis Outfits</h5>
                                 </div>
                                 <div class="card-body">
-                                    <div class="loading" id="loadingOutfits">
-                                        <i class="fas fa-spinner fa-spin fa-2x"></i>
-                                        <p>Cargando outfits...</p>
-                                    </div>
-                                    <div id="listaOutfits" class="row">
-                                        <!-- Los outfits se cargarán aquí dinámicamente -->
-                                    </div>
+
+
                                 </div>
                             </div>
                         </div>
@@ -630,10 +624,7 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
                                     <h5><i class="fas fa-lightbulb me-2"></i>Sugerencias Personalizadas</h5>
                                 </div>
                                 <div class="card-body">
-                                    <div class="loading" id="loadingSugerencias">
-                                        <i class="fas fa-spinner fa-spin fa-2x"></i>
-                                        <p>Generando sugerencias...</p>
-                                    </div>
+
                                     <div id="sugerenciasPersonalizadas">
                                         <div class="text-center text-muted">
                                             <i class="fas fa-magic fa-3x mb-3"></i>
@@ -649,78 +640,14 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
         </div>
     </div>
 
-    <!-- Modales -->
-    <div class="modal fade" id="modalEditarPrenda" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Editar Prenda</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="formEditarPrenda">
-                        <input type="hidden" name="id">
-                        <!-- Campos similares al formulario de agregar -->
-                        <div class="mb-3">
-                            <label class="form-label">Nombre</label>
-                            <input type="text" class="form-control" name="nombre" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Estado</label>
-                            <select class="form-select" name="estado">
-                                <option value="disponible">Disponible</option>
-                                <option value="sucio">Sucio</option>
-                                <option value="prestado">Prestado</option>
-                            </select>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" onclick="guardarEdicionPrenda()">Guardar</button>
-                </div>
-            </div>
-        </div>
-    </div>
 
+
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Bootstrap 5 JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        // Simulación de base de datos en memoria
-        const prendas = <?php echo json_encode($prendas, JSON_UNESCAPED_UNICODE); ?>;
-        let outfits = [];
-        let historialUsos = <?php echo json_encode($historial, JSON_UNESCAPED_UNICODE); ?>;
-        let idCounter = 1;
-
-
-        // Inicializar aplicación
-        document.addEventListener('DOMContentLoaded', function() {
-            actualizarDashboard();
-            cargarPrendas();
-            cargarOutfits();
-            cargarSelectorPrendas();
-        });
-
-
-        function actualizarDashboard() {
-            document.getElementById('totalPrendas').textContent = prendas.length;
-            document.getElementById('totalOutfits').textContent = outfits.length;
-            document.getElementById('prendasDisponibles').textContent =
-                prendas.filter(p => p.estado === 'disponible').length;
-        }
-
-        function previewImage(input, previewId) {
-            const preview = document.getElementById(previewId);
-            if (input.files && input.files[0]) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    preview.src = e.target.result;
-                    preview.style.display = 'block';
-                };
-                reader.readAsDataURL(input.files[0]);
-            }
-        }
-
         // Agregar prenda
         document.getElementById('formPrenda').addEventListener('submit', function(e) {
             e.preventDefault();
@@ -751,9 +678,6 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
                         };
 
                         prendas.push(prenda);
-                        actualizarDashboard();
-                        cargarPrendas();
-                        cargarSelectorPrendas();
                         form.reset();
                         document.getElementById('previewPrenda').style.display = 'none';
 
@@ -770,284 +694,7 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
         });
 
 
-        function cargarPrendas() {
-            const lista = document.getElementById('listaPrendas');
-            lista.innerHTML = '<p>Cargando prendas...</p>';
 
-            fetch('obtener_prendas.php')
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Error al cargar las prendas');
-                    }
-                    return response.json();
-                })
-                .then(prendas => {
-                    lista.innerHTML = ''; // Limpiar después de recibir
-                    prendas.forEach(prenda => {
-                        const prendaCard = `
-                    <div class="col-md-6 mb-3">
-                        <div class="card prenda-card">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <div>
-                                        <h6 class="card-title">${prenda.nombre}</h6>
-                                        <p class="card-text">
-                                            <small class="text-muted">${prenda.tipo} • ${prenda.color_principal}</small><br>
-                                            <small>${prenda.tela} • ${prenda.textura}</small>
-                                        </p>
-                                    </div>
-                                    <div class="dropdown">
-                                        <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown">
-                                            <i class="fas fa-ellipsis-v"></i>
-                                        </button>
-                                        <ul class="dropdown-menu">
-                                            <li><a class="dropdown-item" href="#" onclick="editarPrenda(${prenda.id})">
-                                                <i class="fas fa-edit me-2"></i>Editar
-                                            </a></li>
-                                            <li><a class="dropdown-item" href="#" onclick="eliminarPrenda(${prenda.id})">
-                                                <i class="fas fa-trash me-2"></i>Eliminar
-                                            </a></li>
-                                            <li><a class="dropdown-item" href="#" onclick="marcarUsoPrenda(${prenda.id})">
-                                                <i class="fas fa-check me-2"></i>Marcar como usado
-                                            </a></li>
-                                        </ul>
-                                    </div>
-                                </div>
-                                <div class="mt-2">
-                                    <span class="badge clima-${prenda.clima_apropiado}">${prenda.clima_apropiado}</span>
-                                    <span class="badge formalidad-${prenda.formalidad}">${prenda.formalidad}</span>
-                                    <span class="badge bg-${prenda.estado === 'disponible' ? 'success' : 'warning'}">${prenda.estado}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                        lista.innerHTML += prendaCard;
-                    });
-                })
-                .catch(error => {
-                    lista.innerHTML = `<div class="alert alert-danger">Error al cargar prendas: ${error.message}</div>`;
-                });
-        }
-
-
-        function cargarSelectorPrendas() {
-            const selector = document.getElementById('selectorPrendas');
-            selector.innerHTML = '';
-
-            const prendasDisponibles = prendas.filter(p => p.estado === 'disponible');
-
-            if (prendasDisponibles.length === 0) {
-                selector.innerHTML = '<p class="text-muted">No hay prendas disponibles</p>';
-                return;
-            }
-
-            prendasDisponibles.forEach(prenda => {
-                const checkbox = `
-                    <div class="form-check mb-2">
-                        <input class="form-check-input" type="checkbox" value="${prenda.id}" id="prenda${prenda.id}">
-                        <label class="form-check-label" for="prenda${prenda.id}">
-                            <strong>${prenda.nombre}</strong><br>
-                            <small class="text-muted">${prenda.tipo} • ${prenda.color_principal}</small>
-                        </label>
-                    </div>
-                `;
-                selector.innerHTML += checkbox;
-            });
-        }
-
-        function cargarOutfits() {
-            const lista = document.getElementById('listaOutfits');
-            lista.innerHTML = '';
-
-            if (outfits.length === 0) {
-                lista.innerHTML = '<div class="col-12"><p class="text-muted text-center">No hay outfits creados aún</p></div>';
-                return;
-            }
-
-            outfits.forEach(outfit => {
-                const outfitCard = `
-                    <div class="col-md-6 mb-3">
-                        <div class="card outfit-card">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <div>
-                                        <h6 class="card-title">${outfit.nombre}</h6>
-                                        <p class="card-text">
-                                            <small class="text-muted">${outfit.contexto} • ${outfit.clima_base}</small><br>
-                                            <small>${outfit.prendas.length} prendas</small>
-                                        </p>
-                                    </div>
-                                    <div class="dropdown">
-                                        <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown">
-                                            <i class="fas fa-ellipsis-v"></i>
-                                        </button>
-                                        <ul class="dropdown-menu">
-                                            <li><a class="dropdown-item" href="#" onclick="verOutfit(${outfit.id})">
-                                                <i class="fas fa-eye me-2"></i>Ver detalles
-                                            </a></li>
-                                            <li><a class="dropdown-item" href="#" onclick="usarOutfit(${outfit.id})">
-                                                <i class="fas fa-play me-2"></i>Usar hoy
-                                            </a></li>
-                                            <li><a class="dropdown-item" href="#" onclick="eliminarOutfit(${outfit.id})">
-                                                <i class="fas fa-trash me-2"></i>Eliminar
-                                            </a></li>
-                                        </ul>
-                                    </div>
-                                </div>
-                                <div class="mt-2">
-                                    <span class="badge bg-primary">${outfit.contexto}</span>
-                                    <span class="badge clima-${outfit.clima_base}">${outfit.clima_base}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                lista.innerHTML += outfitCard;
-            });
-        }
-
-        // Crear outfit
-        document.getElementById('formOutfit').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            const prendasSeleccionadas = Array.from(document.querySelectorAll('#selectorPrendas input:checked'))
-                .map(input => parseInt(input.value));
-
-            if (prendasSeleccionadas.length === 0) {
-                mostrarAlerta('Debes seleccionar al menos una prenda', 'warning');
-                return;
-            }
-
-            const outfit = {
-                id: idCounter++,
-                nombre: formData.get('nombre'),
-                contexto: formData.get('contexto'),
-                clima_base: formData.get('clima_base'),
-                prendas: prendasSeleccionadas,
-                fecha_creado: new Date()
-            };
-
-            outfits.push(outfit);
-            actualizarDashboard();
-            cargarOutfits();
-            e.target.reset();
-            document.querySelectorAll('#selectorPrendas input:checked').forEach(input => {
-                input.checked = false;
-            });
-
-            mostrarAlerta('Outfit creado exitosamente', 'success');
-        });
-
-        function filtrarPrendas() {
-            const busqueda = document.getElementById('buscarPrendas').value.toLowerCase();
-            const tarjetas = document.querySelectorAll('#listaPrendas .col-md-6');
-
-            tarjetas.forEach(tarjeta => {
-                const texto = tarjeta.textContent.toLowerCase();
-                tarjeta.style.display = texto.includes(busqueda) ? 'block' : 'none';
-            });
-        }
-
-        function editarPrenda(id) {
-            const prenda = prendas.find(p => p.id === id);
-            if (prenda) {
-                // Llenar formulario de edición
-                const form = document.getElementById('formEditarPrenda');
-                form.querySelector('[name="id"]').value = prenda.id;
-                form.querySelector('[name="nombre"]').value = prenda.nombre;
-                form.querySelector('[name="estado"]').value = prenda.estado;
-
-                const modal = new bootstrap.Modal(document.getElementById('modalEditarPrenda'));
-                modal.show();
-            }
-        }
-
-        function guardarEdicionPrenda() {
-            const form = document.getElementById('formEditarPrenda');
-            const formData = new FormData(form);
-            const id = parseInt(formData.get('id'));
-
-            const prenda = prendas.find(p => p.id === id);
-            if (prenda) {
-                prenda.nombre = formData.get('nombre');
-                prenda.estado = formData.get('estado');
-
-                cargarPrendas();
-                actualizarDashboard();
-
-                const modal = bootstrap.Modal.getInstance(document.getElementById('modalEditarPrenda'));
-                modal.hide();
-
-                mostrarAlerta('Prenda actualizada exitosamente', 'success');
-            }
-        }
-
-        function eliminarPrenda(id) {
-            if (confirm('¿Estás seguro de que quieres eliminar esta prenda?')) {
-                prendas = prendas.filter(p => p.id !== id);
-                cargarPrendas();
-                cargarSelectorPrendas();
-                actualizarDashboard();
-                mostrarAlerta('Prenda eliminada exitosamente', 'success');
-            }
-        }
-
-        function marcarUsoPrenda(id) {
-            const hoy = new Date().toISOString().split('T')[0];
-            historialUsos.push({
-                id: idCounter++,
-                fecha: hoy,
-                prenda_id: id,
-                contexto: 'universidad', // Por defecto
-                clima: 'todo'
-            });
-            mostrarAlerta('Uso registrado exitosamente', 'success');
-        }
-
-        function eliminarOutfit(id) {
-            if (confirm('¿Estás seguro de que quieres eliminar este outfit?')) {
-                outfits = outfits.filter(o => o.id !== id);
-                cargarOutfits();
-                actualizarDashboard();
-                mostrarAlerta('Outfit eliminado exitosamente', 'success');
-            }
-        }
-
-        function usarOutfit(id) {
-            const outfit = outfits.find(o => o.id === id);
-            if (outfit) {
-                const hoy = new Date().toISOString().split('T')[0];
-                outfit.prendas.forEach(prendaId => {
-                    historialUsos.push({
-                        id: idCounter++,
-                        fecha: hoy,
-                        prenda_id: prendaId,
-                        contexto: outfit.contexto,
-                        clima: outfit.clima_base
-                    });
-                });
-                mostrarAlerta(`Outfit "${outfit.nombre}" usado exitosamente`, 'success');
-            }
-        }
-
-        function verOutfit(id) {
-            const outfit = outfits.find(o => o.id === id);
-            if (outfit) {
-                const prendasOutfit = prendas.filter(p => outfit.prendas.includes(p.id));
-                let detalles = `<h6>Outfit: ${outfit.nombre}</h6>`;
-                detalles += `<p><strong>Contexto:</strong> ${outfit.contexto}</p>`;
-                detalles += `<p><strong>Clima:</strong> ${outfit.clima_base}</p>`;
-                detalles += '<p><strong>Prendas:</strong></p><ul>';
-
-                prendasOutfit.forEach(prenda => {
-                    detalles += `<li>${prenda.nombre} (${prenda.tipo})</li>`;
-                });
-                detalles += '</ul>';
-
-                mostrarAlerta(detalles, 'info', 'Detalles del Outfit');
-            }
-        }
 
         function generarSugerencia(ciudad = 'Santiago') {
             fetch('obtener_sugerencias.php?city=' + encodeURIComponent(ciudad))
@@ -1083,141 +730,6 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
                     document.getElementById('sugerenciaDia').innerHTML = '<p class="text-danger">Error al cargar sugerencias</p>';
                 });
         }
-
-        function generarSugerenciaPersonalizada() {
-            const form = document.getElementById('formSugerencia');
-            const formData = new FormData(form);
-            const contexto = formData.get('contexto');
-            const clima = formData.get('clima');
-            const espacioMochila = formData.get('espacio_mochila');
-            const mudaExtra = formData.get('muda_extra') === 'on';
-
-            document.getElementById('loadingSugerencias').classList.add('show');
-
-            // Simular procesamiento
-            setTimeout(() => {
-                const prendasCompatibles = prendas.filter(prenda => {
-                    const climaCompatible = prenda.clima_apropiado === clima || prenda.clima_apropiado === 'todo';
-                    const formalidadCompatible =
-                        (contexto === 'trabajo' && (prenda.formalidad === 'formal' || prenda.formalidad === 'semi-formal')) ||
-                        (contexto === 'universidad' && prenda.formalidad !== 'formal') ||
-                        (contexto !== 'trabajo' && contexto !== 'universidad');
-
-                    return climaCompatible && formalidadCompatible && prenda.estado === 'disponible';
-                });
-
-                let sugerenciaHtml = '';
-
-                if (prendasCompatibles.length === 0) {
-                    sugerenciaHtml = `
-                        <div class="alert alert-warning">
-                            <i class="fas fa-exclamation-triangle me-2"></i>
-                            No se encontraron prendas compatibles con tus criterios.
-                        </div>
-                    `;
-                } else {
-                    // Agrupar por tipo
-                    const tipos = {};
-                    prendasCompatibles.forEach(prenda => {
-                        if (!tipos[prenda.tipo]) tipos[prenda.tipo] = [];
-                        tipos[prenda.tipo].push(prenda);
-                    });
-
-                    sugerenciaHtml = `
-                        <div class="suggestion-card">
-                            <h6><i class="fas fa-magic me-2"></i>Sugerencia Personalizada</h6>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <p><strong>Contexto:</strong> ${contexto}</p>
-                                    <p><strong>Clima:</strong> ${clima}</p>
-                                    <p><strong>Espacio:</strong> ${espacioMochila}</p>
-                                    ${mudaExtra ? '<p><span class="badge bg-success">Con muda extra</span></p>' : ''}
-                                </div>
-                                <div class="col-md-6">
-                                    <h6>Prendas recomendadas:</h6>
-                                    <div class="recommendations">
-                    `;
-
-                    Object.keys(tipos).forEach(tipo => {
-                        const prendaTipo = tipos[tipo][Math.floor(Math.random() * tipos[tipo].length)];
-                        sugerenciaHtml += `
-                            <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded">
-                                <div>
-                                    <strong>${prendaTipo.nombre}</strong><br>
-                                    <small class="text-muted">${prendaTipo.color_principal} • ${prendaTipo.tela}</small>
-                                </div>
-                                <span class="badge bg-primary">${prendaTipo.tipo}</span>
-                            </div>
-                        `;
-                    });
-
-                    sugerenciaHtml += `
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="mt-3">
-                                <div class="alert alert-info mb-0">
-                                    <i class="fas fa-info-circle me-2"></i>
-                                    <strong>Consejos:</strong>
-                                    ${espacioMochila === 'limitado' ? 'Elige prendas que no se arruguen fácilmente. ' : ''}
-                                    ${clima === 'lluvia' ? 'No olvides llevar paraguas o impermeable. ' : ''}
-                                    ${mudaExtra ? 'Puedes ser más arriesgado con los colores sabiendo que tienes repuesto. ' : ''}
-                                    ${contexto === 'trabajo' ? 'Mantén un estilo profesional y conservador.' : ''}
-                                </div>
-                            </div>
-                            <div class="mt-3 text-center">
-                                <button class="btn btn-outline-light btn-sm me-2" onclick="guardarSugerenciaComoOutfit()">
-                                    <i class="fas fa-save me-1"></i>Guardar como Outfit
-                                </button>
-                                <button class="btn btn-outline-light btn-sm" onclick="generarSugerenciaPersonalizada()">
-                                    <i class="fas fa-refresh me-1"></i>Nueva Sugerencia
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                }
-
-                document.getElementById('loadingSugerencias').classList.remove('show');
-                document.getElementById('sugerenciasPersonalizadas').innerHTML = sugerenciaHtml;
-            }, 1500);
-        }
-
-        function guardarSugerenciaComoOutfit() {
-            const nombre = prompt('Nombre para este outfit:');
-            if (nombre) {
-                mostrarAlerta('Outfit guardado exitosamente', 'success');
-            }
-        }
-
-        function mostrarAlerta(mensaje, tipo = 'info', titulo = '') {
-            // Crear elemento de alerta temporal
-            const alertContainer = document.createElement('div');
-            alertContainer.className = `alert alert-${tipo} alert-dismissible fade show position-fixed`;
-            alertContainer.style.cssText = 'top: 20px; right: 20px; z-index: 9999; max-width: 300px;';
-
-            alertContainer.innerHTML = `
-                ${titulo ? `<h6>${titulo}</h6>` : ''}
-                ${mensaje}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            `;
-
-            document.body.appendChild(alertContainer);
-
-            // Auto-eliminar después de 5 segundos
-            setTimeout(() => {
-                if (alertContainer.parentNode) {
-                    alertContainer.parentNode.removeChild(alertContainer);
-                }
-            }, 5000);
-        }
-
-        // Inicializar tooltips y popovers de Bootstrap
-        document.addEventListener('DOMContentLoaded', function() {
-            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            var tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl);
-            });
-        });
     </script>
 </body>
 
