@@ -238,6 +238,15 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
             border-top-left-radius: 0.5rem;
             border-top-right-radius: 0.5rem;
         }
+
+        .form-section {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            border: 1px solid #e9ecef;
+        }
     </style>
 </head>
 
@@ -503,7 +512,11 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
                                                             <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalEditar_<?php echo $row['id']; ?>">
                                                                 Editar
                                                             </button>
+                                                            <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#modalEliminar_<?php echo $row['id']; ?>">
+                                                                Eliminar
+                                                            </button>
                                                         </div>
+
                                                     </div>
                                                 </div>
 
@@ -514,6 +527,7 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
 
                                         <?php
                                             include('modal_editar.php');
+                                            include('modal_eliminar.php');
                                         endwhile; ?>
                                     </div>
 
@@ -660,7 +674,7 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
     </div>
 
 
-
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <!-- Bootstrap 5 JS -->
@@ -696,19 +710,18 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
                             foto: null // Aquí puedes gestionar la foto si también se guarda
                         };
 
-                        prendas.push(prenda);
-                        form.reset();
                         document.getElementById('previewPrenda').style.display = 'none';
 
-                        // Mostrar mensaje de éxito
-                        mostrarAlerta('Prenda agregada exitosamente', 'success');
+                        Swal.fire('Prenda agregada exitosamente', data.message, 'success')
+                            .then(() => location.reload());
                     } else {
-                        mostrarAlerta('Error al agregar la prenda: ' + (data.message || 'Error desconocido'), 'error');
+
+                        Swal.fire('Error al agregar la prenda: ', (data.message || 'Error desconocido'), 'error');
                     }
                 })
                 .catch(error => {
                     console.error('Error en la solicitud AJAX:', error);
-                    mostrarAlerta('Ocurrió un error al enviar el formulario', 'error');
+                    Swal.fire('Ocurrió un error al enviar el formulario', 'error');
                 });
         });
 

@@ -11,110 +11,150 @@
                 <div class="modal-body">
                     <input type="hidden" name="id" value="<?php echo $row['id']; ?>">
 
-                    <div class="row g-4">
-                        <div class="col-md-6">
-                            <label class="form-label">Nombre</label>
-                            <input type="text" class="form-control" name="nombre" value="<?php echo $row['nombre']; ?>" required>
+                    <!-- Información Básica -->
+                    <div class="form-section">
+                        <h6 class="section-title">
+                            <i class="fas fa-info-circle text-primary"></i>
+                            Información Básica
+                        </h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Nombre</label>
+                                <input type="text" class="form-control" name="nombre" value="<?php echo $row['nombre']; ?>" required>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Tipo</label>
+                                <select class="form-select" name="tipo" required>
+                                    <option value="">Seleccionar...</option>
+                                    <?php
+                                    $tipos = ['camisa', 'camiseta', 'pantalon', 'falda', 'vestido', 'chaqueta', 'abrigo', 'zapatos', 'accesorios'];
+                                    foreach ($tipos as $tipo) {
+                                        $selected = ($row['tipo'] == $tipo) ? 'selected' : '';
+                                        echo "<option value=\"$tipo\" $selected>" . ucfirst($tipo) . "</option>";
+                                    }
+                                    ?>
+                                </select>
+                            </div>
                         </div>
+                    </div>
 
-                        <div class="col-md-6">
-                            <label class="form-label">Tipo</label>
-                            <select class="form-select" name="tipo" required>
-                                <option value="">Seleccionar...</option>
-                                <?php
-                                $tipos = ['camisa', 'camiseta', 'pantalon', 'falda', 'vestido', 'chaqueta', 'abrigo', 'zapatos', 'accesorios'];
-                                foreach ($tipos as $tipo) {
-                                    $selected = ($row['tipo'] == $tipo) ? 'selected' : '';
-                                    echo "<option value=\"$tipo\" $selected>" . ucfirst($tipo) . "</option>";
-                                }
-                                ?>
-                            </select>
+                    <!-- Características -->
+                    <div class="form-section">
+                        <h6 class="section-title">
+                            <i class="fas fa-palette text-success"></i>
+                            Características
+                        </h6>
+                        <div class="row g-3">
+
+                            <div class="col-md-6">
+                                <label class="form-label">Color Principal</label>
+                                <input type="text" class="form-control" name="color_principal" value="<?php echo $row['color_principal']; ?>" required>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Tela</label>
+                                <input type="text" class="form-control" name="tela" value="<?php echo $row['tela']; ?>" required>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Textura</label>
+                                <input type="text" class="form-control" name="textura" value="<?php echo $row['textura']; ?>" required>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Estampado</label>
+                                <input type="text" class="form-control" name="estampado" value="<?php echo $row['estampado']; ?>" required>
+                            </div>
                         </div>
+                    </div>
 
-                        <div class="col-md-6">
-                            <label class="form-label">Color Principal</label>
-                            <input type="text" class="form-control" name="color_principal" value="<?php echo $row['color_principal']; ?>" required>
+                    <!-- Uso y Estado -->
+                    <div class="form-section">
+                        <h6 class="section-title">
+                            <i class="fas fa-cog text-warning"></i>
+                            Uso y Estado
+                        </h6>
+                        <div class="row g-4">
+                            <div class="col-md-6">
+                                <label class="form-label">Clima Apropiado</label>
+                                <select class="form-select" name="clima_apropiado" required>
+                                    <?php
+                                    $climas = ['todo' => 'Todo clima', 'calor' => 'Calor', 'frio' => 'Frío', 'lluvia' => 'Lluvia'];
+                                    foreach ($climas as $valor => $texto) {
+                                        $selected = ($row['clima_apropiado'] == $valor) ? 'selected' : '';
+                                        echo "<option value=\"$valor\" $selected>$texto</option>";
+                                    }
+                                    ?>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Formalidad</label>
+                                <select class="form-select" name="formalidad" required>
+                                    <?php
+                                    $formalidades = ['casual', 'semi-formal', 'formal'];
+                                    foreach ($formalidades as $f) {
+                                        $selected = ($row['formalidad'] == $f) ? 'selected' : '';
+                                        echo "<option value=\"$f\" $selected>" . ucfirst($f) . "</option>";
+                                    }
+                                    ?>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Estado</label>
+                                <select class="form-select" name="estado" required>
+                                    <option value="disponible" <?php echo $row['estado'] == 'disponible' ? 'selected' : ''; ?>>Disponible</option>
+                                    <option value="sucio" <?php echo $row['estado'] == 'sucio' ? 'selected' : ''; ?>>Sucio</option>
+                                    <option value="prestado" <?php echo $row['estado'] == 'prestado' ? 'selected' : ''; ?>>Prestado</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Fecha Creado</label>
+                                <input type="date" class="form-control" name="fecha_agregado" value="<?php echo $row['fecha_agregado']; ?>">
+                            </div>
                         </div>
+                    </div>
 
-                        <div class="col-md-6">
-                            <label class="form-label">Tela</label>
-                            <input type="text" class="form-control" name="tela" value="<?php echo $row['tela']; ?>" required>
-                        </div>
+                    <!-- Imagen -->
+                    <div class="form-section">
+                        <h6 class="section-title">
+                            <i class="fas fa-camera text-info"></i>
+                            Imagen de la Prenda
+                        </h6>
 
-                        <div class="col-md-6">
-                            <label class="form-label">Textura</label>
-                            <input type="text" class="form-control" name="textura" value="<?php echo $row['textura']; ?>" required>
-                        </div>
 
-                        <div class="col-md-6">
-                            <label class="form-label">Estampado</label>
-                            <input type="text" class="form-control" name="estampado" value="<?php echo $row['estampado']; ?>" required>
-                        </div>
+                        <div class="row">
+                            <div class="col-md-12">
+                                <label class="form-label">Imagen Actual</label>
+                                <div class="text-center">
+                                    <!-- Imagen actual -->
+                                    <?php if (!empty($row['foto']) && file_exists($row['foto'])): ?>
 
-                        <div class="col-md-6">
-                            <label class="form-label">Clima Apropiado</label>
-                            <select class="form-select" name="clima_apropiado" required>
-                                <?php
-                                $climas = ['todo' => 'Todo clima', 'calor' => 'Calor', 'frio' => 'Frío', 'lluvia' => 'Lluvia'];
-                                foreach ($climas as $valor => $texto) {
-                                    $selected = ($row['clima_apropiado'] == $valor) ? 'selected' : '';
-                                    echo "<option value=\"$valor\" $selected>$texto</option>";
-                                }
-                                ?>
-                            </select>
-                        </div>
+                                        <img src="<?php echo $row['foto']; ?>" alt="Imagen de la prenda" class="img-thumbnail mb-2" style="max-width: 200px;">
+                                    <?php else: ?>
 
-                        <div class="col-md-6">
-                            <label class="form-label">Formalidad</label>
-                            <select class="form-select" name="formalidad" required>
-                                <?php
-                                $formalidades = ['casual', 'semi-formal', 'formal'];
-                                foreach ($formalidades as $f) {
-                                    $selected = ($row['formalidad'] == $f) ? 'selected' : '';
-                                    echo "<option value=\"$f\" $selected>" . ucfirst($f) . "</option>";
-                                }
-                                ?>
-                            </select>
-                        </div>
+                                        <div class="img-thumbnail bg-secondary justify-content-center align-items-center text-white" style="width: 200px; height: 200px;margin:0 auto;">
+                                            Sin imagen
+                                        </div>
 
-                        <div class="col-md-6">
-                            <label class="form-label">Estado</label>
-                            <select class="form-select" name="estado" required>
-                                <option value="disponible" <?php echo $row['estado'] == 'disponible' ? 'selected' : ''; ?>>Disponible</option>
-                                <option value="sucio" <?php echo $row['estado'] == 'sucio' ? 'selected' : ''; ?>>Sucio</option>
-                                <option value="prestado" <?php echo $row['estado'] == 'prestado' ? 'selected' : ''; ?>>Prestado</option>
-                            </select>
-                        </div>
-
-                        <div class="col-md-6">
-                            <label class="form-label">Fecha Creado</label>
-                            <input type="date" class="form-control" name="fecha_agregado" value="<?php echo $row['fecha_agregado']; ?>">
-                        </div>
-
-                        <div class="col-md-12">
-                            <label class="form-label">Foto</label>
-
-                            <!-- Imagen actual -->
-                            <?php if (!empty($row['foto']) && file_exists($row['foto'])): ?>
-                                <img src="<?php echo $row['foto']; ?>" alt="Imagen de la prenda" class="img-thumbnail mb-2" style="max-width: 200px;">
-                            <?php else: ?>
-                                <div class="img-thumbnail mb-2 bg-secondary d-flex justify-content-center align-items-center text-white" style="width: 200px; height: 200px;">
-                                    Sin imagen
+                                    <?php endif; ?>
                                 </div>
-                            <?php endif; ?>
 
-                            <!-- Campo para nueva imagen -->
-                            <input type="file" class="form-control" name="foto" accept="image/*" onchange="previewImage(this, 'preview_<?php echo $row['id']; ?>')">
+                                <!-- Campo para nueva imagen -->
+                                <input type="file" class="form-control" name="foto" accept="image/*" onchange="previewImage(this, 'preview_<?php echo $row['id']; ?>')">
 
-                            <!-- Vista previa -->
-                            <div class="mt-2">
-                                <img id="preview_<?php echo $row['id']; ?>" class="image-preview img-thumbnail" style="max-height: 150px; display: none;">
+                                <!-- Vista previa -->
+                                <div class="mt-2">
+                                    <img id="preview_<?php echo $row['id']; ?>" class="image-preview img-thumbnail" style="max-height: 150px; display: none;">
+                                </div>
                             </div>
                         </div>
 
-
-
                     </div>
+
 
                 </div>
                 <div class="modal-footer bg-light">
