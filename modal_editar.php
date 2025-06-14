@@ -129,6 +129,7 @@
                         <div class="row">
                             <div class="col-md-12">
                                 <label class="form-label">Imagen Actual</label>
+                                <input type="hidden" name="imagen" value="<?php echo $row['foto']; ?>">
                                 <div class="text-center">
                                     <!-- Imagen actual -->
                                     <?php if (!empty($row['foto']) && file_exists($row['foto'])): ?>
