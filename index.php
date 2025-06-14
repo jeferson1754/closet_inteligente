@@ -289,10 +289,15 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
             <div class="tab-content p-4">
                 <!-- Dashboard -->
                 <div class="tab-pane fade show active" id="dashboard">
+                    <?php
+                    $total_prendas = $pdo->query("SELECT COUNT(*) FROM prendas")->fetchColumn() ?? 0;
+                    $total_disponibles = $pdo->query("SELECT COUNT(*) FROM prendas WHERE estado = 'disponible'")->fetchColumn();
+
+                    ?>
                     <div class="row">
                         <div class="col-md-3 mb-4">
                             <div class="card stats-card">
-                                <h3 id="totalPrendas">0</h3>
+                                <h3><?php echo $total_prendas ?></h3>
                                 <p>Prendas Totales</p>
                             </div>
                         </div>
@@ -304,7 +309,7 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
                         </div>
                         <div class="col-md-3 mb-4">
                             <div class="card stats-card">
-                                <h3 id="prendasDisponibles">0</h3>
+                                <h3><?php echo $total_disponibles ?></h3>
                                 <p>Disponibles</p>
                             </div>
                         </div>
