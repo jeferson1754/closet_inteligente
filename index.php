@@ -50,8 +50,10 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
-    <!-- Bootstrap JS Bundle (incluye Popper) al final del <body> -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Bootstrap JS + Popper -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
 
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 
@@ -579,8 +581,28 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">Seleccionar Prendas</label>
+                                            <?php
+                                            $sql = "SELECT id, nombre, tipo, color_principal FROM prendas WHERE estado = 'disponible'";
+                                            $result = $mysqli_obj->query($sql);
 
+                                            if ($result && $result->num_rows > 0) {
+                                                while ($prenda = $result->fetch_assoc()) {
+                                                    echo '
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" name="prendas[]" value="' . $prenda['id'] . '" id="prenda' . $prenda['id'] . '">
+                                                <label class="form-check-label" for="prenda' . $prenda['id'] . '">
+                                                    <strong>' . htmlspecialchars($prenda['nombre']) . '</strong><br>
+                                                    <small class="text-muted">' . htmlspecialchars($prenda['tipo']) . ' • ' . htmlspecialchars($prenda['color_principal']) . '</small>
+                                                </label>
+                                            </div>
+                                        ';
+                                                }
+                                            } else {
+                                                echo '<p class="text-muted">No hay prendas disponibles</p>';
+                                            }
+                                            ?>
                                         </div>
+
                                         <button type="submit" class="btn btn-primary w-100">
                                             <i class="fas fa-save me-2"></i>Crear Outfit
                                         </button>
@@ -594,7 +616,70 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
                                 <div class="card-header">
                                     <h5><i class="fas fa-palette me-2"></i>Mis Outfits</h5>
                                 </div>
-                                <div class="card-body">
+                                <div class="card-body row">
+                                    <?php
+
+                                    // Consulta que obtiene outfits y la cantidad de prendas asociadas
+                                    $sql = "
+                                   SELECT o.id, o.nombre, o.contexto, o.clima_base, COUNT(ot.prenda_id) AS total_prendas, GROUP_CONCAT(ot.prenda_id) AS prendas_ids FROM outfits o LEFT JOIN outfit_prendas ot ON o.id = ot.outfit_id GROUP BY o.id, o.nombre, o.contexto, o.clima_base ORDER BY o.id DESC;
+                                ";
+
+
+                                    $result = $mysqli_obj->query($sql);
+
+                                    if ($result && $result->num_rows > 0) {
+                                        while ($outfit = $result->fetch_assoc()) {
+                                            $prendas_ids = $outfit['prendas_ids'] ? explode(',', $outfit['prendas_ids']) : [];
+                                            $data_prendas = htmlspecialchars(json_encode($prendas_ids));
+
+                                            echo '
+        <div class="col-md-6 mb-3">
+            <div class="card outfit-card" data-outfit-id="' . $outfit['id'] . '" data-prendas=\'' . $data_prendas . '\'>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="card-title">' . htmlspecialchars($outfit['nombre']) . '</h6>
+                            <p class="card-text">
+                                <small class="text-muted">' . htmlspecialchars($outfit['contexto']) . ' • ' . htmlspecialchars($outfit['clima_base']) . '</small><br>
+                                <small>' . $outfit['total_prendas'] . ' prendas</small>
+                            </p>
+                        </div>
+                      <div class="dropdown">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-ellipsis-v"></i>
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a class="dropdown-item" href="#" onclick="verOutfit("' . $outfit['id'] . '")">
+                                    <i class="fas fa-eye me-2"></i>Ver detalles
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="#" onclick="usarOutfit("' . $outfit['id'] . '")">
+                                    <i class="fas fa-play me-2"></i>Usar hoy
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="#" onclick="eliminarOutfit("' . $outfit['id'] . '")">
+                                    <i class="fas fa-trash me-2"></i>Eliminar
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+
+                    </div>
+                    <div class="mt-2">
+                        <span class="badge bg-primary">' . htmlspecialchars($outfit['contexto']) . '</span>
+                        <span class="badge clima-' . htmlspecialchars($outfit['clima_base']) . '">' . htmlspecialchars($outfit['clima_base']) . '</span>
+                    </div>
+                </div>
+            </div>
+        </div>';
+                                        }
+                                    } else {
+                                        echo '<div class="col-12"><p class="text-muted text-center">No hay outfits creados aún</p></div>';
+                                    }
+                                    ?>
 
 
                                 </div>
@@ -685,6 +770,9 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
     <!-- Bootstrap 5 JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
 
+    <!-- Bootstrap JS Bundle (incluye Popper) al final del <body> -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
     <script>
         // Agregar prenda
         document.getElementById('formPrenda').addEventListener('submit', function(e) {
@@ -730,6 +818,54 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
                 });
         });
 
+        document.addEventListener('DOMContentLoaded', function() {
+
+            // Agregar nuevo outfit
+            const formOutfit = document.getElementById('formOutfit');
+            if (formOutfit) {
+                formOutfit.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const form = e.target;
+                    const formData = new FormData(form);
+
+                    for (let pair of formData.entries()) {
+                        console.log(pair[0] + ': ' + pair[1]);
+                    }
+
+
+                    fetch('crear_outfit.php', {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                const outfit = {
+                                    id: data.id || Date.now(),
+                                    nombre: formData.get('nombre'),
+                                    contexto: formData.get('contexto'),
+                                    clima_base: formData.get('clima_base'),
+                                    prendas: data.prendas || []
+                                };
+
+                                Swal.fire('Outfit creado exitosamente', data.message, 'success')
+                                    .then(() => location.reload());
+                            } else {
+                                Swal.fire('Error al crear el outfit', data.message || 'Error desconocido', 'error');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error en la solicitud AJAX:', error);
+                            Swal.fire('Ocurrió un error al enviar el formulario', '', 'error');
+                        });
+                });
+            }
+
+        });
+
+
+
+
 
 
 
@@ -745,20 +881,20 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
                     const sugerenciaAleatoria = sugerenciasDesdePHP[Math.floor(Math.random() * sugerenciasDesdePHP.length)];
 
                     const html = `
-                <div class="suggestion-card">
-                    <h6>${sugerenciaAleatoria.titulo}</h6>
-                    <p>${sugerenciaAleatoria.descripcion}</p>
-                    <div class="mb-2">
-                        <strong>Prendas sugeridas:</strong>
-                        <ul class="mb-2">
-                            ${sugerenciaAleatoria.prendas.map(prenda => `<li>${prenda.trim()}</li>`).join('')}
-                        </ul>
-                    </div>
-                    <div class="alert alert-light mb-0">
-                        <i class="fas fa-lightbulb me-2"></i><strong>Tip:</strong> ${sugerenciaAleatoria.tips}
-                    </div>
-                </div>
-            `;
+    <div class="suggestion-card">
+        <h6>${sugerenciaAleatoria.titulo}</h6>
+        <p>${sugerenciaAleatoria.descripcion}</p>
+        <div class="mb-2">
+            <strong>Prendas sugeridas:</strong>
+            <ul class="mb-2">
+                ${sugerenciaAleatoria.prendas.map(prenda => `<li>${prenda.trim()}</li>`).join('')}
+            </ul>
+        </div>
+        <div class="alert alert-light mb-0">
+            <i class="fas fa-lightbulb me-2"></i><strong>Tip:</strong> ${sugerenciaAleatoria.tips}
+        </div>
+    </div>
+    `;
 
                     document.getElementById('sugerenciaDia').innerHTML = html;
                 })

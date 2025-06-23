@@ -1,7 +1,7 @@
 <?php
 // Configuración de acceso a la base de datos
 $host = 'localhost';
-$db   = 'closet_inteligente';
+$db   = 'epiz_32740026_r_user';
 $user = 'root';
 $pass = '';
 $charset = 'utf8';
@@ -40,41 +40,3 @@ if (!$mysqli_proc) {
 }
 mysqli_set_charset($mysqli_proc, "utf8");
 // echo "Conexión MySQLi (procedimental) exitosa.";
-
-$translations = [
-    'Sunny' => 'Soleado',
-    'Partly cloudy' => 'Parcialmente nublado',
-    'Cloudy' => 'Nublado',
-    'Rainy' => 'Lluvia',
-    'Windy' => 'Viento',
-    'Clear' => 'Despejado',
-    'Overcast' => 'Cubierto',
-    'Showers' => 'Chubascos',
-    'Thunderstorm' => 'Tormenta eléctrica',
-    'Mist' => 'Niebla',
-    'Fog' => 'Niebla espesa',
-    'Snow' => 'Nieve',
-    'Hail' => 'Granizo',
-    'Patches Of Fog' => 'Parche de niebla',
-    'Blizzard' => 'Tormenta de nieve',
-    'Sleet' => 'Aguacero congelado',
-    'Drizzle' => 'Llovizna',
-    'Freezing rain' => 'Lluvia helada',
-    'Tornado' => 'Tornado',
-    'Hurricane' => 'Huracán',
-    'Drought' => 'Sequía',
-    'Dust' => 'Polvo',
-    'Sandstorm' => 'Tormenta de arena',
-    'Ice' => 'Hielo',
-    'Squall' => 'Ráfaga',
-    'Tropical storm' => 'Tormenta tropical',
-    'Cold' => 'Frío',
-    'Hot' => 'Caluroso',
-    'Storm' => 'Tormenta',
-    'Heatwave' => 'Ola de calor',
-    'Light Snow' => 'Nieve ligera',
-    'Light Rain, Mist' => 'Lluvia ligera, niebla',
-    'Light Rain' => 'Lluvia ligera',
-    'Light Rain Shower' => 'Lluvia ligera',
-    'Haze' => 'Bruma'
-];
