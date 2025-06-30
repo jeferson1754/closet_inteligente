@@ -5,7 +5,7 @@ include 'bd.php';
 header('Content-Type: application/json');
 
 // Validar campos requeridos
-$campos = ['nombre', 'tipo', 'color_principal', 'tela', 'textura', 'estampado', 'clima_apropiado', 'formalidad'];
+$campos = ['nombre', 'tipo', 'color_principal', 'tela', 'textura', 'estampado', 'clima_apropiado', 'formalidad','comentarios'];
 foreach ($campos as $campo) {
     if (empty($_POST[$campo])) {
         echo json_encode(['success' => false, 'message' => "Falta el campo: $campo"]);
@@ -41,9 +41,9 @@ try {
     $stmt = $pdo->prepare("
         INSERT INTO prendas 
         (nombre, tipo, color_principal, tela, textura, estampado, clima_apropiado, formalidad, estado, foto,
-        fecha_agregado, categoria_id)
-        VALUES 
-        (:nombre, :tipo, :color_principal, :tela, :textura, :estampado, :clima_apropiado, :formalidad, 'disponible', :foto, :fecha_agregado, :id_categoria)
+        fecha_agregado, comentarios)
+        VALUES (
+        :nombre, :tipo, :color_principal, :tela, :textura, :estampado, :clima_apropiado, :formalidad, 'disponible', :foto, :fecha_agregado, :comentarios)
     ");
 
     $stmt->execute([
@@ -57,7 +57,7 @@ try {
         ':formalidad' => $_POST['formalidad'],
         ':foto' => $foto,
         ':fecha_agregado' => $fecha_actual,
-        ':id_categoria' => $id_categoria
+        ':comentarios' => $_POST['comentarios'],
     ]);
 
     echo json_encode([

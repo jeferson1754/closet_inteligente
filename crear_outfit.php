@@ -6,11 +6,12 @@ try {
     $nombre = $_POST['nombre'];
     $contexto = $_POST['contexto'];
     $clima_base = $_POST['clima_base'];
-    $prendas = $_POST['prendas'] ?? []; // array de IDs de prendas seleccionadas
+    $prendas = $_POST['prendas'] ?? [];
+    $comentarios = $_POST['comentarios'];
 
     // Insertar outfit
-    $stmt = $mysqli_obj->prepare("INSERT INTO outfits (nombre, contexto, clima_base) VALUES (?, ?, ?)");
-    $stmt->bind_param("sss", $nombre, $contexto, $clima_base);
+    $stmt = $mysqli_obj->prepare("INSERT INTO outfits (nombre, contexto, clima_base, comentarios) VALUES (?, ?, ?, ?)");
+    $stmt->bind_param("ssss", $nombre, $contexto, $clima_base, $comentarios);
     $stmt->execute();
     $id_outfit = $stmt->insert_id;
 

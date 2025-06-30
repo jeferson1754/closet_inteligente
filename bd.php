@@ -40,3 +40,14 @@ if (!$mysqli_proc) {
 }
 mysqli_set_charset($mysqli_proc, "utf8");
 // echo "Conexión MySQLi (procedimental) exitosa.";
+
+
+// Obtener inicio de la semana actual (lunes 00:00:00)
+$current_week_start = (new DateTime('monday this week', new DateTimeZone('America/Santiago')))
+    ->setTime(0, 0, 0)
+    ->format('Y-m-d H:i:s');
+
+// Obtener fin de la semana actual (domingo 23:59:59)
+$current_week_end = (new DateTime('sunday this week', new DateTimeZone('America/Santiago')))
+    ->setTime(23, 59, 59)
+    ->format('Y-m-d H:i:s');

@@ -51,8 +51,8 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
 
-<!-- Bootstrap JS + Popper -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Bootstrap JS + Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
 
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
@@ -294,24 +294,24 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
                     <?php
                     $total_prendas = $pdo->query("SELECT COUNT(*) FROM prendas")->fetchColumn() ?? 0;
                     $total_disponibles = $pdo->query("SELECT COUNT(*) FROM prendas WHERE estado = 'disponible'")->fetchColumn();
-
+                    $total_outfits = $pdo->query("SELECT COUNT(*) FROM outfits")->fetchColumn();
                     ?>
                     <div class="row">
                         <div class="col-md-3 mb-4">
                             <div class="card stats-card">
-                                <h3><?php echo $total_prendas ?></h3>
+                                <h3><?= $total_prendas ?></h3>
                                 <p>Prendas Totales</p>
                             </div>
                         </div>
                         <div class="col-md-3 mb-4">
                             <div class="card stats-card">
-                                <h3 id="totalOutfits">0</h3>
+                                <h3><?= $total_outfits ?></h3>
                                 <p>Outfits Creados</p>
                             </div>
                         </div>
                         <div class="col-md-3 mb-4">
                             <div class="card stats-card">
-                                <h3><?php echo $total_disponibles ?></h3>
+                                <h3><?= $total_disponibles ?></h3>
                                 <p>Disponibles</p>
                             </div>
                         </div>
@@ -376,16 +376,37 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
                         <div class="col-md-6">
                             <div class="card">
                                 <div class="card-header">
-                                    <h5><i class="fas fa-lightbulb me-2"></i>Sugerencia del Día</h5>
+                                    <h5><i class="fas fa-calendar-day me-2"></i>Outfit del Día</h5>
                                 </div>
-                                <div class="card-body" id="sugerenciaDia">
-                                    <div class="suggestion-card">
-                                        <h6>Outfit Recomendado</h6>
-                                        <p>Basado en el clima actual, te recomendamos un look casual y cómodo.</p>
-                                        <button class="btn btn-light btn-sm" onclick="generarSugerencia()">
-                                            <i class="fas fa-refresh me-1"></i>Nueva Sugerencia
-                                        </button>
-                                    </div>
+                                <div class="card-body" id="outfitDelDia">
+                                    <?php
+                                    // Consulta para obtener el outfit marcado como "del día"
+                                    $sql_outfit_dia = "SELECT id, nombre, contexto, clima_base FROM outfits WHERE es_outfit_del_dia = TRUE LIMIT 1";
+                                    $result_outfit_dia = $mysqli_obj->query($sql_outfit_dia);
+                                    $outfit_del_dia = $result_outfit_dia->fetch_assoc();
+
+                                    if ($outfit_del_dia) {
+                                        echo '
+                                        <div class="suggestion-card text-center">
+                                            <h6>' . htmlspecialchars($outfit_del_dia['nombre']) . '</h6>
+                                            <p>Este es el outfit que seleccionaste para hoy.</p>
+                                            <div class="mt-2">
+                                                <span class="badge bg-primary">' . htmlspecialchars($outfit_del_dia['contexto']) . '</span>
+                                                <span class="badge clima-' . htmlspecialchars($outfit_del_dia['clima_base']) . '">' . htmlspecialchars($outfit_del_dia['clima_base']) . '</span>
+                                            </div>
+                              
+                                            <a href="detalle_outfit.php?id=' . $outfit_del_dia['id'] . '" class="btn btn-light btn-sm mt-3">
+                                                    <i class="fas fa-eye me-1"></i>Ver Detalles
+                                             </a>
+                                        </div>';
+                                    } else {
+                                        echo '<div class="text-center text-muted">
+                                                <i class="fas fa-tshirt fa-3x mb-3"></i>
+                                                <p>¡Aún no has seleccionado tu outfit del día!</p>
+                                                <p><small>Usa la opción "Usar hoy" en la pestaña de Outfits.</small></p>
+                                              </div>';
+                                    }
+                                    ?>
                                 </div>
                             </div>
                         </div>
@@ -460,6 +481,10 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
                                             <div class="mt-2">
                                                 <img id="previewPrenda" class="image-preview" style="display: none;">
                                             </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Comentarios</label>
+                                            <textarea class="form-control" name="comentarios" rows="3"></textarea>
                                         </div>
                                         <button type="submit" class="btn btn-primary w-100">
                                             <i class="fas fa-save me-2"></i>Guardar Prenda
@@ -580,6 +605,10 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
                                             </select>
                                         </div>
                                         <div class="mb-3">
+                                            <label class="form-label">Comentarios</label>
+                                            <textarea class="form-control" name="comentarios" rows="3"></textarea>
+                                        </div>
+                                        <div class="mb-3">
                                             <label class="form-label">Seleccionar Prendas</label>
                                             <?php
                                             $sql = "SELECT id, nombre, tipo, color_principal FROM prendas WHERE estado = 'disponible'";
@@ -644,29 +673,29 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
                                 <small>' . $outfit['total_prendas'] . ' prendas</small>
                             </p>
                         </div>
-                      <div class="dropdown">
+                   <div class="dropdown">
                         <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="fas fa-ellipsis-v"></i>
                         </button>
                         <ul class="dropdown-menu">
                             <li>
-                                <a class="dropdown-item" href="#" onclick="verOutfit("' . $outfit['id'] . '")">
+                                <a class="dropdown-item ver-detalles" href="#" data-id="' . $outfit['id'] . '" data-action="ver">
                                     <i class="fas fa-eye me-2"></i>Ver detalles
                                 </a>
+                                
                             </li>
                             <li>
-                                <a class="dropdown-item" href="#" onclick="usarOutfit("' . $outfit['id'] . '")">
+                                <a class="dropdown-item usar-outfit" href="#" data-id="' . $outfit['id'] . '" data-action="usar">
                                     <i class="fas fa-play me-2"></i>Usar hoy
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item" href="#" onclick="eliminarOutfit("' . $outfit['id'] . '")">
+                                <a class="dropdown-item eliminar-outfit" href="#" data-id="' . $outfit['id'] . '" data-action="eliminar">
                                     <i class="fas fa-trash me-2"></i>Eliminar
                                 </a>
                             </li>
                         </ul>
                     </div>
-
                     </div>
                     <div class="mt-2">
                         <span class="badge bg-primary">' . htmlspecialchars($outfit['contexto']) . '</span>
@@ -680,7 +709,24 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
                                         echo '<div class="col-12"><p class="text-muted text-center">No hay outfits creados aún</p></div>';
                                     }
                                     ?>
-
+                                    <!-- Modal único -->
+                                    <div class="modal fade" id="modalAccionOutfit" tabindex="-1" aria-labelledby="modalAccionOutfitLabel" aria-hidden="true">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title" id="modalAccionOutfitLabel">Título modal</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    Contenido modal...
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                                                    <button type="button" class="btn btn-primary" id="btnConfirmarAccion">Confirmar</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
 
                                 </div>
                             </div>
@@ -799,6 +845,7 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
                             estampado: formData.get('estampado'),
                             clima_apropiado: formData.get('clima_apropiado'),
                             formalidad: formData.get('formalidad'),
+                            comentarios: formData.get('comentarios'),
                             estado: 'disponible',
                             foto: null // Aquí puedes gestionar la foto si también se guarda
                         };
@@ -845,6 +892,7 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
                                     nombre: formData.get('nombre'),
                                     contexto: formData.get('contexto'),
                                     clima_base: formData.get('clima_base'),
+                                    comentarios: formData.get('comentarios'),
                                     prendas: data.prendas || []
                                 };
 
@@ -866,6 +914,160 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
 
 
 
+        document.addEventListener('DOMContentLoaded', () => {
+            const modalElement = document.getElementById('modalAccionOutfit');
+            const modal = new bootstrap.Modal(modalElement);
+            const titulo = modalElement.querySelector('.modal-title');
+            const cuerpo = modalElement.querySelector('.modal-body');
+            const btnConfirmar = modalElement.querySelector('#btnConfirmarAccion');
+
+            let outfitIdActual = null;
+            let accionActual = null;
+
+            document.querySelectorAll('.dropdown-menu a').forEach(link => {
+                link.addEventListener('click', e => {
+                    e.preventDefault();
+
+                    outfitIdActual = link.getAttribute('data-id');
+                    accionActual = link.getAttribute('data-action');
+
+                    switch (accionActual) {
+                        case 'ver':
+                            titulo.textContent = 'Detalles del Outfit';
+                            cuerpo.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin fa-2x"></i><p>Cargando prendas...</p></div>'; // Mensaje de carga
+                            btnConfirmar.style.display = 'none';
+
+                            fetch(`obtener_prendas_outfit.php?outfit_id=${outfitIdActual}`)
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data.success) {
+                                        let contentHtml = '';
+
+                                        // Detalles del Outfit (nuevo)
+                                        if (data.outfit_details) {
+                                            contentHtml += `
+                                            <div class="mb-3 text-center">
+                                                <h4>${data.outfit_details.nombre}</h4>
+                                                <p><strong>Contexto:</strong> ${data.outfit_details.contexto} | <strong>Clima:</strong> ${data.outfit_details.clima_base}</p>
+                                                ${data.outfit_details.comentarios ? `<p class="alert alert-info"><strong>Comentarios:</strong> ${data.outfit_details.comentarios}</p>` : ''}
+                                                <hr>
+                                            </div>
+                                        `;
+                                        }
+
+                                        // Prendas del Outfit
+                                        if (data.prendas.length > 0) {
+                                            contentHtml += '<h6 class="mb-3">Prendas que componen este outfit:</h6><div class="row">';
+                                            data.prendas.forEach(prenda => {
+                                                contentHtml += `
+                                                <div class="col-6 col-md-4 mb-3">
+                                                    <div class="card h-100">
+                                                        <img src="${prenda.foto}" class="card-img-top" alt="${prenda.nombre}" style="height: 120px; object-fit: cover;">
+                                                        <div class="card-body p-2">
+                                                            <h6 class="card-title mb-0">${prenda.nombre}</h6>
+                                                            <small class="text-muted">${prenda.tipo} - ${prenda.color_principal}</small>
+                                                            ${prenda.comentarios ? `<p class="card-text"><small class="text-muted"><em>"${prenda.comentarios.substring(0, 50)}..."</em></small></p>` : ''}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            `;
+                                            });
+                                            contentHtml += '</div>';
+                                        } else {
+                                            contentHtml += `<p class="text-muted text-center">${data.message || 'No se encontraron prendas para este outfit.'}</p>`;
+                                        }
+                                        cuerpo.innerHTML = contentHtml;
+
+                                    } else {
+                                        cuerpo.innerHTML = `<p class="text-danger text-center">${data.message || 'Error al obtener los detalles del outfit.'}</p>`;
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error('Error al obtener los detalles del outfit:', error);
+                                    cuerpo.innerHTML = '<p class="text-danger text-center">Error al cargar los detalles del outfit.</p>';
+                                });
+                            break;
+                        case 'usar':
+                            titulo.textContent = 'Usar Outfit #' + outfitIdActual;
+                            cuerpo.innerHTML = `<p>¿Quieres usar el outfit <strong>${outfitIdActual}</strong> hoy?</p>`;
+                            btnConfirmar.style.display = 'inline-block';
+                            btnConfirmar.textContent = 'Usar ahora';
+                            break;
+                        case 'eliminar':
+                            titulo.textContent = 'Eliminar Outfit #' + outfitIdActual;
+                            cuerpo.innerHTML = `<p>¿Estás seguro que deseas eliminar el outfit <strong>${outfitIdActual}</strong>? Esta acción no se puede deshacer.</p>`;
+                            btnConfirmar.style.display = 'inline-block';
+                            btnConfirmar.textContent = 'Eliminar';
+                            break;
+                    }
+
+                    modal.show();
+                });
+            });
+
+            btnConfirmar.addEventListener('click', () => {
+                if (!outfitIdActual || !accionActual) return;
+
+                // Aquí colocas la lógica para confirmar la acción:
+                if (accionActual === 'usar') {
+                    // Lógica para registrar el uso del outfit y actualizar el estado de las prendas
+                    fetch('registrar_uso_outfit.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                            },
+                            body: `outfit_id=${outfitIdActual}` // Envía el ID del outfit
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                Swal.fire('Outfit Usado', data.message, 'success')
+                                    .then(() => {
+                                        modal.hide(); // Oculta el modal
+                                        location.reload(); // Recarga la página para mostrar los cambios (ej. en el dashboard y el estado de prendas)
+                                    });
+                            } else {
+                                Swal.fire('Error', data.message || 'Error desconocido al registrar el uso del outfit', 'error');
+                                modal.hide();
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error en la solicitud AJAX de uso de outfit:', error);
+                            Swal.fire('Error de conexión', 'No se pudo comunicar con el servidor para registrar el uso del outfit.', 'error');
+                            modal.hide();
+                        });
+                } else if (accionActual === 'eliminar') {
+                    // Lógica para ELIMINAR el outfit en la base de datos
+                    fetch('eliminar_outfit.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                            },
+                            body: `outfit_id=${outfitIdActual}` // Envía el ID del outfit
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                Swal.fire('Eliminado', data.message, 'success')
+                                    .then(() => {
+                                        modal.hide(); // Oculta el modal
+                                        location.reload(); // Recarga la página para mostrar los cambios
+                                    });
+                            } else {
+                                Swal.fire('Error', data.message || 'Error desconocido al eliminar el outfit', 'error');
+                                modal.hide();
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error en la solicitud AJAX de eliminación:', error);
+                            Swal.fire('Error de conexión', 'No se pudo comunicar con el servidor para eliminar el outfit.', 'error');
+                            modal.hide();
+                        });
+                }
+
+                modal.hide();
+            });
+        });
 
 
 

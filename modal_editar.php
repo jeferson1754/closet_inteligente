@@ -117,7 +117,12 @@
                             </div>
                         </div>
                     </div>
-
+                    <div class="form-section">
+                        <div class="mb-3">
+                            <label class="form-label">Comentarios</label>
+                            <textarea class="form-control" name="comentarios" rows="3"><?php echo htmlspecialchars($row['comentarios'] ?? ''); ?></textarea>
+                        </div>
+                    </div>
                     <!-- Imagen -->
                     <div class="form-section">
                         <h6 class="section-title">
