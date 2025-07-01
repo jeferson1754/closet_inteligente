@@ -28,7 +28,7 @@
                                 <select class="form-select" name="tipo" required>
                                     <option value="">Seleccionar...</option>
                                     <?php
-                                    $tipos = ['camisa', 'camiseta', 'pantalon', 'falda', 'vestido', 'chaqueta', 'abrigo', 'zapatos', 'accesorios'];
+                                  
                                     foreach ($tipos as $tipo) {
                                         $selected = ($row['tipo'] == $tipo) ? 'selected' : '';
                                         echo "<option value=\"$tipo\" $selected>" . ucfirst($tipo) . "</option>";
@@ -80,7 +80,7 @@
                                 <label class="form-label">Clima Apropiado</label>
                                 <select class="form-select" name="clima_apropiado" required>
                                     <?php
-                                    $climas = ['todo' => 'Todo clima', 'calor' => 'Calor', 'frio' => 'Frío', 'lluvia' => 'Lluvia'];
+
                                     foreach ($climas as $valor => $texto) {
                                         $selected = ($row['clima_apropiado'] == $valor) ? 'selected' : '';
                                         echo "<option value=\"$valor\" $selected>$texto</option>";
@@ -93,7 +93,7 @@
                                 <label class="form-label">Formalidad</label>
                                 <select class="form-select" name="formalidad" required>
                                     <?php
-                                    $formalidades = ['casual', 'semi-formal', 'formal'];
+              
                                     foreach ($formalidades as $f) {
                                         $selected = ($row['formalidad'] == $f) ? 'selected' : '';
                                         echo "<option value=\"$f\" $selected>" . ucfirst($f) . "</option>";
@@ -105,9 +105,13 @@
                             <div class="col-md-6">
                                 <label class="form-label">Estado</label>
                                 <select class="form-select" name="estado" required>
-                                    <option value="disponible" <?php echo $row['estado'] == 'disponible' ? 'selected' : ''; ?>>Disponible</option>
-                                    <option value="sucio" <?php echo $row['estado'] == 'sucio' ? 'selected' : ''; ?>>Sucio</option>
-                                    <option value="prestado" <?php echo $row['estado'] == 'prestado' ? 'selected' : ''; ?>>Prestado</option>
+                                    <?php
+                     
+                                    foreach ($estados as $valor => $texto) {
+                                        $selected = ($row['estado'] == $valor) ? 'selected' : '';
+                                        echo "<option value=\"$valor\" $selected>$texto</option>";
+                                    }
+                                    ?>
                                 </select>
                             </div>
 
@@ -120,7 +124,7 @@
                     <div class="form-section">
                         <div class="mb-3">
                             <label class="form-label">Comentarios</label>
-                            <textarea class="form-control" name="comentarios" rows="3"><?php echo htmlspecialchars($row['comentarios'] ?? ''); ?></textarea>
+                            <textarea class="form-control" name="comentarios" rows="3"><?php echo htmlspecialchars($row['detalles_adicionales'] ?? ''); ?></textarea>
                         </div>
                     </div>
                     <!-- Imagen -->

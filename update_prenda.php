@@ -4,7 +4,7 @@
 include 'bd.php';
 header('Content-Type: application/json');
 
-$campos = ['nombre', 'tipo', 'color_principal', 'tela', 'textura', 'estampado', 'clima_apropiado', 'estado', 'formalidad', 'fecha_agregado', 'id', 'imagen'];
+$campos = ['nombre', 'tipo', 'color_principal', 'tela', 'textura', 'estampado', 'clima_apropiado', 'estado', 'formalidad', 'fecha_agregado', 'id', 'imagen', 'comentarios'];
 foreach ($campos as $campo) {
     if (empty($_POST[$campo])) {
         echo json_encode(['success' => false, 'message' => "Falta el campo: $campo"]);
@@ -50,7 +50,7 @@ try {
             estado = :estado,
             foto = :foto,
             fecha_agregado = :fecha_agregado,
-            categoria_id = :id_categoria
+            detalles_adicionales = :detalles_adicionales
         WHERE id = :id
     ");
 
@@ -66,7 +66,7 @@ try {
         ':estado' => $_POST['estado'],
         ':foto' => $foto,
         ':fecha_agregado' => $_POST['fecha_agregado'],
-        ':id_categoria' => $id_categoria,
+        ':detalles_adicionales' => $_POST['comentarios'],
         ':id' => $_POST['id'],
     ]);
 

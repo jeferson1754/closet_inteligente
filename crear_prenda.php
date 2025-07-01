@@ -41,7 +41,7 @@ try {
     $stmt = $pdo->prepare("
         INSERT INTO prendas 
         (nombre, tipo, color_principal, tela, textura, estampado, clima_apropiado, formalidad, estado, foto,
-        fecha_agregado, comentarios)
+        fecha_agregado, detalles_adicionales)
         VALUES (
         :nombre, :tipo, :color_principal, :tela, :textura, :estampado, :clima_apropiado, :formalidad, 'disponible', :foto, :fecha_agregado, :comentarios)
     ");
@@ -57,7 +57,7 @@ try {
         ':formalidad' => $_POST['formalidad'],
         ':foto' => $foto,
         ':fecha_agregado' => $fecha_actual,
-        ':comentarios' => $_POST['comentarios'],
+        ':detalles_adicionales' => $_POST['comentarios'],
     ]);
 
     echo json_encode([

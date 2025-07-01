@@ -52,8 +52,8 @@ if ($stmt_prendas_ids = $mysqli_obj->prepare($sql_prendas_ids)) {
 // Obtener los detalles de las prendas si hay IDs
 if (!empty($prendas_ids)) {
     $placeholders = implode(',', array_fill(0, count($prendas_ids), '?'));
-    // Asegúrate de incluir 'comentarios' en la selección de prendas
-    $sql_detalles_prendas = "SELECT id, nombre, tipo, color_principal, tela, foto, textura, comentarios FROM prendas WHERE id IN ($placeholders)";
+    // Asegúrate de incluir 'detalles_adicionales' en la selección de prendas
+    $sql_detalles_prendas = "SELECT id, nombre, tipo, color_principal, tela, foto, textura, detalles_adicionales FROM prendas WHERE id IN ($placeholders)";
 
     if ($stmt_detalles = $mysqli_obj->prepare($sql_detalles_prendas)) {
         // --- INICIO DE LA SOLUCIÓN ---
@@ -170,10 +170,10 @@ if (!empty($prendas_ids)) {
                     </div>
 
                     <p class="text-center lead">
-                        <?php if (!empty($outfit_details['comentarios'])): ?>
-                            <i class="fas fa-comment me-2"></i>"<?php echo nl2br(htmlspecialchars($outfit_details['comentarios'])); ?>"
+                        <?php if (!empty($outfit_details['detalles_adicionales'])): ?>
+                            <i class="fas fa-comment me-2"></i>"<?php echo nl2br(htmlspecialchars($outfit_details['detalles_adicionales'])); ?>"
                         <?php else: ?>
-                            <span class="text-muted">Sin comentarios para este outfit.</span>
+                            <span class="text-muted">Sin detalles adicionales para este outfit.</span>
                         <?php endif; ?>
                     </p>
 
@@ -201,8 +201,8 @@ if (!empty($prendas_ids)) {
                                         <small class="text-muted"><?php echo htmlspecialchars($prenda['tipo']); ?> • <?php echo htmlspecialchars($prenda['color_principal']); ?></small><br>
                                         <small><?php echo htmlspecialchars($prenda['tela']); ?> • <?php echo htmlspecialchars($prenda['textura']); ?></small>
                                     </p>
-                                    <?php if (!empty($prenda['comentarios'])): ?>
-                                        <p class="card-text"><small class="text-muted"><em>"<?php echo nl2br(htmlspecialchars(substr($prenda['comentarios'], 0, 100))); ?><?php echo (strlen($prenda['comentarios']) > 100) ? '...' : ''; ?>"</em></small></p>
+                                    <?php if (!empty($prenda['detalles_adicionales'])): ?>
+                                        <p class="card-text"><small class="text-muted"><em>"<?php echo nl2br(htmlspecialchars(substr($prenda['detalles_adicionales'], 0, 100))); ?><?php echo (strlen($prenda['detalles_adicionales']) > 100) ? '...' : ''; ?>"</em></small></p>
                                     <?php endif; ?>
                                 </div>
                             </div>

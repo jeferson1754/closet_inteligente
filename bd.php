@@ -54,3 +54,10 @@ $current_week_start = (new DateTime('monday this week', new DateTimeZone('Americ
 $current_week_end = (new DateTime('sunday this week', new DateTimeZone('America/Santiago')))
     ->setTime(23, 59, 59)
     ->format('Y-m-d H:i:s');
+
+$tipos = ['polera', 'camisa', 'short', 'pantalon', 'chaqueta', 'abrigo', 'zapatos', 'sandalias'];
+
+$climas = ['todo' => 'Todo clima', 'calor' => 'Calor', 'frio' => 'Frío', 'lluvia' => 'Lluvia'];
+$formalidades = ['casual', 'semi-formal', 'formal'];
+
+$estados = ['disponible' => 'disponible', 'sucio' => 'sucio', 'prestado' => 'Prestado', 'en uso' => 'En uso', 'lavando' => 'Lavando'];

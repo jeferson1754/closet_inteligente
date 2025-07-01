@@ -34,7 +34,7 @@ while ($row_uso = $result_usos->fetch_assoc()) {
 $stmt_usos->close();
 
 // Consulta para obtener prendas disponibles
-$sql_prendas_disponibles = "SELECT id, nombre, tipo, color_principal FROM prendas WHERE estado = 'disponible'";
+$sql_prendas_disponibles = "SELECT id, nombre, tipo, color_principal, detalles_adicionales FROM prendas WHERE estado = 'disponible'";
 $result_disponibles = $mysqli_obj->query($sql_prendas_disponibles);
 
 if ($result_disponibles) {
@@ -49,7 +49,8 @@ if ($result_disponibles) {
                 'nombre' => $prenda_disp['nombre'],
                 'tipo' => $prenda_disp['tipo'],
                 'color' => $prenda_disp['color_principal'],
-                'usos_esta_semana' => $usos
+                'usos_esta_semana' => $usos,
+                'comentarios' => $prenda_disp['detalles_adicionales'] ?? '' // NUEVA LÍNEA: Incluir comentarios
             ];
         }
     }
@@ -561,15 +562,11 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                                             <label class="form-label">Tipo</label>
                                             <select class="form-select" name="tipo" required>
                                                 <option value="">Seleccionar...</option>
-                                                <option value="camisa">Camisa</option>
-                                                <option value="camiseta">Camiseta</option>
-                                                <option value="pantalon">Pantalón</option>
-                                                <option value="falda">Falda</option>
-                                                <option value="vestido">Vestido</option>
-                                                <option value="chaqueta">Chaqueta</option>
-                                                <option value="abrigo">Abrigo</option>
-                                                <option value="zapatos">Zapatos</option>
-                                                <option value="accesorios">Accesorios</option>
+                                                <?php
+                                                foreach ($tipos as $tipo) {
+                                                    echo "<option value=\"$tipo\">" . ucfirst($tipo) . "</option>";
+                                                }
+                                                ?>
                                             </select>
                                         </div>
                                         <div class="mb-3">
@@ -591,18 +588,24 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                                         <div class="mb-3">
                                             <label class="form-label">Clima Apropiado</label>
                                             <select class="form-select" name="clima_apropiado">
-                                                <option value="todo">Todo clima</option>
-                                                <option value="calor">Calor</option>
-                                                <option value="frio">Frío</option>
-                                                <option value="lluvia">Lluvia</option>
+                                                <option value="">Seleccionar...</option>
+                                                <?php
+                                                foreach ($climas as $valor => $texto) {
+                                                    echo "<option value=\"$valor\">" . ucfirst($texto) . "</option>";
+                                                }
+                                                ?>
                                             </select>
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">Formalidad</label>
                                             <select class="form-select" name="formalidad">
-                                                <option value="casual">Casual</option>
-                                                <option value="semi-formal">Semi-formal</option>
-                                                <option value="formal">Formal</option>
+                                                <option value="">Seleccionar...</option>
+                                                <?php
+
+                                                foreach ($formalidades as $f) {
+                                                    echo "<option value=\"$f\" $f>" . ucfirst($f) . "</option>";
+                                                }
+                                                ?>
                                             </select>
                                         </div>
                                         <div class="mb-3">
@@ -728,10 +731,11 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                                         <div class="mb-3">
                                             <label class="form-label">Clima Base</label>
                                             <select class="form-select" name="clima_base">
-                                                <option value="todo">Todo clima</option>
-                                                <option value="calor">Calor</option>
-                                                <option value="frio">Frío</option>
-                                                <option value="lluvia">Lluvia</option>
+                                                <?php
+                                                foreach ($climas as $valor => $texto) {
+                                                    echo "<option value=\"$valor\">" . ucfirst($texto) . "</option>";
+                                                }
+                                                ?>
                                             </select>
                                         </div>
                                         <div class="mb-3">
@@ -1157,7 +1161,7 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                                             <div class="mb-3 text-center">
                                                 <h4>${data.outfit_details.nombre}</h4>
                                                 <p><strong>Contexto:</strong> ${data.outfit_details.contexto} | <strong>Clima:</strong> ${data.outfit_details.clima_base}</p>
-                                                ${data.outfit_details.comentarios ? `<p class="alert alert-info"><strong>Comentarios:</strong> ${data.outfit_details.comentarios}</p>` : ''}
+                                                ${data.outfit_details.detalles_adicionales ? `<p class="alert alert-info"><strong>Detalles Adicionales:</strong> ${data.outfit_details.detalles_adicionales}</p>` : ''}
                                                 <hr>
                                             </div>
                                         `;
@@ -1174,7 +1178,7 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                                                         <div class="card-body p-2">
                                                             <h6 class="card-title mb-0">${prenda.nombre}</h6>
                                                             <small class="text-muted">${prenda.tipo} - ${prenda.color_principal}</small>
-                                                            ${prenda.comentarios ? `<p class="card-text"><small class="text-muted"><em>"${prenda.comentarios.substring(0, 50)}..."</em></small></p>` : ''}
+                                                            ${prenda.detalles_adicionales ? `<p class="card-text"><small class="text-muted"><em>"${prenda.detalles_adicionales.substring(0, 50)}..."</em></small></p>` : ''}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1372,7 +1376,9 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
             if (availableFilteredPrendas.length > 0) {
                 prendasListForIA = '\n\nAquí tienes una lista de las prendas disponibles en mi clóset que tienen menos de 3 usos esta semana. Por favor, prioriza estas prendas en tu sugerencia:\n';
                 availableFilteredPrendas.forEach(prenda => {
-                    prendasListForIA += `- ${prenda.nombre} (${prenda.tipo}, ${prenda.color})\n`;
+                    // Modificamos esta línea para añadir los comentarios si existen
+                    const comments = prenda.comentarios ? ` - Detalle: ${prenda.comentarios}` : '';
+                    prendasListForIA += `- ${prenda.nombre} (${prenda.tipo}, ${prenda.color})${comments}\n`;
                 });
                 prendasListForIA += '\n';
             } else {
@@ -1683,7 +1689,7 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                         contextsToUse = Array.from(outfitContextSelect.selectedOptions).map(option => option.value);
                     }
 
-                    const outfitComments =  suggestion.descripcion + "<br>" + suggestion.tips_adicionales;
+                    const outfitComments = suggestion.descripcion + "<br>" + suggestion.tips_adicionales;
 
                     // --- Mapear nombres de prendas sugeridas a IDs de prendas existentes ---
                     const selectedPrendaIds = [];

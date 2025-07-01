@@ -25,7 +25,7 @@ if (isset($_GET['outfit_id']) && is_numeric($_GET['outfit_id'])) {
             // Consulta para obtener los detalles de las prendas
             $placeholders = implode(',', array_fill(0, count($prendas_ids), '?'));
             // En obtener_prendas_outfit.php, en la consulta sql_detalles_prendas:
-            $sql_detalles_prendas = "SELECT id, nombre, tipo, color_principal, foto, comentarios FROM prendas WHERE id IN ($placeholders)";
+            $sql_detalles_prendas = "SELECT id, nombre, tipo, color_principal, foto, detalles_adicionales FROM prendas WHERE id IN ($placeholders)";
             // Añadido 'comentarios'
 
             if ($stmt_detalles = $mysqli_obj->prepare($sql_detalles_prendas)) {
