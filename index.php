@@ -916,6 +916,16 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                                                 </label>
                                             </div>
                                         </div>
+
+                                        <div class="mb-3">
+                                            <label for="reglasEspecificas" class="form-label">Reglas o Requisitos Específicos (opcional)</label>
+                                            <textarea class="form-control" id="reglasEspecificas" name="reglas_especificas" rows="3" placeholder="Ej: 'Obligado a usar la chaqueta azul de la empresa', 'No se permiten jeans rotos', 'Debe incluir un sombrero'..."></textarea>
+                                            <small class=" form-text text-muted">Añade cualquier requisito obligatorio para el outfit.</small>
+                                            <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="guardarReglasBtn">
+                                                <i class="fas fa-save me-2"></i>Guardar Reglas
+                                            </button>
+                                        </div>
+
                                     </form>
                                 </div>
                             </div>
@@ -1060,6 +1070,49 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                         .catch(error => {
                             console.error('Error en la solicitud AJAX:', error);
                             Swal.fire('Ocurrió un error al enviar el formulario', '', 'error');
+                        });
+                });
+            }
+
+            // --- NUEVO: Cargar reglas guardadas al inicio ---
+            const reglasEspecificasTextarea = document.getElementById('reglasEspecificas');
+            if (reglasEspecificasTextarea) {
+                fetch('obtener_reglas_sugerencia.php')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success && data.reglas_especificas) {
+                            reglasEspecificasTextarea.value = data.reglas_especificas;
+                        } else if (data.message) {
+                            console.log(data.message); // Por si no hay reglas
+                        }
+                    })
+                    .catch(error => console.error('Error al cargar reglas:', error));
+            }
+            // --- FIN NUEVO ---
+
+            const guardarReglasBtn = document.getElementById('guardarReglasBtn');
+            if (guardarReglasBtn) {
+                guardarReglasBtn.addEventListener('click', function() {
+                    const reglas = reglasEspecificasTextarea.value; // Ya definida arriba
+
+                    const formData = new FormData();
+                    formData.append('reglas_especificas', reglas);
+
+                    fetch('guardar_reglas_sugerencia.php', {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                Swal.fire('¡Guardado!', data.message, 'success');
+                            } else {
+                                Swal.fire('Error', data.message || 'Error al guardar las reglas.', 'error');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error al guardar reglas:', error);
+                            Swal.fire('Error de Conexión', 'No se pudo comunicar con el servidor para guardar las reglas.', 'error');
                         });
                 });
             }
@@ -1312,6 +1365,8 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
             }
             const espacio_mochila = document.querySelector('#formSugerencia select[name="espacio_mochila"]').value;
             const muda_extra = document.getElementById('mudaExtra').checked;
+            // NUEVA LÍNEA: Obtener las reglas específicas
+            const reglas_especificas = document.getElementById('reglasEspecificas').value.trim(); // .trim() para quitar espacios al inicio/final
 
             let prendasListForIA = '';
             if (availableFilteredPrendas.length > 0) {
@@ -1346,18 +1401,23 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
             - Espacio en mochila disponible: ${espacio_mochila.charAt(0).toUpperCase() + espacio_mochila.slice(1)}
             - ¿Posibilidad de llevar muda extra?: ${muda_extra ? 'Sí' : 'No'}
             ${tomorrowForecastForIA}
-            ${prendasListForIA}
 
-              Tu respuesta debe tener el siguiente formato JSON estricto: **un array de objetos, donde cada objeto representa un outfit sugerido.** Proporciona **3 ideas de outfit distintas** basadas en las condiciones dadas. Sin texto adicional antes ni después del JSON. Cada outfit en el array debe tener las propiedades "titulo", "descripcion", "prendas_sugeridas" (un array de strings concisos) y "tips_adicionales".
+             ${reglas_especificas ? `**Reglas o Requisitos Obligatorios:**\n- ${reglas_especificas}\n\n` : ''} 
+             
+             ${prendasListForIA}
+
+  Tu respuesta debe tener el siguiente formato JSON estricto: **un array de objetos, donde cada objeto representa un outfit sugerido.** Proporciona **3 ideas de outfit distintas** basadas en las condiciones dadas. Sin texto adicional antes ni después del JSON. Cada outfit en el array debe tener las propiedades "titulo", "descripcion", "prendas_sugeridas" (un array de strings concisos) y "tips_adicionales".
+            
+            **IMPORTANTE: Para las "prendas_sugeridas", por favor, utiliza los nombres EXACTOS de las prendas que te proporcioné en mi lista de clóset, o en su defecto, la combinación 'Tipo de prenda - Color' si no hay un nombre específico.** Por ejemplo, si mi lista tiene 'Camiseta Naranja Salmón (camiseta, Naranja Salmón)', por favor, usa 'Camiseta Naranja Salmón' o 'camiseta - Naranja Salmón'. Si no puedes encontrar una prenda exacta, sugiere una genérica.
 
             [
               {
                 "titulo": "Un título atractivo para el Outfit 1",
                 "descripcion": "Una descripción breve y convincente del Outfit 1, explicando por qué es adecuado y cómo se adapta al clima y la comodidad.",
                 "prendas_sugeridas": [
-                  "Tipo de prenda 1 (ej. Camiseta térmica, Jeans con forro, Botas impermeables)",
-                  "Tipo de prenda 2",
-                  "Tipo de prenda 3"
+                  "Nombre Exacto de Prenda de tu lista 1", // Ejemplo: "Camiseta Naranja Salmón"
+                  "Tipo de prenda - Color (ej. 'pantalon - Azul Claro/Medio')", // Si no hay nombre exacto
+                  "Chaqueta Softshell Negra" // Otro ejemplo de nombre exacto
                 ],
                 "tips_adicionales": "Un consejo de estilo o practicidad relacionado con el Outfit 1 (ej. 'No olvides una bufanda ligera para la mañana fría.')"
               },
@@ -1365,7 +1425,7 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                 "titulo": "Un título atractivo para el Outfit 2",
                 "descripcion": "Una descripción breve y convincente del Outfit 2.",
                 "prendas_sugeridas": [
-                  "Prenda A", "Prenda B"
+                  "Nombre Exacto de Prenda 1", "Nombre Exacto de Prenda 2"
                 ],
                 "tips_adicionales": "Tip para Outfit 2."
               },
@@ -1373,7 +1433,7 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                 "titulo": "Un título atractivo para el Outfit 3",
                 "descripcion": "Una descripción breve y convincente del Outfit 3.",
                 "prendas_sugeridas": [
-                  "Prenda X", "Prenda Y"
+                  "Nombre Exacto de Prenda X", "Nombre Exacto de Prenda Y"
                 ],
                 "tips_adicionales": "Tip para Outfit 3."
               }
@@ -1554,6 +1614,7 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                     formData.append('comentarios', outfitComments);
                     selectedPrendaIds.forEach(id => {
                         formData.append('prendas[]', id);
+                        console.log('ID de prenda seleccionada:', id);
                     });
 
                     // Mensaje de advertencia si hay prendas que no se encontraron
@@ -1593,7 +1654,7 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                         });
                 }
             });
-        }// Función para crear un outfit en la DB a partir de una sugerencia de la IA
+        } // Función para crear un outfit en la DB a partir de una sugerencia de la IA
         async function createOutfitFromSuggestion(suggestion) {
             Swal.fire({
                 title: 'Crear Outfit Sugerido',
@@ -1621,18 +1682,32 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                     } else if (outfitContextSelect && outfitContextSelect.selectedOptions) { // If still using a multiple select
                         contextsToUse = Array.from(outfitContextSelect.selectedOptions).map(option => option.value);
                     }
-                    
-                    const outfitComments = suggestion.tips_adicionales + "\n\n" + suggestion.descripcion;
+
+                    const outfitComments =  suggestion.descripcion + "<br>" + suggestion.tips_adicionales;
 
                     // --- Mapear nombres de prendas sugeridas a IDs de prendas existentes ---
                     const selectedPrendaIds = [];
                     const unmatchedPrendas = [];
 
                     suggestion.prendas_sugeridas.forEach(aiSuggestedPrenda => {
-                        const foundPrenda = availableFilteredPrendas.find(p =>
-                            aiSuggestedPrenda.toLowerCase().includes(p.nombre.toLowerCase()) ||
-                            aiSuggestedPrenda.toLowerCase().includes(p.tipo.toLowerCase())
-                        );
+                        const suggestedLower = aiSuggestedPrenda.toLowerCase();
+
+                        const foundPrenda = availableFilteredPrendas.find(p => {
+                            const pNameLower = p.nombre.toLowerCase();
+                            const pTypeColorLower = `${p.tipo.toLowerCase()} - ${p.color.toLowerCase()}`; // Ejemplo: "camiseta - naranja salmón"
+
+                            // Intentar coincidencia exacta primero con el nombre de la prenda
+                            if (suggestedLower === pNameLower) {
+                                return true;
+                            }
+                            // Intentar coincidencia con la combinación tipo - color
+                            if (suggestedLower === pTypeColorLower) {
+                                return true;
+                            }
+                            // Si no hay coincidencia exacta, buscar si el nombre sugerido CONTIENE el nombre de la prenda o tipo/color
+                            // (Esto puede ser más flexible, pero puede dar falsos positivos)
+                            return suggestedLower.includes(pNameLower) || suggestedLower.includes(pTypeColorLower);
+                        });
 
                         if (foundPrenda) {
                             selectedPrendaIds.push(foundPrenda.id);
@@ -1673,24 +1748,24 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
 
                     // Enviar los datos al backend
                     fetch('crear_outfit_desde_sugerencia.php', {
-                        method: 'POST',
-                        body: formData
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            Swal.fire('Outfit Creado!', data.message, 'success')
-                                .then(() => {
-                                    location.reload();
-                                });
-                        } else {
-                            Swal.fire('Error', data.message || 'Error desconocido al crear el outfit.', 'error');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error al enviar la solicitud:', error);
-                        Swal.fire('Error de Conexión', 'No se pudo comunicar con el servidor para crear el outfit.', 'error');
-                    });
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                Swal.fire('Outfit Creado!', data.message, 'success')
+                                    .then(() => {
+                                        location.reload();
+                                    });
+                            } else {
+                                Swal.fire('Error', data.message || 'Error desconocido al crear el outfit.', 'error');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error al enviar la solicitud:', error);
+                            Swal.fire('Error de Conexión', 'No se pudo comunicar con el servidor para crear el outfit.', 'error');
+                        });
                 }
             });
         }
