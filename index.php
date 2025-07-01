@@ -6,6 +6,62 @@ $sql = "SELECT * FROM prendas";
 $result = $mysqli_obj->query($sql);
 $result_prendas = $mysqli_obj->query($sql);
 
+// Consulta para obtener prendas disponibles y con menos de 3 usos esta semana
+$prendas_para_sugerencia_ia = [];
+
+// Consulta para contar usos de cada prenda en la semana actual
+$sql_usos_semana = "
+    SELECT
+        prenda_id,
+        COUNT(*) AS usos_esta_semana
+    FROM
+        historial_usos
+    WHERE
+        fecha  >= ? AND fecha  < ?
+    GROUP BY
+        prenda_id
+";
+
+$stmt_usos = $mysqli_obj->prepare($sql_usos_semana);
+$stmt_usos->bind_param("ss", $current_week_start, $current_week_end);
+$stmt_usos->execute();
+$result_usos = $stmt_usos->get_result();
+
+$usos_semanales = [];
+while ($row_uso = $result_usos->fetch_assoc()) {
+    $usos_semanales[$row_uso['prenda_id']] = $row_uso['usos_esta_semana'];
+}
+$stmt_usos->close();
+
+// Consulta para obtener prendas disponibles
+$sql_prendas_disponibles = "SELECT id, nombre, tipo, color_principal FROM prendas WHERE estado = 'disponible'";
+$result_disponibles = $mysqli_obj->query($sql_prendas_disponibles);
+
+if ($result_disponibles) {
+    while ($prenda_disp = $result_disponibles->fetch_assoc()) {
+        $prenda_id = $prenda_disp['id'];
+        $usos = $usos_semanales[$prenda_id] ?? 0; // Obtener usos o 0 si no hay registro
+
+        // Si la prenda tiene menos de 3 usos esta semana, la añadimos a la lista
+        if ($usos < 3) {
+            $prendas_para_sugerencia_ia[] = [
+                'id' => $prenda_disp['id'],
+                'nombre' => $prenda_disp['nombre'],
+                'tipo' => $prenda_disp['tipo'],
+                'color' => $prenda_disp['color_principal'],
+                'usos_esta_semana' => $usos
+            ];
+        }
+    }
+}
+
+// Convertir el array PHP a JSON para pasarlo a JavaScript
+$json_prendas_para_sugerencia_ia = json_encode($prendas_para_sugerencia_ia);
+
+// Consulta para obtener prendas disponibles para el formulario de outfit
+$sql = "SELECT id, nombre, tipo, color_principal, foto FROM prendas WHERE estado = 'disponible'";
+$result_for_outfit_form = $mysqli_obj->query($sql);
+
 
 
 // Consulta para obtener prendas disponibles
@@ -33,11 +89,90 @@ if (!isset($data['main']['temp']) || !isset($data['weather'][0])) {
     exit;
 }
 
-$temp_c = $data['main']['temp'];
-$weather_api_term = $data['weather'][0]['description'];
-$weather_desc = ucfirst($weather_api_term);
-$icon_code = $data['weather'][0]['icon'];
-$icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
+
+// --- INICIO: Clima actual y pronóstico para mañana ---
+// --- INICIO: Clima actual y pronóstico para mañana ---
+$city = $_GET['city'] ?? 'Santiago';
+define('API_KEY', '22524bcc23b8c0635c013a41f40f6a4c');
+define('API_BASE_URL', 'https://api.openweathermap.org/data/2.5/');
+define('UNITS', 'metric');
+define('LANG', 'es');
+
+function fetch_api_data($url)
+{
+    $response = @file_get_contents($url);
+    return $response ? json_decode($response, true) : null;
+}
+// --- Clima Actual ---
+$api_url_current = API_BASE_URL . "weather?q=" . urlencode($city) . "&appid=" . API_KEY . "&units=" . UNITS . "&lang=" . LANG;
+$data_current = fetch_api_data($api_url_current);
+
+// Datos actuales
+$temp_c = $data_current['main']['temp'] ?? '';
+$weather_desc = ucfirst($data_current['weather'][0]['description'] ?? 'No disponible');
+$icon_code = $data_current['weather'][0]['icon'] ?? '';
+$icon_url = $icon_code ? "https://openweathermap.org/img/wn/{$icon_code}@2x.png" : '';
+
+$forecast_data = [];
+
+if (!empty($data_current['coord']['lat']) && !empty($data_current['coord']['lon'])) {
+    $lat = $data_current['coord']['lat'];
+    $lon = $data_current['coord']['lon'];
+
+    // --- Pronóstico para mañana ---
+    $api_url_forecast = API_BASE_URL . "forecast?lat={$lat}&lon={$lon}&appid=" . API_KEY . "&units=" . UNITS . "&lang=" . LANG;
+    $data_forecast = fetch_api_data($api_url_forecast);
+
+    if (!empty($data_forecast['list'])) {
+        $tomorrow = (new DateTime('tomorrow', new DateTimeZone('America/Santiago')))->format('Y-m-d');
+
+        // Horarios objetivo
+        $target_schedule = [
+            '5 AM'  => ['05'],
+            '5 PM'  => ['17'],
+            '10 PM' => ['22', '23', '21'], // más flexible
+        ];
+
+        foreach ($target_schedule as $label => $hours) {
+            $found = false;
+
+            foreach ($hours as $target_hour) {
+                foreach ($data_forecast['list'] as $item) {
+                    if (empty($item['dt_txt'])) continue;
+
+                    $dt = new DateTime($item['dt_txt'], new DateTimeZone('UTC'));
+                    $dt->setTimezone(new DateTimeZone('America/Santiago'));
+
+                    if ($dt->format('Y-m-d') === $tomorrow && $dt->format('H') === $target_hour) {
+                        $forecast_data[] = [
+                            'label' => $label,
+                            'time'  => $dt->format('g A'),
+                            'temp'  => round($item['main']['temp']),
+                            'desc'  => $item['weather'][0]['description'] ?? 'No disponible',
+                        ];
+                        $found = true;
+                        break 2; // salir de ambos bucles
+                    }
+                }
+            }
+
+            if (!$found) {
+                $forecast_data[] = [
+                    'label' => $label,
+                    'time'  => null,
+                    'temp'  => null,
+                    'desc'  => 'No disponible',
+                ];
+            }
+        }
+    }
+}
+
+// --- Exportar JSON del pronóstico ---
+$json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+
+
+// --- FIN: Clima actual y pronóstico para mañana ---
 
 ?>
 <!DOCTYPE html>
@@ -318,12 +453,7 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
                         <?php
 
 
-                        if (isset($data['current'])) {
-                            $weather_desc_raw = $data['current']['weather_descriptions'][0] ?? "No disponible";
-                            $weather_desc = $translations[$weather_desc_raw] ?? $weather_desc_raw; // Aplica traducción si existe
-                            $temp_c = $data['current']['temperature'] ?? "";
-                            $icon_url = $data['current']['weather_icons'][0] ?? "";
-                        }
+
                         ?>
 
 
@@ -511,7 +641,7 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
 
                                     <div class="row">
                                         <?php while ($row = $result_prendas->fetch_assoc()): ?>
-                                            <div class="col-md-6 mb-3">
+                                            <div class="col-md-6 mb-3 prenda-item" data-nombre-prenda="<?php echo htmlspecialchars(strtolower($row['nombre'])); ?>">
                                                 <div class="card prenda-card">
                                                     <!-- Imagen de la prenda o fondo gris si no hay -->
                                                     <?php if (!empty($row['foto'])): ?>
@@ -745,23 +875,30 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
                                 <div class="card-body">
                                     <form id="formSugerencia">
                                         <div class="mb-3">
-                                            <label class="form-label">Contexto</label>
-                                            <select class="form-select" name="contexto" required>
-                                                <option value="trabajo">Trabajo</option>
-                                                <option value="universidad">Universidad</option>
-                                                <option value="evento">Evento</option>
-                                                <option value="casa">Casa</option>
-                                                <option value="deporte">Deporte</option>
-                                            </select>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Clima Esperado</label>
-                                            <select class="form-select" name="clima">
-                                                <option value="calor">Calor</option>
-                                                <option value="frio">Frío</option>
-                                                <option value="lluvia">Lluvia</option>
-                                                <option value="todo">Variable</option>
-                                            </select>
+                                            <label class="form-label d-block">Contexto</label>
+                                            <div class="d-flex flex-wrap gap-2">
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="checkbox" id="contextoTrabajo" name="contexto[]" value="trabajo">
+                                                    <label class="form-check-label" for="contextoTrabajo">Trabajo</label>
+                                                </div>
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="checkbox" id="contextoUniversidad" name="contexto[]" value="universidad">
+                                                    <label class="form-check-label" for="contextoUniversidad">Universidad</label>
+                                                </div>
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="checkbox" id="contextoEvento" name="contexto[]" value="evento">
+                                                    <label class="form-check-label" for="contextoEvento">Evento</label>
+                                                </div>
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="checkbox" id="contextoCasa" name="contexto[]" value="casa">
+                                                    <label class="form-check-label" for="contextoCasa">Casa</label>
+                                                </div>
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="checkbox" id="contextoDeporte" name="contexto[]" value="deporte">
+                                                    <label class="form-check-label" for="contextoDeporte">Deporte</label>
+                                                </div>
+                                            </div>
+                                            <small class="form-text text-muted">Selecciona uno o más contextos.</small>
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">Espacio en Mochila</label>
@@ -779,9 +916,6 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
                                                 </label>
                                             </div>
                                         </div>
-                                        <button type="button" class="btn btn-primary w-100" onclick="generarSugerenciaPersonalizada()">
-                                            <i class="fas fa-magic me-2"></i>Generar Sugerencia
-                                        </button>
                                     </form>
                                 </div>
                             </div>
@@ -790,14 +924,35 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
                         <div class="col-md-8">
                             <div class="card">
                                 <div class="card-header">
-                                    <h5><i class="fas fa-lightbulb me-2"></i>Sugerencias Personalizadas</h5>
+                                    <h5><i class="fas fa-robot me-2"></i>Interacción con IA para Sugerencias</h5>
                                 </div>
                                 <div class="card-body">
+                                    <div class="form-section">
+                                        <h6>Prompt para la IA:</h6>
+                                        <div class="input-group mb-3">
+                                            <textarea id="aiPrompt" class="form-control" rows="8" readonly placeholder="El prompt para la IA aparecerá aquí..."></textarea>
+                                            <button class="btn btn-outline-secondary" type="button" id="copyPromptBtn">
+                                                <i class="fas fa-copy me-2"></i>Copiar
+                                            </button>
+                                        </div>
+                                        <button type="button" class="btn btn-primary w-100 mb-3" onclick="generarPrompt()">
+                                            <i class="fas fa-magic me-2"></i>Generar Prompt para IA
+                                        </button>
+                                    </div>
 
-                                    <div id="sugerenciasPersonalizadas">
-                                        <div class="text-center text-muted">
-                                            <i class="fas fa-magic fa-3x mb-3"></i>
-                                            <p>Configura los parámetros y genera tu sugerencia personalizada</p>
+                                    <div class="form-section mt-4">
+                                        <h6>Respuesta de la IA:</h6>
+                                        <div class="input-group mb-3">
+                                            <textarea id="aiResponse" class="form-control" rows="8" placeholder="Pega aquí la respuesta de la IA..."></textarea>
+                                            <button class="btn btn-outline-secondary" type="button" id="processResponseBtn">
+                                                <i class="fas fa-check-circle me-2"></i>Procesar Respuesta
+                                            </button>
+                                        </div>
+                                        <div id="processedSuggestion" class="mt-3">
+                                            <div class="text-center text-muted">
+                                                <i class="fas fa-magic fa-3x mb-3"></i>
+                                                <p>Pega la respuesta de la IA y haz clic en "Procesar" para ver tu sugerencia.</p>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -1116,6 +1271,428 @@ $icon_url = "https://openweathermap.org/img/wn/{$icon_code}@2x.png";
                 };
                 reader.readAsDataURL(input.files[0]);
             }
+        }
+
+        // Función para filtrar prendas en tiempo real
+        function filtrarPrendas() {
+            const searchTerm = document.getElementById('buscarPrendas').value.toLowerCase(); // Obtener el texto de búsqueda en minúsculas
+            const prendaItems = document.querySelectorAll('.prenda-item'); // Seleccionar todas las tarjetas de prendas
+
+            prendaItems.forEach(item => {
+                const nombrePrenda = item.getAttribute('data-nombre-prenda'); // Obtener el nombre de la prenda del atributo data-
+
+                if (nombrePrenda.includes(searchTerm)) {
+                    item.style.display = ''; // Mostrar la tarjeta si el nombre coincide
+                } else {
+                    item.style.display = 'none'; // Ocultar la tarjeta si no coincide
+                }
+            });
+        }
+
+        const availableFilteredPrendas = <?php echo $json_prendas_para_sugerencia_ia; ?>;
+        const tomorrowForecast = <?php echo $json_forecast_data; ?>; // NUEVA LÍNEA
+
+        // Nueva función para generar el prompt para la IA
+        // Nueva función para generar el prompt para la IA
+        function generarPrompt() {
+            // Obtener todos los valores seleccionados del selector múltiple de contexto
+            // Reemplaza la obtención del contexto del select por la de los checkboxes
+            const selectedContexts = Array.from(document.querySelectorAll('#formSugerencia input[name="contexto[]"]:checked'))
+                .map(checkbox => checkbox.value);
+
+            // Formatear los contextos para el prompt
+            let contextoForIA = '';
+            if (selectedContexts.length > 0) {
+                // Unir los contextos con " y " para una frase más natural
+                contextoForIA = selectedContexts.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(' y ');
+            } else {
+                // Si por alguna razón no se selecciona nada, dar un valor por defecto
+                // Aunque el 'required' del HTML implica que al menos uno debe ser seleccionado.
+                contextoForIA = 'General';
+            }
+            const espacio_mochila = document.querySelector('#formSugerencia select[name="espacio_mochila"]').value;
+            const muda_extra = document.getElementById('mudaExtra').checked;
+
+            let prendasListForIA = '';
+            if (availableFilteredPrendas.length > 0) {
+                prendasListForIA = '\n\nAquí tienes una lista de las prendas disponibles en mi clóset que tienen menos de 3 usos esta semana. Por favor, prioriza estas prendas en tu sugerencia:\n';
+                availableFilteredPrendas.forEach(prenda => {
+                    prendasListForIA += `- ${prenda.nombre} (${prenda.tipo}, ${prenda.color})\n`;
+                });
+                prendasListForIA += '\n';
+            } else {
+                prendasListForIA = '\n\nNo tengo prendas disponibles con menos de 3 usos esta semana. Por favor, sugiere un outfit general basado en las condiciones.\n';
+            }
+
+            let tomorrowForecastForIA = '';
+            if (tomorrowForecast.length > 0) {
+                tomorrowForecastForIA = '\nPronóstico del clima para mañana (<?= $fecha_manana ?>):\n';
+                tomorrowForecast.forEach(forecast => {
+                    if (forecast.time) { // Si hay datos para esta hora
+                        tomorrowForecastForIA += `- ${forecast.label}: ${forecast.temp}°C, ${forecast.desc}\n`;
+                    } else { // Si no se encontró el pronóstico para esta hora específica
+                        tomorrowForecastForIA += `- ${forecast.label}: Clima no disponible\n`;
+                    }
+                });
+                tomorrowForecastForIA;
+            } else {
+                tomorrowForecastForIA = '\n\nNo se pudo obtener el pronóstico del clima para mañana. Considera un clima general para la temporada.\n';
+            }
+
+            let prompt = `\nComo experto en moda y estilismo, necesito una sugerencia de outfit detallada para las siguientes condiciones. Me gustaría que la ropa sugerida sea cómoda, adecuada para los cambios de temperatura y el pronóstico detallado. Por favor, sé creativo y proporciona la información de forma estructurada para que pueda ser parseada fácilmente.
+
+            Condiciones para el outfit:
+            - Contexto: ${contextoForIA}
+            - Espacio en mochila disponible: ${espacio_mochila.charAt(0).toUpperCase() + espacio_mochila.slice(1)}
+            - ¿Posibilidad de llevar muda extra?: ${muda_extra ? 'Sí' : 'No'}
+            ${tomorrowForecastForIA}
+            ${prendasListForIA}
+
+              Tu respuesta debe tener el siguiente formato JSON estricto: **un array de objetos, donde cada objeto representa un outfit sugerido.** Proporciona **3 ideas de outfit distintas** basadas en las condiciones dadas. Sin texto adicional antes ni después del JSON. Cada outfit en el array debe tener las propiedades "titulo", "descripcion", "prendas_sugeridas" (un array de strings concisos) y "tips_adicionales".
+
+            [
+              {
+                "titulo": "Un título atractivo para el Outfit 1",
+                "descripcion": "Una descripción breve y convincente del Outfit 1, explicando por qué es adecuado y cómo se adapta al clima y la comodidad.",
+                "prendas_sugeridas": [
+                  "Tipo de prenda 1 (ej. Camiseta térmica, Jeans con forro, Botas impermeables)",
+                  "Tipo de prenda 2",
+                  "Tipo de prenda 3"
+                ],
+                "tips_adicionales": "Un consejo de estilo o practicidad relacionado con el Outfit 1 (ej. 'No olvides una bufanda ligera para la mañana fría.')"
+              },
+              {
+                "titulo": "Un título atractivo para el Outfit 2",
+                "descripcion": "Una descripción breve y convincente del Outfit 2.",
+                "prendas_sugeridas": [
+                  "Prenda A", "Prenda B"
+                ],
+                "tips_adicionales": "Tip para Outfit 2."
+              },
+              {
+                "titulo": "Un título atractivo para el Outfit 3",
+                "descripcion": "Una descripción breve y convincente del Outfit 3.",
+                "prendas_sugeridas": [
+                  "Prenda X", "Prenda Y"
+                ],
+                "tips_adicionales": "Tip para Outfit 3."
+              }
+            ]`;
+
+
+            const aiPromptElement = document.getElementById('aiPrompt');
+            aiPromptElement.value = prompt;
+
+            aiPromptElement.select();
+            aiPromptElement.setSelectionRange(0, 99999);
+            try {
+                navigator.clipboard.writeText(aiPromptElement.value);
+                Swal.fire('¡Copiado!', 'El prompt ha sido copiado al portapapeles.', 'success');
+            } catch (err) {
+                console.error('No se pudo copiar el prompt al portapapeles:', err);
+                Swal.fire('Error', 'No se pudo copiar el prompt automáticamente. Por favor, cópialo manualmente.', 'error');
+            }
+        }
+
+        // Event listener para el botón de copiar prompt
+        document.getElementById('copyPromptBtn').addEventListener('click', function() {
+            const aiPromptElement = document.getElementById('aiPrompt');
+            aiPromptElement.select();
+            aiPromptElement.setSelectionRange(0, 99999);
+            try {
+                navigator.clipboard.writeText(aiPromptElement.value);
+                Swal.fire('¡Copiado!', 'El prompt ha sido copiado al portapapeles.', 'success');
+            } catch (err) {
+                console.error('No se pudo copiar el prompt al portapapeles:', err);
+                Swal.fire('Error', 'No se pudo copiar el prompt automáticamente. Por favor, cópialo manualmente.', 'error');
+            }
+        });
+
+
+
+        // Función para procesar la respuesta de la IA
+        document.getElementById('processResponseBtn').addEventListener('click', function() {
+            const aiResponseText = document.getElementById('aiResponse').value;
+            const processedSuggestionDiv = document.getElementById('processedSuggestion');
+
+            try {
+                const suggestions = JSON.parse(aiResponseText); // Ahora esperamos un array
+
+                if (!Array.isArray(suggestions) || suggestions.length === 0) {
+                    throw new Error('La respuesta de la IA no es un array de outfits o está vacía.');
+                }
+
+                let allOutfitsHtml = '';
+                suggestions.forEach((suggestion, index) => { // Iterar sobre cada sugerencia en el array
+                    if (suggestion && suggestion.titulo && suggestion.descripcion && suggestion.prendas_sugeridas && Array.isArray(suggestion.prendas_sugeridas) && suggestion.tips_adicionales) {
+                        let prendasListHtml = suggestion.prendas_sugeridas.map(prenda => `<li>${htmlspecialchars(prenda)}</li>`).join('');
+
+                        // Construir el HTML para cada sugerencia de outfit
+                        allOutfitsHtml += `
+                            <div class="suggestion-card mb-4 p-3">
+                                <h6>Idea de Outfit ${index + 1}: ${htmlspecialchars(suggestion.titulo)}</h6>
+                                <p>${htmlspecialchars(suggestion.descripcion)}</p>
+                                <div class="mb-2">
+                                    <strong>Prendas sugeridas:</strong>
+                                    <ul class="mb-2">
+                                        ${prendasListHtml}
+                                    </ul>
+                                </div>
+                                <div class="alert alert-light mb-2">
+                                    <i class="fas fa-lightbulb me-2"></i><strong>Tip:</strong> ${htmlspecialchars(suggestion.tips_adicionales)}
+                                </div>
+                                <div class="text-center mt-3">
+                                    <button class="btn btn-success btn-sm crear-outfit-sugerido"
+                                            data-index="${index}"
+                                            data-outfit-data='${JSON.stringify(suggestion)}'> <i class="fas fa-plus-circle me-2"></i>Crear este Outfit
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        allOutfitsHtml += `
+                            <div class="alert alert-warning mb-4" role="alert">
+                                <h4>Advertencia: Una de las ideas de outfit no tiene el formato correcto.</h4>
+                                <p>Por favor, revisa el formato JSON de cada outfit dentro del array.</p>
+                                <pre>${htmlspecialchars(JSON.stringify(suggestion, null, 2))}</pre>
+                            </div>
+                        `;
+                    }
+                });
+
+                processedSuggestionDiv.innerHTML = allOutfitsHtml;
+                Swal.fire('¡Sugerencias Listas!', 'La respuesta de la IA ha sido procesada. Se generaron varias ideas.', 'success');
+
+                // --- NUEVA LÓGICA: Añadir event listeners a los nuevos botones "Crear este Outfit" ---
+                document.querySelectorAll('.crear-outfit-sugerido').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const outfitData = JSON.parse(this.dataset.outfitData); // Parsear los datos del outfit
+                        createOutfitFromSuggestion(outfitData);
+                    });
+                });
+                // --- FIN NUEVA LÓGICA ---
+
+            } catch (e) {
+                console.error('Error al procesar la respuesta de la IA:', e);
+                processedSuggestionDiv.innerHTML = `
+                    <div class="alert alert-danger" role="alert">
+                        <h4>Error al procesar la respuesta:</h4>
+                        <p>${e.message}</p>
+                        <p>Asegúrate de que la IA devuelva un **ARRAY de objetos JSON** exactamente como se pide en el prompt.</p>
+                        <p>Respuesta recibida: <pre>${htmlspecialchars(aiResponseText)}</pre></p>
+                    </div>
+                `;
+                Swal.fire('Error', 'No se pudo procesar la respuesta. Revisa el formato.', 'error');
+            }
+        });
+
+        // Helper function para escapar HTML y evitar XSS al mostrar la respuesta
+        function htmlspecialchars(str) {
+            let div = document.createElement('div');
+            div.appendChild(document.createTextNode(str));
+            return div.innerHTML;
+        }
+
+        // Función para crear un outfit en la DB a partir de una sugerencia de la IA
+        async function createOutfitFromSuggestion(suggestion) {
+            Swal.fire({
+                title: 'Crear Outfit Sugerido',
+                html: `¿Quieres crear el outfit "${htmlspecialchars(suggestion.titulo)}" en tu clóset?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#28a745', // Color verde
+                cancelButtonColor: '#dc3545',
+                confirmButtonText: 'Sí, Crear Outfit'
+            }).then(async (result) => { // Usamos 'async' aquí porque dentro usaremos 'await'
+                if (result.isConfirmed) {
+                    // --- MOVER LA DECLARACIÓN DE formData AQUÍ ---
+                    const formData = new FormData(); // Declara formData al inicio del bloque isConfirmed
+
+                    const outfitName = suggestion.titulo;
+                    const outfitDescription = suggestion.descripcion;
+                    // Note: outfitContext was previously a selector, let's make sure to get the actual selected values
+                    const outfitContextSelect = document.querySelector('#formSugerencia select[name="contexto[]"]'); // If it's still a select
+                    const outfitContextCheckboxes = document.querySelectorAll('#formSugerencia input[name="contexto[]"]:checked'); // If it's checkboxes
+
+                    // Determine which 'contexts' to use based on your current HTML structure
+                    let contextsToUse = [];
+                    if (outfitContextCheckboxes.length > 0) { // If using checkboxes
+                        contextsToUse = Array.from(outfitContextCheckboxes).map(cb => cb.value);
+                    } else if (outfitContextSelect && outfitContextSelect.selectedOptions) { // If still using a multiple select
+                        contextsToUse = Array.from(outfitContextSelect.selectedOptions).map(option => option.value);
+                    }
+
+                    const outfitComments = suggestion.tips_adicionales + "\n\n" + suggestion.descripcion;
+
+                    // --- Mapear nombres de prendas sugeridas a IDs de prendas existentes ---
+                    const selectedPrendaIds = [];
+                    const unmatchedPrendas = [];
+
+                    suggestion.prendas_sugeridas.forEach(aiSuggestedPrenda => {
+                        const foundPrenda = availableFilteredPrendas.find(p =>
+                            aiSuggestedPrenda.toLowerCase().includes(p.nombre.toLowerCase()) ||
+                            aiSuggestedPrenda.toLowerCase().includes(p.tipo.toLowerCase())
+                        );
+
+                        if (foundPrenda) {
+                            selectedPrendaIds.push(foundPrenda.id);
+                        } else {
+                            unmatchedPrendas.push(aiSuggestedPrenda);
+                        }
+                    });
+
+                    if (selectedPrendaIds.length === 0) {
+                        Swal.fire('Atención', 'No se pudieron encontrar prendas existentes en tu clóset para esta sugerencia. El outfit no se puede crear.', 'warning');
+                        return;
+                    }
+
+                    // Append data to formData
+                    formData.append('nombre', outfitName);
+                    // Append only the first context, or 'General'
+                    formData.append('contexto', contextsToUse.length > 0 ? contextsToUse[0] : 'General');
+                    formData.append('clima_base', 'todo'); // Default or derived from forecast if needed
+                    formData.append('comentarios', outfitComments);
+                    selectedPrendaIds.forEach(id => {
+                        formData.append('prendas[]', id);
+                    });
+
+                    // Mensaje de advertencia si hay prendas que no se encontraron
+                    if (unmatchedPrendas.length > 0) {
+                        const confirmProceed = await Swal.fire({
+                            title: 'Algunas prendas no se encontraron',
+                            html: `La IA sugirió las siguientes prendas que no se pudieron mapear a tu clóset: <strong>${unmatchedPrendas.join(', ')}</strong>.<br>¿Deseas crear el outfit solo con las prendas encontradas?`,
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonText: 'Sí, crear de todos modos',
+                            cancelButtonText: 'No, cancelar'
+                        });
+                        if (!confirmProceed.isConfirmed) {
+                            return;
+                        }
+                    }
+
+                    // Enviar los datos al backend
+                    fetch('crear_outfit_desde_sugerencia.php', {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                Swal.fire('Outfit Creado!', data.message, 'success')
+                                    .then(() => {
+                                        location.reload();
+                                    });
+                            } else {
+                                Swal.fire('Error', data.message || 'Error desconocido al crear el outfit.', 'error');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error al enviar la solicitud:', error);
+                            Swal.fire('Error de Conexión', 'No se pudo comunicar con el servidor para crear el outfit.', 'error');
+                        });
+                }
+            });
+        }// Función para crear un outfit en la DB a partir de una sugerencia de la IA
+        async function createOutfitFromSuggestion(suggestion) {
+            Swal.fire({
+                title: 'Crear Outfit Sugerido',
+                html: `¿Quieres crear el outfit "${htmlspecialchars(suggestion.titulo)}" en tu clóset?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#28a745', // Color verde
+                cancelButtonColor: '#dc3545',
+                confirmButtonText: 'Sí, Crear Outfit'
+            }).then(async (result) => { // Usamos 'async' aquí porque dentro usaremos 'await'
+                if (result.isConfirmed) {
+                    // --- MOVER LA DECLARACIÓN DE formData AQUÍ ---
+                    const formData = new FormData(); // Declara formData al inicio del bloque isConfirmed
+
+                    const outfitName = suggestion.titulo;
+                    const outfitDescription = suggestion.descripcion;
+                    // Note: outfitContext was previously a selector, let's make sure to get the actual selected values
+                    const outfitContextSelect = document.querySelector('#formSugerencia select[name="contexto[]"]'); // If it's still a select
+                    const outfitContextCheckboxes = document.querySelectorAll('#formSugerencia input[name="contexto[]"]:checked'); // If it's checkboxes
+
+                    // Determine which 'contexts' to use based on your current HTML structure
+                    let contextsToUse = [];
+                    if (outfitContextCheckboxes.length > 0) { // If using checkboxes
+                        contextsToUse = Array.from(outfitContextCheckboxes).map(cb => cb.value);
+                    } else if (outfitContextSelect && outfitContextSelect.selectedOptions) { // If still using a multiple select
+                        contextsToUse = Array.from(outfitContextSelect.selectedOptions).map(option => option.value);
+                    }
+                    
+                    const outfitComments = suggestion.tips_adicionales + "\n\n" + suggestion.descripcion;
+
+                    // --- Mapear nombres de prendas sugeridas a IDs de prendas existentes ---
+                    const selectedPrendaIds = [];
+                    const unmatchedPrendas = [];
+
+                    suggestion.prendas_sugeridas.forEach(aiSuggestedPrenda => {
+                        const foundPrenda = availableFilteredPrendas.find(p =>
+                            aiSuggestedPrenda.toLowerCase().includes(p.nombre.toLowerCase()) ||
+                            aiSuggestedPrenda.toLowerCase().includes(p.tipo.toLowerCase())
+                        );
+
+                        if (foundPrenda) {
+                            selectedPrendaIds.push(foundPrenda.id);
+                        } else {
+                            unmatchedPrendas.push(aiSuggestedPrenda);
+                        }
+                    });
+
+                    if (selectedPrendaIds.length === 0) {
+                        Swal.fire('Atención', 'No se pudieron encontrar prendas existentes en tu clóset para esta sugerencia. El outfit no se puede crear.', 'warning');
+                        return;
+                    }
+
+                    // Append data to formData
+                    formData.append('nombre', outfitName);
+                    // Append only the first context, or 'General'
+                    formData.append('contexto', contextsToUse.length > 0 ? contextsToUse[0] : 'General');
+                    formData.append('clima_base', 'todo'); // Default or derived from forecast if needed
+                    formData.append('comentarios', outfitComments);
+                    selectedPrendaIds.forEach(id => {
+                        formData.append('prendas[]', id);
+                    });
+
+                    // Mensaje de advertencia si hay prendas que no se encontraron
+                    if (unmatchedPrendas.length > 0) {
+                        const confirmProceed = await Swal.fire({
+                            title: 'Algunas prendas no se encontraron',
+                            html: `La IA sugirió las siguientes prendas que no se pudieron mapear a tu clóset: <strong>${unmatchedPrendas.join(', ')}</strong>.<br>¿Deseas crear el outfit solo con las prendas encontradas?`,
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonText: 'Sí, crear de todos modos',
+                            cancelButtonText: 'No, cancelar'
+                        });
+                        if (!confirmProceed.isConfirmed) {
+                            return;
+                        }
+                    }
+
+                    // Enviar los datos al backend
+                    fetch('crear_outfit_desde_sugerencia.php', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            Swal.fire('Outfit Creado!', data.message, 'success')
+                                .then(() => {
+                                    location.reload();
+                                });
+                        } else {
+                            Swal.fire('Error', data.message || 'Error desconocido al crear el outfit.', 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error al enviar la solicitud:', error);
+                        Swal.fire('Error de Conexión', 'No se pudo comunicar con el servidor para crear el outfit.', 'error');
+                    });
+                }
+            });
         }
     </script>
 </body>

@@ -11,6 +11,9 @@ date_default_timezone_set('America/Santiago');
 $fecha_actual = date('Y-m-d');
 $datetime_actual = date('Y-m-d H:i:s');
 
+$fecha_manana = date('d-m-Y', strtotime('+1 day'));
+
+
 include 'funciones.php';
 
 
