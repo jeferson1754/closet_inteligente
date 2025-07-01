@@ -548,9 +548,9 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                 <div class="tab-pane fade" id="prendas">
                     <div class="row">
                         <div class="col-md-4">
-                            <div class="card">
+                            <div class="card mb-4">
                                 <div class="card-header">
-                                    <h5><i class="fas fa-plus-circle me-2"></i>Agregar Prenda</h5>
+                                    <h5><i class="fas fa-plus-circle me-2"></i>Agregar Prenda Manualmente</h5>
                                 </div>
                                 <div class="card-body">
                                     <form id="formPrenda">
@@ -562,11 +562,15 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                                             <label class="form-label">Tipo</label>
                                             <select class="form-select" name="tipo" required>
                                                 <option value="">Seleccionar...</option>
-                                                <?php
-                                                foreach ($tipos as $tipo) {
-                                                    echo "<option value=\"$tipo\">" . ucfirst($tipo) . "</option>";
-                                                }
-                                                ?>
+                                                <option value="camisa">Camisa</option>
+                                                <option value="camiseta">Camiseta</option>
+                                                <option value="pantalon">Pantalón</option>
+                                                <option value="falda">Falda</option>
+                                                <option value="vestido">Vestido</option>
+                                                <option value="chaqueta">Chaqueta</option>
+                                                <option value="abrigo">Abrigo</option>
+                                                <option value="zapatos">Zapatos</option>
+                                                <option value="accesorios">Accesorios</option>
                                             </select>
                                         </div>
                                         <div class="mb-3">
@@ -588,25 +592,23 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                                         <div class="mb-3">
                                             <label class="form-label">Clima Apropiado</label>
                                             <select class="form-select" name="clima_apropiado">
-                                                <option value="">Seleccionar...</option>
-                                                <?php
-                                                foreach ($climas as $valor => $texto) {
-                                                    echo "<option value=\"$valor\">" . ucfirst($texto) . "</option>";
-                                                }
-                                                ?>
+                                                <option value="todo">Todo clima</option>
+                                                <option value="calor">Calor</option>
+                                                <option value="frio">Frío</option>
+                                                <option value="lluvia">Lluvia</option>
                                             </select>
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">Formalidad</label>
                                             <select class="form-select" name="formalidad">
-                                                <option value="">Seleccionar...</option>
-                                                <?php
-
-                                                foreach ($formalidades as $f) {
-                                                    echo "<option value=\"$f\" $f>" . ucfirst($f) . "</option>";
-                                                }
-                                                ?>
+                                                <option value="casual">Casual</option>
+                                                <option value="semi-formal">Semi-formal</option>
+                                                <option value="formal">Formal</option>
                                             </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Comentarios</label>
+                                            <textarea class="form-control" name="comentarios" rows="3"></textarea>
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">Foto</label>
@@ -615,13 +617,90 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                                                 <img id="previewPrenda" class="image-preview" style="display: none;">
                                             </div>
                                         </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Comentarios</label>
-                                            <textarea class="form-control" name="comentarios" rows="3"></textarea>
-                                        </div>
                                         <button type="submit" class="btn btn-primary w-100">
                                             <i class="fas fa-save me-2"></i>Guardar Prenda
                                         </button>
+                                    </form>
+                                </div>
+                            </div>
+
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5><i class="fas fa-magic me-2"></i>Nueva Prenda con Asistencia IA</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="formPrendaIA">
+                                        <div class="mb-3">
+                                            <label class="form-label">Sube la Foto de tu Prenda</label>
+                                            <input type="file" class="form-control" id="iaPrendaFoto" name="foto" accept="image/*" required onchange="previewImage(this, 'previewPrendaIA')">
+                                            <div class="mt-2 text-center">
+                                                <img id="previewPrendaIA" class="image-preview" style="display: none; max-width: 150px; max-height: 150px; border: 1px solid #ddd;">
+                                            </div>
+                                        </div>
+                                        <button type="button" class="btn btn-info w-100 mb-3" id="generarPromptPrendaBtn">
+                                            <i class="fas fa-robot me-2"></i>Generar Prompt de Descripción
+                                        </button>
+
+                                        <div id="aiDescriptionSection" style="display:none;">
+                                            <div class="form-section mb-3">
+                                                <h6>Prompt para describir la prenda con IA:</h6>
+                                                <div class="input-group">
+                                                    <textarea id="aiPrendaPrompt" class="form-control" rows="6" readonly></textarea>
+                                                    <button class="btn btn-outline-secondary" type="button" id="copyPrendaPromptBtn">
+                                                        <i class="fas fa-copy"></i>
+                                                    </button>
+                                                </div>
+                                                <small class="form-text text-muted">Copia el prompt, pégalo en tu IA y luego pega la respuesta abajo.</small>
+                                            </div>
+
+                                            <div class="form-section mb-3">
+                                                <h6>Pega la Respuesta de la IA aquí:</h6>
+                                                <textarea id="aiPrendaResponse" class="form-control" rows="6" placeholder="Pega el JSON de la IA aquí..." onkeyup="processPrendaAIResponse()"></textarea>
+                                                <small class="form-text text-muted">Asegúrate de que sea JSON válido. Se autocompletarán los campos.</small>
+                                            </div>
+
+                                            <h6>Detalles de la Prenda (Auto-completado por IA):</h6>
+                                            <div class="mb-3">
+                                                <label class="form-label">Nombre (Sugerido por IA)</label>
+                                                <input type="text" class="form-control" name="nombre_ia" id="iaNombre" required>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Tipo (Sugerido por IA)</label>
+                                                <input type="text" class="form-control" name="tipo_ia" id="iaTipo" required>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Color Principal (Sugerido por IA)</label>
+                                                <input type="text" class="form-control" name="color_principal_ia" id="iaColorPrincipal">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Tela (Sugerido por IA)</label>
+                                                <input type="text" class="form-control" name="tela_ia" id="iaTela">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Textura (Sugerido por IA)</label>
+                                                <input type="text" class="form-control" name="textura_ia" id="iaTextura">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Estampado (Sugerido por IA)</label>
+                                                <input type="text" class="form-control" name="estampado_ia" id="iaEstampado">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Clima Apropiado (Sugerido por IA)</label>
+                                                <input type="text" class="form-control" name="clima_apropiado_ia" id="iaClimaApropiado">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Formalidad (Sugerido por IA)</label>
+                                                <input type="text" class="form-control" name="formalidad_ia" id="iaFormalidad">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Comentarios (Sugerido por IA)</label>
+                                                <textarea class="form-control" name="comentarios_ia" id="iaComentarios" rows="3"></textarea>
+                                            </div>
+
+                                            <button type="submit" class="btn btn-primary w-100" id="guardarPrendaIABtn">
+                                                <i class="fas fa-save me-2"></i>Guardar Prenda en Clóset
+                                            </button>
+                                        </div>
                                     </form>
                                 </div>
                             </div>
@@ -745,7 +824,7 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                                         <div class="mb-3">
                                             <label class="form-label">Seleccionar Prendas</label>
                                             <?php
-                                            $sql = "SELECT id, nombre, tipo, color_principal, foto FROM prendas";
+                                            $sql = "SELECT id, nombre, tipo, color_principal, foto FROM prendas WHERE estado = 'disponible'";
                                             $result = $mysqli_obj->query($sql);
 
                                             if ($result && $result->num_rows > 0) {
@@ -1130,9 +1209,6 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
 
         });
 
-
-
-
         document.addEventListener('DOMContentLoaded', () => {
             const modalElement = document.getElementById('modalAccionOutfit');
             const modal = new bootstrap.Modal(modalElement);
@@ -1288,8 +1364,6 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
             });
         });
 
-
-
         function generarSugerencia(ciudad = 'Santiago') {
             fetch('obtener_sugerencias.php?city=' + encodeURIComponent(ciudad))
                 .then(res => res.json())
@@ -1356,7 +1430,6 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
         const availableFilteredPrendas = <?php echo $json_prendas_para_sugerencia_ia; ?>;
         const tomorrowForecast = <?php echo $json_forecast_data; ?>; // NUEVA LÍNEA
 
-        // Nueva función para generar el prompt para la IA
         // Nueva función para generar el prompt para la IA
         function generarPrompt() {
             // Obtener todos los valores seleccionados del selector múltiple de contexto
@@ -1481,8 +1554,6 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
             }
         });
 
-
-
         // Función para procesar la respuesta de la IA
         document.getElementById('processResponseBtn').addEventListener('click', function() {
             const aiResponseText = document.getElementById('aiResponse').value;
@@ -1567,107 +1638,6 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
         }
 
         // Función para crear un outfit en la DB a partir de una sugerencia de la IA
-        async function createOutfitFromSuggestion(suggestion) {
-            Swal.fire({
-                title: 'Crear Outfit Sugerido',
-                html: `¿Quieres crear el outfit "${htmlspecialchars(suggestion.titulo)}" en tu clóset?`,
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#28a745', // Color verde
-                cancelButtonColor: '#dc3545',
-                confirmButtonText: 'Sí, Crear Outfit'
-            }).then(async (result) => { // Usamos 'async' aquí porque dentro usaremos 'await'
-                if (result.isConfirmed) {
-                    // --- MOVER LA DECLARACIÓN DE formData AQUÍ ---
-                    const formData = new FormData(); // Declara formData al inicio del bloque isConfirmed
-
-                    const outfitName = suggestion.titulo;
-                    const outfitDescription = suggestion.descripcion;
-                    // Note: outfitContext was previously a selector, let's make sure to get the actual selected values
-                    const outfitContextSelect = document.querySelector('#formSugerencia select[name="contexto[]"]'); // If it's still a select
-                    const outfitContextCheckboxes = document.querySelectorAll('#formSugerencia input[name="contexto[]"]:checked'); // If it's checkboxes
-
-                    // Determine which 'contexts' to use based on your current HTML structure
-                    let contextsToUse = [];
-                    if (outfitContextCheckboxes.length > 0) { // If using checkboxes
-                        contextsToUse = Array.from(outfitContextCheckboxes).map(cb => cb.value);
-                    } else if (outfitContextSelect && outfitContextSelect.selectedOptions) { // If still using a multiple select
-                        contextsToUse = Array.from(outfitContextSelect.selectedOptions).map(option => option.value);
-                    }
-
-                    const outfitComments = suggestion.tips_adicionales + "\n\n" + suggestion.descripcion;
-
-                    // --- Mapear nombres de prendas sugeridas a IDs de prendas existentes ---
-                    const selectedPrendaIds = [];
-                    const unmatchedPrendas = [];
-
-                    suggestion.prendas_sugeridas.forEach(aiSuggestedPrenda => {
-                        const foundPrenda = availableFilteredPrendas.find(p =>
-                            aiSuggestedPrenda.toLowerCase().includes(p.nombre.toLowerCase()) ||
-                            aiSuggestedPrenda.toLowerCase().includes(p.tipo.toLowerCase())
-                        );
-
-                        if (foundPrenda) {
-                            selectedPrendaIds.push(foundPrenda.id);
-                        } else {
-                            unmatchedPrendas.push(aiSuggestedPrenda);
-                        }
-                    });
-
-                    if (selectedPrendaIds.length === 0) {
-                        Swal.fire('Atención', 'No se pudieron encontrar prendas existentes en tu clóset para esta sugerencia. El outfit no se puede crear.', 'warning');
-                        return;
-                    }
-
-                    // Append data to formData
-                    formData.append('nombre', outfitName);
-                    // Append only the first context, or 'General'
-                    formData.append('contexto', contextsToUse.length > 0 ? contextsToUse[0] : 'General');
-                    formData.append('clima_base', 'todo'); // Default or derived from forecast if needed
-                    formData.append('comentarios', outfitComments);
-                    selectedPrendaIds.forEach(id => {
-                        formData.append('prendas[]', id);
-                        console.log('ID de prenda seleccionada:', id);
-                    });
-
-                    // Mensaje de advertencia si hay prendas que no se encontraron
-                    if (unmatchedPrendas.length > 0) {
-                        const confirmProceed = await Swal.fire({
-                            title: 'Algunas prendas no se encontraron',
-                            html: `La IA sugirió las siguientes prendas que no se pudieron mapear a tu clóset: <strong>${unmatchedPrendas.join(', ')}</strong>.<br>¿Deseas crear el outfit solo con las prendas encontradas?`,
-                            icon: 'warning',
-                            showCancelButton: true,
-                            confirmButtonText: 'Sí, crear de todos modos',
-                            cancelButtonText: 'No, cancelar'
-                        });
-                        if (!confirmProceed.isConfirmed) {
-                            return;
-                        }
-                    }
-
-                    // Enviar los datos al backend
-                    fetch('crear_outfit_desde_sugerencia.php', {
-                            method: 'POST',
-                            body: formData
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.success) {
-                                Swal.fire('Outfit Creado!', data.message, 'success')
-                                    .then(() => {
-                                        location.reload();
-                                    });
-                            } else {
-                                Swal.fire('Error', data.message || 'Error desconocido al crear el outfit.', 'error');
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error al enviar la solicitud:', error);
-                            Swal.fire('Error de Conexión', 'No se pudo comunicar con el servidor para crear el outfit.', 'error');
-                        });
-                }
-            });
-        } // Función para crear un outfit en la DB a partir de una sugerencia de la IA
         async function createOutfitFromSuggestion(suggestion) {
             Swal.fire({
                 title: 'Crear Outfit Sugerido',
@@ -1782,6 +1752,216 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                 }
             });
         }
+
+        function processPrendaAIResponse() {
+            // Obtener el elemento textarea directamente dentro de la función
+            const aiPrendaResponseTextarea = document.getElementById('aiPrendaResponse');
+            const responseText = aiPrendaResponseTextarea.value;
+            try {
+                const aiData = JSON.parse(responseText);
+
+                // Autocompletar campos si el JSON es válido
+                document.getElementById('iaNombre').value = aiData.nombre || '';
+                document.getElementById('iaTipo').value = aiData.tipo || '';
+                document.getElementById('iaColorPrincipal').value = aiData.color_principal || '';
+                document.getElementById('iaTela').value = aiData.tela || '';
+                document.getElementById('iaTextura').value = aiData.textura || '';
+                document.getElementById('iaEstampado').value = aiData.estampado || '';
+                document.getElementById('iaClimaApropiado').value = aiData.clima_apropiado || 'todo'; // Default si IA no lo da
+                document.getElementById('iaFormalidad').value = aiData.formalidad || 'casual'; // Default si IA no lo da
+                document.getElementById('iaComentarios').value = aiData.comentarios || '';
+
+                // Mostrar mensaje de éxito si ya se pegó y es válido
+                if (responseText.length > 0) {
+                    Swal.fire({
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 3000,
+                        timerProgressBar: true,
+                        icon: 'success',
+                        title: 'Campos autocompletados con la IA!'
+                    });
+                }
+
+            } catch (e) {
+                // Limpiar campos si el JSON no es válido
+                document.getElementById('iaNombre').value = '';
+                document.getElementById('iaTipo').value = '';
+                document.getElementById('iaColorPrincipal').value = '';
+                document.getElementById('iaTela').value = '';
+                document.getElementById('iaTextura').value = '';
+                document.getElementById('iaEstampado').value = '';
+                document.getElementById('iaClimaApropiado').value = 'todo';
+                document.getElementById('iaFormalidad').value = 'casual';
+                document.getElementById('iaComentarios').value = '';
+
+                // Solo mostrar error si el usuario ha pegado algo que no es vacío y no es JSON
+                if (responseText.trim().length > 0) {
+                    Swal.fire({
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 5000,
+                        timerProgressBar: true,
+                        icon: 'error',
+                        title: 'Error: Respuesta de IA no es JSON válido.'
+                    });
+                }
+            }
+        }
+
+
+        // --- NUEVA LÓGICA: Subir Prenda con Asistencia IA ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const formPrendaIA = document.getElementById('formPrendaIA');
+            const generarPromptPrendaBtn = document.getElementById('generarPromptPrendaBtn');
+            const aiDescriptionSection = document.getElementById('aiDescriptionSection');
+            const aiPrendaPrompt = document.getElementById('aiPrendaPrompt');
+            const copyPrendaPromptBtn = document.getElementById('copyPrendaPromptBtn');
+            const aiPrendaFotoInput = document.getElementById('iaPrendaFoto');
+            const aiPrendaResponseTextarea = document.getElementById('aiPrendaResponse');
+            const guardarPrendaIABtn = document.getElementById('guardarPrendaIABtn');
+
+            let currentUploadedPrendaPath = ''; // Variable para guardar la ruta de la foto subida temporalmente
+
+            // Listener para el botón "Generar Prompt de Descripción"
+            generarPromptPrendaBtn.addEventListener('click', async () => {
+                const file = aiPrendaFotoInput.files[0];
+                if (!file) {
+                    Swal.fire('Error', 'Por favor, selecciona una imagen de la prenda primero.', 'error');
+                    return;
+                }
+
+                // 1. Subir la imagen temporalmente (simulado o a un script que la guarde y devuelva la ruta)
+                // Por la "mecánica de copiar y pegar", no subiremos la imagen real a un script de IA.
+                // En su lugar, el prompt dirá a la IA "describe la imagen que te pegaré".
+                // La imagen se subirá REALMENTE a 'save_prenda_from_ai.php' más tarde.
+
+                // Aquí podríamos subir la imagen a un script PHP para obtener una URL temporal si tu IA lo permite.
+                // O si la IA puede procesar imágenes directamente (como Gemini Vision), el usuario la pegaría allí.
+                // Para este flujo "copiar y pegar prompt", asumimos que la imagen se verá visualmente en la IA por el usuario.
+
+                // Por ahora, solo guardaremos el archivo localmente para la previsualización y la subida final.
+                // La URL de la foto en el prompt es un placeholder para que la IA sepa qué tipo de input esperar.
+
+                // Simular una subida temporal para obtener la URL para el prompt
+                // En una app real, aquí enviarías la imagen a un script PHP que la guarda
+                // y devuelve su URL pública. Por ahora, solo indicamos el nombre del archivo.
+                const simulatedFileName = file.name;
+
+                // 2. Generar el prompt con instrucciones para describir la imagen.
+                const prompt = `Actúa como un experto en moda y un asistente de clóset. Necesito que describas una prenda de ropa basándote en la imagen que te voy a proporcionar. Por favor, sé extremadamente detallado y proporciona las características exactas para catalogarla en mi clóset inteligente.
+
+                Tu respuesta debe ser un objeto JSON estricto con las siguientes propiedades. Si una característica no es clara en la imagen, omítela o usa "N/A" (No Aplicable):
+
+                {
+                "nombre": "Nombre descriptivo de la prenda (ej. Camiseta de algodón básica, Jeans ajustados, Chaqueta impermeable)",
+                "tipo": "Tipo de prenda (ej. camiseta, camisa, pantalon, short, chaqueta, abrigo, zapatos, sandalias, vestido, accesorio)",
+                "color_principal": "Color dominante (ej. Azul oscuro, Blanco, Negro, Naranja Salmón)",
+                "tela": "Tipo de tela (ej. algodón, lino, mezclilla, poliéster, lana)",
+                "textura": "Textura visual de la tela (ej. liso, rugoso, acanalado, punto)",
+                "estampado": "Descripción del estampado (ej. rayas, flores, lunares, liso, gráfico)",
+                "clima_apropiado": "Clima principal para usarla (ej. calor, frio, lluvia, todo)",
+                "formalidad": "Nivel de formalidad (ej. casual, semi-formal, formal)",
+                "comentarios": "Cualquier detalle adicional relevante (ej. 'mancha frontal', 'corte oversized', 'ideal para correr')"
+                }
+                `;
+
+                aiPrendaPrompt.value = prompt;
+                aiDescriptionSection.style.display = 'block'; // Mostrar la sección de descripción
+
+                // Copiar el prompt al portapapeles
+                aiPrendaPrompt.select();
+                aiPrendaPrompt.setSelectionRange(0, 99999);
+                try {
+                    await navigator.clipboard.writeText(aiPrendaPrompt.value);
+                    Swal.fire('¡Prompt Copiado!', 'Ahora, pega este prompt en tu IA y sube la imagen de la prenda.', 'success');
+                } catch (err) {
+                    console.error('Error al copiar el prompt:', err);
+                    Swal.fire('Error', 'No se pudo copiar el prompt automáticamente. Por favor, cópialo manualmente.', 'error');
+                }
+            });
+
+            // Listener para copiar el prompt manualmente
+            copyPrendaPromptBtn.addEventListener('click', async () => {
+                aiPrendaPrompt.select();
+                aiPrendaPrompt.setSelectionRange(0, 99999);
+                try {
+                    await navigator.clipboard.writeText(aiPrendaPrompt.value);
+                    Swal.fire('¡Copiado!', 'El prompt ha sido copiado al portapapeles.', 'success');
+                } catch (err) {
+                    console.error('Error al copiar el prompt:', err);
+                    Swal.fire('Error', 'No se pudo copiar el prompt automáticamente. Por favor, cópialo manualmente.', 'error');
+                }
+            });
+
+
+            // Función para procesar la respuesta de la IA y autocompletar campos
+
+            // Listener para el botón "Guardar Prenda en Clóset" (final)
+            guardarPrendaIABtn.addEventListener('click', async (e) => {
+                e.preventDefault();
+
+                // Validar que la foto esté seleccionada
+                const fotoFile = aiPrendaFotoInput.files[0];
+                if (!fotoFile) {
+                    Swal.fire('Error', 'Debes seleccionar una imagen de la prenda.', 'error');
+                    return;
+                }
+
+                // Validar campos autocompletados
+                const iaNombre = document.getElementById('iaNombre').value.trim();
+                const iaTipo = document.getElementById('iaTipo').value.trim();
+                if (!iaNombre || !iaTipo) {
+                    Swal.fire('Error', 'Los campos "Nombre" y "Tipo" son obligatorios.', 'error');
+                    return;
+                }
+
+                // Crear FormData para enviar al PHP
+                const formData = new FormData();
+                formData.append('foto', fotoFile); // La imagen original
+                formData.append('nombre_ia', iaNombre);
+                formData.append('tipo_ia', iaTipo);
+                formData.append('color_principal_ia', document.getElementById('iaColorPrincipal').value.trim());
+                formData.append('tela_ia', document.getElementById('iaTela').value.trim());
+                formData.append('textura_ia', document.getElementById('iaTextura').value.trim());
+                formData.append('estampado_ia', document.getElementById('iaEstampado').value.trim());
+                formData.append('clima_apropiado_ia', document.getElementById('iaClimaApropiado').value.trim());
+                formData.append('formalidad_ia', document.getElementById('iaFormalidad').value.trim());
+                formData.append('comentarios_ia', document.getElementById('iaComentarios').value.trim());
+
+                // Enviar a save_prenda_from_ai.php
+                Swal.fire({
+                    title: 'Guardando Prenda...',
+                    text: 'Por favor espera mientras tu prenda se guarda.',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                fetch('save_prenda_from_ai.php', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        Swal.close();
+                        if (data.success) {
+                            Swal.fire('¡Guardada!', data.message, 'success')
+                                .then(() => location.reload()); // Recargar para ver la nueva prenda
+                        } else {
+                            Swal.fire('Error', data.message, 'error');
+                        }
+                    })
+                    .catch(error => {
+                        Swal.close();
+                        console.error('Error al guardar prenda con IA:', error);
+                        Swal.fire('Error de Conexión', 'No se pudo comunicar con el servidor para guardar la prenda.', 'error');
+                    });
+            });
+        });
     </script>
 </body>
 

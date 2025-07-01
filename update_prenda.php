@@ -4,7 +4,7 @@
 include 'bd.php';
 header('Content-Type: application/json');
 
-$campos = ['nombre', 'tipo', 'color_principal', 'tela', 'textura', 'estampado', 'clima_apropiado', 'estado', 'formalidad', 'fecha_agregado', 'id', 'imagen', 'comentarios'];
+$campos = ['nombre', 'tipo', 'color_principal', 'tela', 'textura', 'estampado', 'clima_apropiado', 'estado', 'formalidad', 'fecha_agregado', 'id', 'comentarios'];
 foreach ($campos as $campo) {
     if (empty($_POST[$campo])) {
         echo json_encode(['success' => false, 'message' => "Falta el campo: $campo"]);
@@ -33,7 +33,7 @@ if (isset($_FILES['foto']) && $_FILES['foto']['error'] === UPLOAD_ERR_OK) {
         exit;
     }
 } else {
-    $foto = $_POST['imagen'];
+    $foto = $_POST['imagen'] ?? null; // Si no se subió una nueva imagen, usar la existente
 }
 
 try {
