@@ -170,8 +170,8 @@ if (!empty($prendas_ids)) {
                     </div>
 
                     <p class="text-center lead">
-                        <?php if (!empty($outfit_details['detalles_adicionales'])): ?>
-                            <i class="fas fa-comment me-2"></i>"<?php echo nl2br(htmlspecialchars($outfit_details['detalles_adicionales'])); ?>"
+                        <?php if (!empty($outfit_details['comentarios'])): ?>
+                            <i class="fas fa-comment me-2"></i>"<?php echo nl2br(htmlspecialchars($outfit_details['comentarios'])); ?>"
                         <?php else: ?>
                             <span class="text-muted">Sin detalles adicionales para este outfit.</span>
                         <?php endif; ?>
