@@ -16,6 +16,11 @@ $id_categoria = determinarCategoriaId($_POST['nombre']);
 
 $_POST['foto'] ?? null;
 
+// NUEVA LÍNEA: Recibir el valor del checkbox uso_ilimitado
+$uso_ilimitado = isset($_POST['uso_ilimitado']) ? 1 : 0; // Si está marcado, será 1 (TRUE); si no, 0 (FALSE
+// NUEVA LÍNEA: Recibir el valor de usos_esta_semana
+$usos_esta_semana = intval($_POST['usos_esta_semana'] ?? 0);
+
 if (isset($_FILES['foto']) && $_FILES['foto']['error'] === UPLOAD_ERR_OK) {
     $nombreOriginal = $_FILES['foto']['name'];
     $rutaTemporal = $_FILES['foto']['tmp_name'];
@@ -50,7 +55,9 @@ try {
             estado = :estado,
             foto = :foto,
             fecha_agregado = :fecha_agregado,
-            detalles_adicionales = :detalles_adicionales
+            detalles_adicionales = :detalles_adicionales,
+            uso_ilimitado = :uso_ilimitado,
+            usos_esta_semana = :usos_esta_semana
         WHERE id = :id
     ");
 
@@ -67,6 +74,8 @@ try {
         ':foto' => $foto,
         ':fecha_agregado' => $_POST['fecha_agregado'],
         ':detalles_adicionales' => $_POST['comentarios'],
+        ':uso_ilimitado' => $uso_ilimitado, // NUEVA LÍNEA: Guardar el valor del checkbox
+        ':usos_esta_semana' => $usos_esta_semana,
         ':id' => $_POST['id'],
     ]);
 

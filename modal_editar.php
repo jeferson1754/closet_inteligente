@@ -28,7 +28,7 @@
                                 <select class="form-select" name="tipo" required>
                                     <option value="">Seleccionar...</option>
                                     <?php
-                                  
+
                                     foreach ($tipos as $tipo) {
                                         $selected = ($row['tipo'] == $tipo) ? 'selected' : '';
                                         echo "<option value=\"$tipo\" $selected>" . ucfirst($tipo) . "</option>";
@@ -93,7 +93,7 @@
                                 <label class="form-label">Formalidad</label>
                                 <select class="form-select" name="formalidad" required>
                                     <?php
-              
+
                                     foreach ($formalidades as $f) {
                                         $selected = ($row['formalidad'] == $f) ? 'selected' : '';
                                         echo "<option value=\"$f\" $selected>" . ucfirst($f) . "</option>";
@@ -106,7 +106,7 @@
                                 <label class="form-label">Estado</label>
                                 <select class="form-select" name="estado" required>
                                     <?php
-                     
+
                                     foreach ($estados as $valor => $texto) {
                                         $selected = ($row['estado'] == $valor) ? 'selected' : '';
                                         echo "<option value=\"$valor\" $selected>$texto</option>";
@@ -119,6 +119,24 @@
                                 <label class="form-label">Fecha Creado</label>
                                 <input type="date" class="form-control" name="fecha_agregado" value="<?php echo $row['fecha_agregado']; ?>">
                             </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Usos esta semana</label>
+                                <input type="number" class="form-control" name="usos_esta_semana" value="<?php echo (int)$row['usos_esta_semana']; ?>" min="0" required>
+                                <small class="form-text text-muted">Cantidad de veces usada esta semana.</small>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-check mt-4">
+                                    <input class="form-check-input" type="checkbox" name="uso_ilimitado" id="usoIlimitado_<?php echo $row['id']; ?>"
+                                        <?php echo $row['uso_ilimitado'] ? 'checked' : ''; ?>>
+                                    <label class="form-check-label" for="usoIlimitado_<?php echo $row['id']; ?>">
+                                        Uso Ilimitado (Excluir de conteo semanal)
+                                    </label>
+                                </div>
+                            </div>
+
+
                         </div>
                     </div>
                     <div class="form-section">

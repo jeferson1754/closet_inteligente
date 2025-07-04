@@ -1,6 +1,35 @@
 <?php
 include 'bd.php'; // conexión a la base de datos
 
+// --- NUEVO: Disparador para actualizar estados diarios ---
+// Lógica para ejecutar actualizar_estados_diarios.php una vez al día
+session_start(); // Asegúrate de iniciar la sesión si aún no lo haces
+
+$last_update_date = $_SESSION['last_daily_status_update'] ?? null;
+$today_date_str = date('Y-m-d');
+
+if ($last_update_date !== $today_date_str) {
+    // Si la última actualización no fue hoy, ejecutar el script de actualización
+    // Usar file_get_contents o cURL para una llamada HTTP interna
+    // Es preferible usar cURL o una función que no dependa de allow_url_fopen
+    $update_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://$_SERVER[HTTP_HOST]" . dirname($_SERVER['PHP_SELF']) . "/actualizar_estados_diarios.php";
+
+    // Puedes hacer la llamada silenciosa con cURL
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $update_url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 5); // Timeout de 5 segundos
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // No recomendado para producción sin configurar CA certs
+    curl_exec($ch); // Ejecutar la llamada (ignorar la respuesta)
+    curl_close($ch);
+
+    $_SESSION['last_daily_status_update'] = $today_date_str; // Marcar como actualizado para hoy
+    // Opcional: Loggear si la actualización fue exitosa/fallida
+    // error_log("Estado diario de prendas actualizado en: " . $today_date_str);
+}
+// --- FIN: Disparador ---
+
+
 // Consulta para obtener prendas disponibles
 $sql = "SELECT * FROM prendas";
 $result = $mysqli_obj->query($sql);
@@ -9,48 +38,36 @@ $result_prendas = $mysqli_obj->query($sql);
 // Consulta para obtener prendas disponibles y con menos de 3 usos esta semana
 $prendas_para_sugerencia_ia = [];
 
-// Consulta para contar usos de cada prenda en la semana actual
-$sql_usos_semana = "
-    SELECT
-        prenda_id,
-        COUNT(*) AS usos_esta_semana
-    FROM
-        historial_usos
-    WHERE
-        fecha  >= ? AND fecha  < ?
-    GROUP BY
-        prenda_id
-";
 
-$stmt_usos = $mysqli_obj->prepare($sql_usos_semana);
-$stmt_usos->bind_param("ss", $current_week_start, $current_week_end);
-$stmt_usos->execute();
-$result_usos = $stmt_usos->get_result();
-
-$usos_semanales = [];
-while ($row_uso = $result_usos->fetch_assoc()) {
-    $usos_semanales[$row_uso['prenda_id']] = $row_uso['usos_esta_semana'];
-}
-$stmt_usos->close();
 
 // Consulta para obtener prendas disponibles
-$sql_prendas_disponibles = "SELECT id, nombre, tipo, color_principal, detalles_adicionales FROM prendas WHERE estado = 'disponible'";
+$sql_prendas_disponibles = "SELECT *
+                                                    FROM prendas
+                                                    WHERE estado = 'disponible' OR uso_ilimitado = TRUE"; // AÑADIR uso_ilimitado
 $result_disponibles = $mysqli_obj->query($sql_prendas_disponibles);
 
 if ($result_disponibles) {
     while ($prenda_disp = $result_disponibles->fetch_assoc()) {
         $prenda_id = $prenda_disp['id'];
-        $usos = $usos_semanales[$prenda_id] ?? 0; // Obtener usos o 0 si no hay registro
+        $usos = $prenda_disp['usos_esta_semana'];
+        $prenda_tipo = $prenda_disp['tipo']; // Use original case or convert to lower as needed by the function
+        $es_uso_ilimitado = $prenda_disp['uso_ilimitado'];
 
-        // Si la prenda tiene menos de 3 usos esta semana, la añadimos a la lista
-        if ($usos < 3) {
+        // Use the new function to get usage status
+        $usageStatus = getUsageLimitStatus($prenda_tipo, $usos);
+        $max_usos_permitidos = $usageStatus['max_uses'];
+        $isOverused = $usageStatus['is_overused'];
+
+        // Condition for filtering: if it's unlimited use OR it's not overused
+        if ($es_uso_ilimitado || !$isOverused) { // Use the boolean result from the function
             $prendas_para_sugerencia_ia[] = [
                 'id' => $prenda_disp['id'],
                 'nombre' => $prenda_disp['nombre'],
                 'tipo' => $prenda_disp['tipo'],
                 'color' => $prenda_disp['color_principal'],
                 'usos_esta_semana' => $usos,
-                'comentarios' => $prenda_disp['detalles_adicionales'] ?? '' // NUEVA LÍNEA: Incluir comentarios
+                'comentarios' => $prenda_disp['detalles_adicionales'] ?? '',
+                'uso_ilimitado' => $es_uso_ilimitado
             ];
         }
     }
@@ -58,6 +75,45 @@ if ($result_disponibles) {
 
 // Convertir el array PHP a JSON para pasarlo a JavaScript
 $json_prendas_para_sugerencia_ia = json_encode($prendas_para_sugerencia_ia);
+
+
+// --- INICIO: Consulta para obtener el historial de outfits usados ---
+$outfits_usados_history = [];
+
+// Obtener los últimos outfits usados (ej. los últimos 5, puedes ajustar el LIMIT)
+$sql_history = "
+    SELECT
+        o.id,
+        o.nombre,
+        o.comentarios,
+        GROUP_CONCAT(p.nombre ORDER BY p.nombre ASC SEPARATOR ', ') AS prendas_nombres
+    FROM
+        outfits o
+    JOIN
+        outfit_prendas op ON o.id = op.outfit_id
+    JOIN
+        prendas p ON op.prenda_id = p.id
+    GROUP BY
+        o.id, o.nombre, o.comentarios
+    ORDER BY
+        MAX(o.fecha_creado) DESC -- Ordenar por la fecha de uso más reciente del outfit
+    LIMIT 5;
+";
+
+$result_history = $mysqli_obj->query($sql_history);
+
+if ($result_history) {
+    while ($row = $result_history->fetch_assoc()) {
+        $outfits_usados_history[] = [
+            'nombre' => $row['nombre'],
+            'prendas' => $row['prendas_nombres'], // Esto será un string con nombres separados por coma
+            'comentarios' => $row['comentarios']
+        ];
+    }
+}
+$json_outfits_usados_history = json_encode($outfits_usados_history, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+// --- FIN: Consulta para obtener el historial de outfits usados ---
+
 
 // Consulta para obtener prendas disponibles para el formulario de outfit
 $sql = "SELECT id, nombre, tipo, color_principal, foto FROM prendas WHERE estado = 'disponible'";
@@ -236,7 +292,41 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
         .prenda-card {
             background: linear-gradient(135deg, #f8f9ff 0%, #e8f4f8 100%);
             border-left: 4px solid #667eea;
+            position: relative;
+            /* Necesario para posicionar el contador absoluto */
+            overflow: hidden;
+            /* Asegura que el contador no se salga si hay bordes */
         }
+
+        .uso-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: #667eea;
+            /* Color principal */
+            color: white;
+            border-radius: 50%;
+            /* Para que sea un círculo */
+            width: 30px;
+            /* Tamaño del círculo */
+            height: 30px;
+            /* Tamaño del círculo */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8em;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            z-index: 10;
+            /* Asegura que esté por encima de la imagen */
+        }
+
+        /* Color si los usos son altos (opcional, para avisar que está cerca del límite) */
+        .uso-badge.high-usage {
+            background-color: #dc3545;
+            /* Rojo */
+        }
+
 
         .outfit-card {
             background: linear-gradient(135deg, #fff8f0 0%, #f0f8e8 100%);
@@ -483,7 +573,7 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
 
                                     // Consulta para obtener las prendas más usadas
                                     $query = "
-                                           SELECT p.nombre, COUNT(h.id) AS usos FROM historial_usos h INNER JOIN prendas p ON h.prenda_id = p.id GROUP BY h.prenda_id ORDER BY usos DESC LIMIT 5;
+                                         SELECT * FROM `prendas` ORDER BY `prendas`.`usos_esta_semana` DESC LIMIT 5;
                                         ";
 
                                     $resultado = $mysqli_proc->query($query);
@@ -493,7 +583,7 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                                         while ($fila = $resultado->fetch_assoc()) {
                                             echo '<li class="list-group-item d-flex justify-content-between align-items-center">';
                                             echo htmlspecialchars($fila['nombre']);
-                                            echo '<span class="badge bg-primary rounded-pill">' . (int)$fila['usos'] . '</span>';
+                                            echo '<span class="badge bg-primary rounded-pill">' . (int)$fila['usos_esta_semana'] . '</span>';
                                             echo '</li>';
                                         }
                                         echo '</ul>';
@@ -725,6 +815,27 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                                         <?php while ($row = $result_prendas->fetch_assoc()): ?>
                                             <div class="col-md-6 mb-3 prenda-item" data-nombre-prenda="<?php echo htmlspecialchars(strtolower($row['nombre'])); ?>">
                                                 <div class="card prenda-card">
+
+                                                    <?php
+                                                    $uso_badge_class = '';
+                                                    $current_garment_uses = (int)$row['usos_esta_semana'];
+                                                    $garment_type_for_function = $row['tipo'];
+
+                                                    // Utiliza la función para obtener el estado de uso
+                                                    $badgeUsageStatus = getUsageLimitStatus($garment_type_for_function, $current_garment_uses);
+
+                                                    // Aplica la clase 'high-usage' si la prenda está sobreusada Y no es de uso ilimitado
+                                                    if (!$row['uso_ilimitado'] && $badgeUsageStatus['is_overused']) {
+                                                        $uso_badge_class = ' high-usage';
+                                                    }
+
+                                                    // Muestra el badge solo si la prenda NO es de uso ilimitado
+                                                    // (Si quieres mostrar el contador para prendas de uso ilimitado también, elimina este 'if')
+                                                    if (!$row['uso_ilimitado']) {
+                                                        echo '<span class="uso-badge' . $uso_badge_class . '">' . $current_garment_uses . '</span>';
+                                                    }
+                                                    ?>
+
                                                     <!-- Imagen de la prenda o fondo gris si no hay -->
                                                     <?php if (!empty($row['foto'])): ?>
                                                         <img src="<?php echo $row['foto']; ?>" class="card-img-top" alt="Imagen de <?php echo $row['nombre']; ?>" style="object-fit: cover; max-height: 200px;">
@@ -750,7 +861,10 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                                                         <div class="mt-2">
                                                             <span class="badge clima-<?php echo $row['clima_apropiado']; ?>"><?php echo $row['clima_apropiado']; ?></span>
                                                             <span class="badge formalidad-<?php echo $row['formalidad']; ?>"><?php echo $row['formalidad']; ?></span>
-                                                            <span class="badge bg-<?php echo $row['estado'] === 'disponible' ? 'success' : 'warning'; ?>"><?php echo $row['estado']; ?></span>
+                                                            <span class="badge bg-<?php
+                                                                                    echo $row['estado'] === 'disponible' ? 'success' : ($row['estado'] === 'sucio' ? 'danger' : 'warning');
+                                                                                    ?>">
+                                                                <?php echo $row['estado']; ?></span>
                                                         </div>
                                                         <div class="text-center mt-2">
                                                             <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalEditar_<?php echo $row['id']; ?>">
@@ -824,8 +938,8 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                                         <div class="mb-3">
                                             <label class="form-label">Seleccionar Prendas</label>
                                             <?php
-                                            $sql = "SELECT id, nombre, tipo, color_principal, foto FROM prendas WHERE estado = 'disponible'";
-                                            $result = $mysqli_obj->query($sql);
+
+                                            $result = $mysqli_obj->query($sql_prendas_disponibles);
 
                                             if ($result && $result->num_rows > 0) {
                                                 while ($prenda = $result->fetch_assoc()) {
@@ -1428,7 +1542,9 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
         }
 
         const availableFilteredPrendas = <?php echo $json_prendas_para_sugerencia_ia; ?>;
-        const tomorrowForecast = <?php echo $json_forecast_data; ?>; // NUEVA LÍNEA
+        const tomorrowForecast = <?php echo $json_forecast_data; ?>;
+        const outfitsUsedHistory = <?php echo $json_outfits_usados_history; ?>; // NUEVA LÍNEA
+
 
         // Nueva función para generar el prompt para la IA
         function generarPrompt() {
@@ -1480,6 +1596,24 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                 tomorrowForecastForIA = '\n\nNo se pudo obtener el pronóstico del clima para mañana. Considera un clima general para la temporada.\n';
             }
 
+            // --- INICIO: Historial de Outfits Usados para el prompt ---
+            let outfitsHistoryForIA = '';
+            if (outfitsUsedHistory.length > 0) {
+                outfitsHistoryForIA = '\n\nMis outfits anteriores que podrías usar como referencia o inspiración:\n';
+                outfitsUsedHistory.forEach(outfit => {
+                    outfitsHistoryForIA += `- Nombre: "${outfit.nombre}"\n`;
+                    outfitsHistoryForIA += `  Prendas: ${outfit.prendas}\n`;
+                    if (outfit.comentarios) {
+                        outfitsHistoryForIA += `  Comentarios: "${outfit.comentarios}"\n`;
+                    }
+                });
+                outfitsHistoryForIA += '\n';
+            } else {
+                outfitsHistoryForIA = '\n\nNo tengo historial de outfits usados para referencia.\n';
+            }
+            // --- FIN: Historial de Outfits Usados para el prompt ---
+
+
             let prompt = `\nComo experto en moda y estilismo, necesito una sugerencia de outfit detallada para las siguientes condiciones. Me gustaría que la ropa sugerida sea cómoda, adecuada para los cambios de temperatura y el pronóstico detallado. Por favor, sé creativo y proporciona la información de forma estructurada para que pueda ser parseada fácilmente.
 
             Condiciones para el outfit:
@@ -1491,6 +1625,8 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
              ${reglas_especificas ? `**Reglas o Requisitos Obligatorios:**\n- ${reglas_especificas}\n\n` : ''} 
              
              ${prendasListForIA}
+
+             ${outfitsHistoryForIA}
 
   Tu respuesta debe tener el siguiente formato JSON estricto: **un array de objetos, donde cada objeto representa un outfit sugerido.** Proporciona **3 ideas de outfit distintas** basadas en las condiciones dadas. Sin texto adicional antes ni después del JSON. Cada outfit en el array debe tener las propiedades "titulo", "descripcion", "prendas_sugeridas" (un array de strings concisos) y "tips_adicionales".
             
