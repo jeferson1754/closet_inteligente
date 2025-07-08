@@ -13,43 +13,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' || $_SERVER['REQUEST_METHOD'] === 'POST
     $mysqli_obj->begin_transaction();
 
     try {
-        // --- 0. Lógica para reiniciar contadores semanales si es una nueva semana (se mantiene igual) ---
-        $start_of_current_week = date('Y-m-d', strtotime('monday this week'));
-        $sql_check_resets = "SELECT id, fecha_ultimo_reset_semanal FROM prendas";
-        $result_check_resets = $mysqli_obj->query($sql_check_resets);
-
-        if ($result_check_resets) {
-            while ($prenda_reset = $result_check_resets->fetch_assoc()) {
-                $prenda_id_to_check = $prenda_reset['id'];
-                $last_reset_date = $prenda_reset['fecha_ultimo_reset_semanal'];
-
-                $reset_needed = false;
-                if ($last_reset_date === null) {
-                    $reset_needed = true;
-                } else {
-                    $start_of_last_recorded_week = date('Y-m-d', strtotime($last_reset_date . ' monday this week'));
-                    if ($start_of_current_week > $start_of_last_recorded_week) {
-                        $reset_needed = true;
-                    }
-                }
-
-                if ($reset_needed) {
-                    $sql_reset_prenda_counter = "UPDATE prendas SET usos_esta_semana = 0, fecha_ultimo_reset_semanal = ? WHERE id = ?";
-                    if ($stmt_reset = $mysqli_obj->prepare($sql_reset_prenda_counter)) {
-                        $stmt_reset->bind_param("si", $start_of_current_week, $prenda_id_to_check);
-                        $stmt_reset->execute();
-                        $stmt_reset->close();
-                    } else {
-                        throw new Exception("Error al preparar reinicio de contador semanal para prenda " . $prenda_id_to_check . ": " . $mysqli_obj->error);
-                    }
-                }
-            }
-        } else {
-            throw new Exception("Error al verificar contadores semanales de prendas: " . $mysqli_obj->error);
-        }
-        // FIN: Lógica para reiniciar contadores semanales (se mantiene igual)
-
-
         // --- NUEVA LÓGICA PRINCIPAL: Actualizar estados según uso diario y uso acumulado ---
 
         // 1. Obtener IDs de prendas que fueron usadas HOY
