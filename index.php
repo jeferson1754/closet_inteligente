@@ -475,6 +475,29 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
             border: 1px solid #e9ecef;
         }
+
+        #outfitFormContainer {
+            display: block;
+            /* Oculta el elemento por defecto */
+        }
+
+        #toggleOutfitFormBtn {
+            display: none;
+        }
+
+        /* En pantallas medianas y superiores, el contenido siempre es visible (anula .hidden-mobile-content) */
+        @media (max-width: 768px) {
+
+            #outfitFormContainer {
+                display: none;
+                /* Oculta el elemento por defecto */
+            }
+
+            #toggleOutfitFormBtn {
+                display: block;
+            }
+
+        }
     </style>
 </head>
 
@@ -640,160 +663,175 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                         <div class="col-md-4">
                             <div class="card mb-4">
                                 <div class="card-header">
-                                    <h5><i class="fas fa-plus-circle me-2"></i>Agregar Prenda Manualmente</h5>
+                                    <h5 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Agregar Nueva Prenda</h5>
                                 </div>
                                 <div class="card-body">
-                                    <form id="formPrenda">
-                                        <div class="mb-3">
-                                            <label class="form-label">Nombre</label>
-                                            <input type="text" class="form-control" name="nombre" required>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Tipo</label>
-                                            <select class="form-select" name="tipo" required>
-                                                <option value="">Seleccionar...</option>
-                                                <option value="camisa">Camisa</option>
-                                                <option value="camiseta">Camiseta</option>
-                                                <option value="pantalon">Pantalón</option>
-                                                <option value="falda">Falda</option>
-                                                <option value="vestido">Vestido</option>
-                                                <option value="chaqueta">Chaqueta</option>
-                                                <option value="abrigo">Abrigo</option>
-                                                <option value="zapatos">Zapatos</option>
-                                                <option value="accesorios">Accesorios</option>
-                                            </select>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Color Principal</label>
-                                            <input type="text" class="form-control" name="color_principal">
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Tela</label>
-                                            <input type="text" class="form-control" name="tela">
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Textura</label>
-                                            <input type="text" class="form-control" name="textura">
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Estampado</label>
-                                            <input type="text" class="form-control" name="estampado">
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Clima Apropiado</label>
-                                            <select class="form-select" name="clima_apropiado">
-                                                <option value="todo">Todo clima</option>
-                                                <option value="calor">Calor</option>
-                                                <option value="frio">Frío</option>
-                                                <option value="lluvia">Lluvia</option>
-                                            </select>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Formalidad</label>
-                                            <select class="form-select" name="formalidad">
-                                                <option value="casual">Casual</option>
-                                                <option value="semi-formal">Semi-formal</option>
-                                                <option value="formal">Formal</option>
-                                            </select>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Comentarios</label>
-                                            <textarea class="form-control" name="comentarios" rows="3"></textarea>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Foto</label>
-                                            <input type="file" class="form-control" name="foto" accept="image/*" onchange="previewImage(this, 'previewPrenda')">
-                                            <div class="mt-2">
-                                                <img id="previewPrenda" class="image-preview" style="display: none;">
-                                            </div>
-                                        </div>
-                                        <button type="submit" class="btn btn-primary w-100">
-                                            <i class="fas fa-save me-2"></i>Guardar Prenda
-                                        </button>
-                                    </form>
-                                </div>
-                            </div>
+                                    <div class="mb-3">
+                                        <label class="form-label d-block">¿Cómo quieres agregar tu prenda?</label>
+                                        <div class="btn-group w-100" role="group" aria-label="Seleccionar tipo de formulario de prenda">
+                                            <input type="radio" class="btn-check" name="prendaAddType" id="addManual" autocomplete="off">
+                                            <label class="btn btn-outline-primary" for="addManual"><i class="fas fa-pencil-alt me-2"></i>Manual</label>
 
-                            <div class="card">
-                                <div class="card-header">
-                                    <h5><i class="fas fa-magic me-2"></i>Nueva Prenda con Asistencia IA</h5>
-                                </div>
-                                <div class="card-body">
-                                    <form id="formPrendaIA">
-                                        <div class="mb-3">
-                                            <label class="form-label">Sube la Foto de tu Prenda</label>
-                                            <input type="file" class="form-control" id="iaPrendaFoto" name="foto" accept="image/*" required onchange="previewImage(this, 'previewPrendaIA')">
-                                            <div class="mt-2 text-center">
-                                                <img id="previewPrendaIA" class="image-preview" style="display: none; max-width: 150px; max-height: 150px; border: 1px solid #ddd;">
-                                            </div>
+                                            <input type="radio" class="btn-check" name="prendaAddType" id="addWithAI" autocomplete="off" checked>
+                                            <label class="btn btn-outline-primary" for="addWithAI"><i class="fas fa-robot me-2"></i>Con IA</label>
                                         </div>
-                                        <button type="button" class="btn btn-info w-100 mb-3" id="generarPromptPrendaBtn">
-                                            <i class="fas fa-robot me-2"></i>Generar Prompt de Descripción
-                                        </button>
+                                    </div>
 
-                                        <div id="aiDescriptionSection" style="display:none;">
-                                            <div class="form-section mb-3">
-                                                <h6>Prompt para describir la prenda con IA:</h6>
-                                                <div class="input-group">
-                                                    <textarea id="aiPrendaPrompt" class="form-control" rows="6" readonly></textarea>
-                                                    <button class="btn btn-outline-secondary" type="button" id="copyPrendaPromptBtn">
-                                                        <i class="fas fa-copy"></i>
-                                                    </button>
+                                    <div id="formManualContainer" style="display:none;">
+                                        <h6 class="mb-3 text-muted">Ingresa los detalles manualmente:</h6>
+                                        <form id="formPrenda">
+                                            <div class="mb-3">
+                                                <label class="form-label">Nombre</label>
+                                                <input type="text" class="form-control" name="nombre" required>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Tipo</label>
+                                                <select class="form-select" name="tipo" required>
+                                                    <option value="">Seleccionar...</option>
+                                                    <option value="camisa">Camisa</option>
+                                                    <option value="camiseta">Camiseta</option>
+                                                    <option value="pantalon">Pantalón</option>
+                                                    <option value="falda">Falda</option>
+                                                    <option value="vestido">Vestido</option>
+                                                    <option value="chaqueta">Chaqueta</option>
+                                                    <option value="abrigo">Abrigo</option>
+                                                    <option value="zapatos">Zapatos</option>
+                                                    <option value="accesorios">Accesorios</option>
+                                                </select>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Color Principal</label>
+                                                <input type="text" class="form-control" name="color_principal">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Tela</label>
+                                                <input type="text" class="form-control" name="tela">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Textura</label>
+                                                <input type="text" class="form-control" name="textura">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Estampado</label>
+                                                <input type="text" class="form-control" name="estampado">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Clima Apropiado</label>
+                                                <select class="form-select" name="clima_apropiado">
+                                                    <option value="todo">Todo clima</option>
+                                                    <option value="calor">Calor</option>
+                                                    <option value="frio">Frío</option>
+                                                    <option value="lluvia">Lluvia</option>
+                                                </select>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Formalidad</label>
+                                                <select class="form-select" name="formalidad">
+                                                    <option value="casual">Casual</option>
+                                                    <option value="semi-formal">Semi-formal</option>
+                                                    <option value="formal">Formal</option>
+                                                </select>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Comentarios</label>
+                                                <textarea class="form-control" name="comentarios" rows="3"></textarea>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Foto</label>
+                                                <input type="file" class="form-control" name="foto" accept="image/*" onchange="previewImage(this, 'previewPrenda')">
+                                                <div class="mt-2">
+                                                    <img id="previewPrenda" class="image-preview" style="display: none;">
                                                 </div>
-                                                <small class="form-text text-muted">Copia el prompt, pégalo en tu IA y luego pega la respuesta abajo.</small>
                                             </div>
-
-                                            <div class="form-section mb-3">
-                                                <h6>Pega la Respuesta de la IA aquí:</h6>
-                                                <textarea id="aiPrendaResponse" class="form-control" rows="6" placeholder="Pega el JSON de la IA aquí..." onkeyup="processPrendaAIResponse()"></textarea>
-                                                <small class="form-text text-muted">Asegúrate de que sea JSON válido. Se autocompletarán los campos.</small>
-                                            </div>
-
-                                            <h6>Detalles de la Prenda (Auto-completado por IA):</h6>
-                                            <div class="mb-3">
-                                                <label class="form-label">Nombre (Sugerido por IA)</label>
-                                                <input type="text" class="form-control" name="nombre_ia" id="iaNombre" required>
-                                            </div>
-                                            <div class="mb-3">
-                                                <label class="form-label">Tipo (Sugerido por IA)</label>
-                                                <input type="text" class="form-control" name="tipo_ia" id="iaTipo" required>
-                                            </div>
-                                            <div class="mb-3">
-                                                <label class="form-label">Color Principal (Sugerido por IA)</label>
-                                                <input type="text" class="form-control" name="color_principal_ia" id="iaColorPrincipal">
-                                            </div>
-                                            <div class="mb-3">
-                                                <label class="form-label">Tela (Sugerido por IA)</label>
-                                                <input type="text" class="form-control" name="tela_ia" id="iaTela">
-                                            </div>
-                                            <div class="mb-3">
-                                                <label class="form-label">Textura (Sugerido por IA)</label>
-                                                <input type="text" class="form-control" name="textura_ia" id="iaTextura">
-                                            </div>
-                                            <div class="mb-3">
-                                                <label class="form-label">Estampado (Sugerido por IA)</label>
-                                                <input type="text" class="form-control" name="estampado_ia" id="iaEstampado">
-                                            </div>
-                                            <div class="mb-3">
-                                                <label class="form-label">Clima Apropiado (Sugerido por IA)</label>
-                                                <input type="text" class="form-control" name="clima_apropiado_ia" id="iaClimaApropiado">
-                                            </div>
-                                            <div class="mb-3">
-                                                <label class="form-label">Formalidad (Sugerido por IA)</label>
-                                                <input type="text" class="form-control" name="formalidad_ia" id="iaFormalidad">
-                                            </div>
-                                            <div class="mb-3">
-                                                <label class="form-label">Comentarios (Sugerido por IA)</label>
-                                                <textarea class="form-control" name="comentarios_ia" id="iaComentarios" rows="3"></textarea>
-                                            </div>
-
-                                            <button type="submit" class="btn btn-primary w-100" id="guardarPrendaIABtn">
-                                                <i class="fas fa-save me-2"></i>Guardar Prenda en Clóset
+                                            <button type="submit" class="btn btn-primary w-100">
+                                                <i class="fas fa-save me-2"></i>Guardar Prenda
                                             </button>
+                                        </form>
+                                    </div>
+                                    <div id="formAIContainer">
+                                        <div class="card">
+                                            <div class="card-body">
+                                                <form id="formPrendaIA">
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Sube la Foto de tu Prenda</label>
+                                                        <input type="file" class="form-control" id="iaPrendaFoto" name="foto" accept="image/*" required onchange="previewImage(this, 'previewPrendaIA')">
+                                                        <div class="mt-2 text-center">
+                                                            <img id="previewPrendaIA" class="image-preview" style="display: none; max-width: 150px; max-height: 150px; border: 1px solid #ddd;">
+                                                        </div>
+                                                    </div>
+                                                    <button type="button" class="btn btn-info w-100 mb-3" id="generarPromptPrendaBtn">
+                                                        <i class="fas fa-robot me-2"></i>Generar Prompt de Descripción
+                                                    </button>
+
+                                                    <div id="aiDescriptionSection" style="display:none;">
+                                                        <div class="form-section mb-3">
+                                                            <h6>Prompt para describir la prenda con IA:</h6>
+                                                            <div class="input-group">
+                                                                <textarea id="aiPrendaPrompt" class="form-control" rows="6" readonly></textarea>
+                                                                <button class="btn btn-outline-secondary" type="button" id="copyPrendaPromptBtn">
+                                                                    <i class="fas fa-copy"></i>
+                                                                </button>
+                                                            </div>
+                                                            <small class="form-text text-muted">Copia el prompt, pégalo en tu IA y luego pega la respuesta abajo.</small>
+                                                        </div>
+
+                                                        <div class="form-section mb-3">
+                                                            <h6>Pega la Respuesta de la IA aquí:</h6>
+                                                            <textarea id="aiPrendaResponse" class="form-control" rows="6" placeholder="Pega el JSON de la IA aquí..." onkeyup="processPrendaAIResponse()"></textarea>
+                                                            <small class="form-text text-muted">Asegúrate de que sea JSON válido. Se autocompletarán los campos.</small>
+                                                        </div>
+
+                                                        <h6>Detalles de la Prenda (Auto-completado por IA):</h6>
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Nombre (Sugerido por IA)</label>
+                                                            <input type="text" class="form-control" name="nombre_ia" id="iaNombre" required>
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Tipo (Sugerido por IA)</label>
+                                                            <input type="text" class="form-control" name="tipo_ia" id="iaTipo" required>
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Color Principal (Sugerido por IA)</label>
+                                                            <input type="text" class="form-control" name="color_principal_ia" id="iaColorPrincipal">
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Tela (Sugerido por IA)</label>
+                                                            <input type="text" class="form-control" name="tela_ia" id="iaTela">
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Textura (Sugerido por IA)</label>
+                                                            <input type="text" class="form-control" name="textura_ia" id="iaTextura">
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Estampado (Sugerido por IA)</label>
+                                                            <input type="text" class="form-control" name="estampado_ia" id="iaEstampado">
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Clima Apropiado (Sugerido por IA)</label>
+                                                            <input type="text" class="form-control" name="clima_apropiado_ia" id="iaClimaApropiado">
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Formalidad (Sugerido por IA)</label>
+                                                            <input type="text" class="form-control" name="formalidad_ia" id="iaFormalidad">
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Comentarios (Sugerido por IA)</label>
+                                                            <textarea class="form-control" name="comentarios_ia" id="iaComentarios" rows="3"></textarea>
+                                                        </div>
+
+                                                        <button type="submit" class="btn btn-primary w-100" id="guardarPrendaIABtn">
+                                                            <i class="fas fa-save me-2"></i>Guardar Prenda en Clóset
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            </div>
                                         </div>
-                                    </form>
+                                    </div>
                                 </div>
                             </div>
+                            <!--
+                        
+                                -->
                         </div>
 
                         <div class="col-md-8">
@@ -900,80 +938,90 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                 <div class="tab-pane fade" id="outfits">
                     <div class="row">
                         <div class="col-md-4">
-                            <div class="card">
-                                <div class="card-header">
-                                    <h5><i class="fas fa-plus-circle me-2"></i>Crear Outfit</h5>
+                            <div class="card mb-4">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h5 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Crear Outfit</h5>
+                                    <button class="btn btn-sm btn-outline-secondary" type="button" onclick="toggleOutfitForm()" id="toggleOutfitFormBtn">
+                                        <i class="fas fa-eye me-2"></i>Mostrar Formulario
+                                    </button>
                                 </div>
-                                <div class="card-body">
-                                    <form id="formOutfit">
-                                        <div class="mb-3">
-                                            <label class="form-label">Nombre del Outfit</label>
-                                            <input type="text" class="form-control" name="nombre" required>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Contexto</label>
-                                            <select class="form-select" name="contexto" required>
-                                                <option value="">Seleccionar...</option>
-                                                <option value="trabajo">Trabajo</option>
-                                                <option value="universidad">Universidad</option>
-                                                <option value="evento">Evento</option>
-                                                <option value="casa">Casa</option>
-                                                <option value="deporte">Deporte</option>
-                                            </select>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Clima Base</label>
-                                            <select class="form-select" name="clima_base">
-                                                <?php
-                                                foreach ($climas as $valor => $texto) {
-                                                    echo "<option value=\"$valor\">" . ucfirst($texto) . "</option>";
-                                                }
-                                                ?>
-                                            </select>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Comentarios</label>
-                                            <textarea class="form-control" name="comentarios" rows="3"></textarea>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Seleccionar Prendas</label>
-
-                                            <input type="text" class="form-control mb-2" id="buscarPrendasOutfit" placeholder="Buscar prenda por nombre, tipo o color..." onkeyup="filterOutfitPrendas()">
-                                            <div id="listaPrendasOutfit"> <?php
-                                                                            // La consulta $sql_prendas_disponibles ya está definida arriba en el PHP inicial
-                                                                            // y ahora también incluye 'uso_ilimitado' para la condición OR
-                                                                            $sql_prendas_outfit_form = "SELECT id, nombre, tipo, color_principal, foto, uso_ilimitado FROM prendas WHERE estado = 'disponible' OR uso_ilimitado = TRUE";
-                                                                            $result_prendas_outfit_form = $mysqli_obj->query($sql_prendas_outfit_form);
-
-                                                                            if ($result_prendas_outfit_form && $result_prendas_outfit_form->num_rows > 0) {
-                                                                                while ($prenda = $result_prendas_outfit_form->fetch_assoc()) {
-                                                                                    echo '
-                                                        <div class="form-check mb-2 prenda-outfit-item" data-nombre-prenda="' . htmlspecialchars(strtolower($prenda['nombre'])) . '" data-tipo-prenda="' . htmlspecialchars(strtolower($prenda['tipo'])) . '" data-color-prenda="' . htmlspecialchars(strtolower($prenda['color_principal'])) . '">
-                                                            <input class="form-check-input" type="checkbox" name="prendas[]" value="' . $prenda['id'] . '" id="prendaOutfit' . $prenda['id'] . '">
-                                                            <label class="form-check-label d-flex align-items-center" for="prendaOutfit' . $prenda['id'] . '">
-                                                                ';
-                                                                                    $imagen_src = !empty($prenda['foto']) ? htmlspecialchars($prenda['foto']) : 'https://via.placeholder.com/50x50?text=Sin+Imagen';
-                                                                                    echo '<img src="' . $imagen_src . '" alt="Imagen de ' . htmlspecialchars($prenda['nombre']) . '" class="me-2 rounded" style="width: 50px; height: 50px; object-fit: cover;">';
-                                                                                    echo '
-                                                                <div>
-                                                                    <strong>' . htmlspecialchars($prenda['nombre']) . '</strong><br>
-                                                                    <small class="text-muted">' . htmlspecialchars($prenda['tipo']) . ' • ' . htmlspecialchars($prenda['color_principal']) . '</small>
-                                                                </div>
-                                                            </label>
-                                                        </div>
-                                                        ';
-                                                                                }
-                                                                            } else {
-                                                                                echo '<p class="text-muted">No hay prendas disponibles para seleccionar.</p>';
-                                                                            }
-                                                                            ?>
+                                <div class="collapse show d-md-block" id="outfitFormContainer">
+                                    <div class="card-body">
+                                        <form id="formOutfit">
+                                            <div class="mb-3">
+                                                <label class="form-label">Nombre del Outfit</label>
+                                                <input type="text" class="form-control" name="nombre" required>
                                             </div>
-                                        </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Contexto</label>
+                                                <select class="form-select" name="contexto" required>
+                                                    <option value="">Seleccionar...</option>
+                                                    <option value="trabajo">Trabajo</option>
+                                                    <option value="universidad">Universidad</option>
+                                                    <option value="evento">Evento</option>
+                                                    <option value="casa">Casa</option>
+                                                    <option value="deporte">Deporte</option>
+                                                </select>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Clima Base</label>
+                                                <select class="form-select" name="clima_base">
+                                                    <?php
+                                                    // Asegúrate de que $climas_outfit esté definida en tu PHP inicial si no lo está globalmente
+                                                    // $climas_outfit = ['todo' => 'Todo clima', 'calor' => 'Calor', 'frio' => 'Frío', 'lluvia' => 'Lluvia'];
+                                                    if (!isset($climas_outfit)) { // Definir si no está definida globalmente
+                                                        $climas_outfit = ['todo' => 'Todo clima', 'calor' => 'Calor', 'frio' => 'Frío', 'lluvia' => 'Lluvia'];
+                                                    }
+                                                    foreach ($climas_outfit as $valor => $texto) {
+                                                        echo "<option value=\"$valor\">" . ucfirst($texto) . "</option>";
+                                                    }
+                                                    ?>
+                                                </select>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Comentarios</label>
+                                                <textarea class="form-control" name="comentarios" rows="3"></textarea>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Seleccionar Prendas</label>
 
-                                        <button type="submit" class="btn btn-primary w-100">
-                                            <i class="fas fa-save me-2"></i>Crear Outfit
-                                        </button>
-                                    </form>
+                                                <input type="text" class="form-control mb-2" id="buscarPrendasOutfit" placeholder="Buscar prenda por nombre, tipo o color..." onkeyup="filterOutfitPrendas()">
+                                                <div id="listaPrendasOutfit">
+                                                    <?php
+                                                    // Asegúrate de que $mysqli_obj esté disponible aquí
+                                                    $sql_prendas_outfit_form = "SELECT id, nombre, tipo, color_principal, foto, uso_ilimitado FROM prendas WHERE estado = 'disponible' OR uso_ilimitado = TRUE";
+                                                    $result_prendas_outfit_form = $mysqli_obj->query($sql_prendas_outfit_form);
+
+                                                    if ($result_prendas_outfit_form && $result_prendas_outfit_form->num_rows > 0) {
+                                                        while ($prenda = $result_prendas_outfit_form->fetch_assoc()) {
+                                                            echo '
+                                                            <div class="form-check mb-2 prenda-outfit-item" data-nombre-prenda="' . htmlspecialchars(strtolower($prenda['nombre'])) . '" data-tipo-prenda="' . htmlspecialchars(strtolower($prenda['tipo'])) . '" data-color-prenda="' . htmlspecialchars(strtolower($prenda['color_principal'])) . '">
+                                                                <input class="form-check-input" type="checkbox" name="prendas[]" value="' . $prenda['id'] . '" id="prendaOutfit' . $prenda['id'] . '">
+                                                                <label class="form-check-label d-flex align-items-center" for="prendaOutfit' . $prenda['id'] . '">
+                                                                    ';
+                                                            $imagen_src = !empty($prenda['foto']) ? htmlspecialchars($prenda['foto']) : 'https://via.placeholder.com/50x50?text=Sin+Imagen';
+                                                            echo '<img src="' . $imagen_src . '" alt="Imagen de ' . htmlspecialchars($prenda['nombre']) . '" class="me-2 rounded" style="width: 50px; height: 50px; object-fit: cover;">';
+                                                            echo '
+                                                                    <div>
+                                                                        <strong>' . htmlspecialchars($prenda['nombre']) . '</strong><br>
+                                                                        <small class="text-muted">' . htmlspecialchars($prenda['tipo']) . ' • ' . htmlspecialchars($prenda['color_principal']) . '</small>
+                                                                    </div>
+                                                                </label>
+                                                            </div>
+                                                            ';
+                                                        }
+                                                    } else {
+                                                        echo '<p class="text-muted">No hay prendas disponibles para seleccionar.</p>';
+                                                    }
+                                                    ?>
+                                                </div>
+                                            </div>
+
+                                            <button type="submit" class="btn btn-primary w-100">
+                                                <i class="fas fa-save me-2"></i>Crear Outfit
+                                            </button>
+                                        </form>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1238,7 +1286,48 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                 });
         });
 
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', () => {
+            // ... (Tu código JavaScript existente, variables, funciones como previewImage, etc.) ...
+
+            // --- NUEVA LÓGICA: Alternar formularios de agregar prenda ---
+            const addManualRadio = document.getElementById('addManual');
+            const addWithAIRadio = document.getElementById('addWithAI');
+            const formManualContainer = document.getElementById('formManualContainer');
+            const formAIContainer = document.getElementById('formAIContainer');
+
+            function togglePrendaForms() {
+                if (addManualRadio.checked) {
+                    formManualContainer.style.display = 'block';
+                    formAIContainer.style.display = 'none';
+                } else {
+                    formManualContainer.style.display = 'none';
+                    formAIContainer.style.display = 'block';
+                }
+            }
+
+            // Escuchar cambios en los botones de radio
+            addManualRadio.addEventListener('change', togglePrendaForms);
+            addWithAIRadio.addEventListener('change', togglePrendaForms);
+
+            // Ejecutar al cargar para asegurar que el formulario correcto se muestre al inicio
+            togglePrendaForms();
+            // --- FIN NUEVA LÓGICA ---
+
+            // --- Control de rotación del icono para "Crear Outfit" ---
+            var collapseElementCreateOutfit = document.getElementById('collapseFormOutfit');
+            var collapseButtonCreateOutfitIcon = document.getElementById('createOutfitToggleIcon');
+
+            if (collapseElementCreateOutfit && collapseButtonCreateOutfitIcon) {
+                collapseElementCreateOutfit.addEventListener('show.bs.collapse', function() {
+                    collapseButtonCreateOutfitIcon.classList.remove('fa-chevron-down');
+                    collapseButtonCreateOutfitIcon.classList.add('fa-chevron-up');
+                });
+
+                collapseElementCreateOutfit.addEventListener('hide.bs.collapse', function() {
+                    collapseButtonCreateOutfitIcon.classList.remove('fa-chevron-up');
+                    collapseButtonCreateOutfitIcon.classList.add('fa-chevron-down');
+                });
+            }
 
             // Agregar nuevo outfit
             const formOutfit = document.getElementById('formOutfit');
@@ -2122,6 +2211,20 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                     item.style.display = 'none'; // Ocultar el ítem
                 }
             });
+        }
+    </script>
+    <script>
+        function toggleOutfitForm() {
+            const formContainer = document.getElementById('outfitFormContainer');
+            const toggleBtn = document.getElementById('toggleOutfitFormBtn');
+
+            if (formContainer.style.display === 'none') {
+                formContainer.style.display = 'block';
+                toggleBtn.innerHTML = '<i class="fas fa-eye-slash me-2"></i>Ocultar Formulario';
+            } else {
+                formContainer.style.display = 'none';
+                toggleBtn.innerHTML = '<i class="fas fa-eye me-2"></i>Mostrar Formulario';
+            }
         }
     </script>
 </body>
