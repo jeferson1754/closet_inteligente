@@ -937,33 +937,37 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">Seleccionar Prendas</label>
-                                            <?php
 
-                                            $result = $mysqli_obj->query($sql_prendas_disponibles);
+                                            <input type="text" class="form-control mb-2" id="buscarPrendasOutfit" placeholder="Buscar prenda por nombre, tipo o color..." onkeyup="filterOutfitPrendas()">
+                                            <div id="listaPrendasOutfit"> <?php
+                                                                            // La consulta $sql_prendas_disponibles ya está definida arriba en el PHP inicial
+                                                                            // y ahora también incluye 'uso_ilimitado' para la condición OR
+                                                                            $sql_prendas_outfit_form = "SELECT id, nombre, tipo, color_principal, foto, uso_ilimitado FROM prendas WHERE estado = 'disponible' OR uso_ilimitado = TRUE";
+                                                                            $result_prendas_outfit_form = $mysqli_obj->query($sql_prendas_outfit_form);
 
-                                            if ($result && $result->num_rows > 0) {
-                                                while ($prenda = $result->fetch_assoc()) {
-                                                    echo '
-                                         <div class="form-check mb-2">
-                                            <input class="form-check-input" type="checkbox" name="prendas[]" value="' . $prenda['id'] . '" id="prenda' . $prenda['id'] . '">
-                                            <label class="form-check-label d-flex align-items-center" for="prenda' . $prenda['id'] . '">
-                                                ';
-                                                    // Definir la URL de la imagen o un placeholder
-                                                    $imagen_src = !empty($prenda['foto']) ? htmlspecialchars($prenda['foto']) : 'https://via.placeholder.com/50x50?text=Sin+Imagen';
-                                                    echo '<img src="' . $imagen_src . '" alt="Imagen de ' . htmlspecialchars($prenda['nombre']) . '" class="me-2 rounded" style="width: 50px; height: 50px; object-fit: cover;">';
-                                                    echo '
-                                                <div>
-                                                    <strong>' . htmlspecialchars($prenda['nombre']) . '</strong><br>
-                                                    <small class="text-muted">' . htmlspecialchars($prenda['tipo']) . ' • ' . htmlspecialchars($prenda['color_principal']) . '</small>
-                                                </div>
-                                            </label>
-                                        </div>
-                                        ';
-                                                }
-                                            } else {
-                                                echo '<p class="text-muted">No hay prendas disponibles</p>';
-                                            }
-                                            ?>
+                                                                            if ($result_prendas_outfit_form && $result_prendas_outfit_form->num_rows > 0) {
+                                                                                while ($prenda = $result_prendas_outfit_form->fetch_assoc()) {
+                                                                                    echo '
+                                                        <div class="form-check mb-2 prenda-outfit-item" data-nombre-prenda="' . htmlspecialchars(strtolower($prenda['nombre'])) . '" data-tipo-prenda="' . htmlspecialchars(strtolower($prenda['tipo'])) . '" data-color-prenda="' . htmlspecialchars(strtolower($prenda['color_principal'])) . '">
+                                                            <input class="form-check-input" type="checkbox" name="prendas[]" value="' . $prenda['id'] . '" id="prendaOutfit' . $prenda['id'] . '">
+                                                            <label class="form-check-label d-flex align-items-center" for="prendaOutfit' . $prenda['id'] . '">
+                                                                ';
+                                                                                    $imagen_src = !empty($prenda['foto']) ? htmlspecialchars($prenda['foto']) : 'https://via.placeholder.com/50x50?text=Sin+Imagen';
+                                                                                    echo '<img src="' . $imagen_src . '" alt="Imagen de ' . htmlspecialchars($prenda['nombre']) . '" class="me-2 rounded" style="width: 50px; height: 50px; object-fit: cover;">';
+                                                                                    echo '
+                                                                <div>
+                                                                    <strong>' . htmlspecialchars($prenda['nombre']) . '</strong><br>
+                                                                    <small class="text-muted">' . htmlspecialchars($prenda['tipo']) . ' • ' . htmlspecialchars($prenda['color_principal']) . '</small>
+                                                                </div>
+                                                            </label>
+                                                        </div>
+                                                        ';
+                                                                                }
+                                                                            } else {
+                                                                                echo '<p class="text-muted">No hay prendas disponibles para seleccionar.</p>';
+                                                                            }
+                                                                            ?>
+                                            </div>
                                         </div>
 
                                         <button type="submit" class="btn btn-primary w-100">
@@ -2098,6 +2102,27 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                     });
             });
         });
+
+        // Función para filtrar prendas en el formulario de creación de outfits
+        function filterOutfitPrendas() {
+            const searchTerm = document.getElementById('buscarPrendasOutfit').value.toLowerCase();
+            const prendaItems = document.querySelectorAll('#listaPrendasOutfit .prenda-outfit-item'); // Seleccionar solo los ítems dentro del contenedor
+
+            prendaItems.forEach(item => {
+                const nombre = item.getAttribute('data-nombre-prenda');
+                const tipo = item.getAttribute('data-tipo-prenda');
+                const color = item.getAttribute('data-color-prenda');
+
+                // Combinar los atributos para la búsqueda
+                const fullText = `${nombre} ${tipo} ${color}`;
+
+                if (fullText.includes(searchTerm)) {
+                    item.style.display = ''; // Mostrar el ítem
+                } else {
+                    item.style.display = 'none'; // Ocultar el ítem
+                }
+            });
+        }
     </script>
 </body>
 
