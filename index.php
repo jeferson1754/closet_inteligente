@@ -1933,6 +1933,53 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                         return;
                     }
 
+                    // --- REORGANIZACIÓN DE LAS ADVERTENCIAS/CONFIRMACIONES ---
+
+                    // 1. Advertencia si hay prendas que la IA sugirió pero no se encontraron en el clóset
+                    if (unmatchedPrendas.length > 0) {
+                        const confirmProceedUnmatched = await Swal.fire({
+                            title: 'Algunas prendas sugeridas no se encontraron',
+                            html: `La IA sugirió las siguientes prendas que no se pudieron mapear a tu clóset: <strong>${unmatchedPrendas.join(', ')}</strong>.<br>¿Deseas crear el outfit solo con las prendas encontradas?`,
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonText: 'Sí, crear de todos modos',
+                            cancelButtonText: 'No, cancelar'
+                        });
+                        if (!confirmProceedUnmatched.isConfirmed) {
+                            return; // Cancelar si el usuario no quiere crear con prendas faltantes
+                        }
+                    }
+
+                    // 2. Advertencia si hay prendas seleccionadas que no están "disponibles"
+                    const nonAvailablePrendas = [];
+                    selectedPrendaIds.forEach(prendaId => {
+                        const prendaActual = availableFilteredPrendas.find(p => p.id === prendaId);
+                        const nonAvailableStates = ['sucio', 'en uso', 'prestado'];
+
+                        // Asegúrate de que prendaActual exista y que no sea una prenda de uso ilimitado
+                        if (prendaActual && nonAvailableStates.includes(prendaActual.estado) && !prendaActual.uso_ilimitado) {
+                            nonAvailablePrendas.push(prendaActual.nombre);
+                        }
+                    });
+
+                    if (nonAvailablePrendas.length > 0) {
+                        const confirmProceedNonAvailable = await Swal.fire({
+                            title: '¡Algunas prendas no están disponibles para usar!',
+                            html: `Las siguientes prendas están en un estado que podría impedir su uso inmediato:<br>
+                                   <strong>${nonAvailablePrendas.join(', ')}</strong>.<br><br>
+                                   ¿Deseas crear el outfit de todos modos?`,
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonText: 'Sí, crear de todos modos',
+                            cancelButtonText: 'No, cancelar'
+                        });
+                        if (!confirmProceedNonAvailable.isConfirmed) {
+                            return; // Cancelar si el usuario no quiere crear con prendas no disponibles
+                        }
+                    }
+                    // --- FIN REORGANIZACIÓN ---
+
+
                     // Append data to formData
                     formData.append('nombre', outfitName);
                     // Append only the first context, or 'General'
@@ -1943,20 +1990,6 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                         formData.append('prendas[]', id);
                     });
 
-                    // Mensaje de advertencia si hay prendas que no se encontraron
-                    if (unmatchedPrendas.length > 0) {
-                        const confirmProceed = await Swal.fire({
-                            title: 'Algunas prendas no se encontraron',
-                            html: `La IA sugirió las siguientes prendas que no se pudieron mapear a tu clóset: <strong>${unmatchedPrendas.join(', ')}</strong>.<br>¿Deseas crear el outfit solo con las prendas encontradas?`,
-                            icon: 'warning',
-                            showCancelButton: true,
-                            confirmButtonText: 'Sí, crear de todos modos',
-                            cancelButtonText: 'No, cancelar'
-                        });
-                        if (!confirmProceed.isConfirmed) {
-                            return;
-                        }
-                    }
 
                     // Enviar los datos al backend
                     fetch('crear_outfit_desde_sugerencia.php', {

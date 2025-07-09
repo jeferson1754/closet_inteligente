@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!empty($clean_prendas_ids)) {
             // Construir placeholders para la consulta IN (?)
             $placeholders = implode(',', array_fill(0, count($clean_prendas_ids), '?'));
-            $sql_check_prendas = "SELECT id FROM prendas WHERE id IN ($placeholders) AND estado = 'disponible'"; // Opcional: solo disponibles
+            $sql_check_prendas = "SELECT id FROM prendas WHERE id IN ($placeholders) AND estado = 'disponible' OR uso_ilimitado = TRUE"; // Opcional: solo disponibles
 
             if ($stmt_check = $mysqli_obj->prepare($sql_check_prendas)) {
                 // Preparar los tipos para bind_param (todos serán 'i' de entero)
@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // ...
                 // ...
                 $placeholders = implode(',', array_fill(0, count($clean_prendas_ids), '?'));
-                $sql_check_prendas = "SELECT id FROM prendas WHERE id IN ($placeholders) AND estado = 'disponible'";
+                $sql_check_prendas = "SELECT id FROM prendas WHERE id IN ($placeholders) AND estado = 'disponible' OR uso_ilimitado = TRUE";
 
                 if ($stmt_check = $mysqli_obj->prepare($sql_check_prendas)) {
                     // --- INICIO DE LA SOLUCIÓN REPETIDA PERO NECESARIA ---
