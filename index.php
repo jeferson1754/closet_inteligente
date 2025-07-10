@@ -534,6 +534,11 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                             <i class="fas fa-magic me-2"></i>Sugerencias
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="gestor_rapido_prendas.php?estado=todos">
+                            <i class="fas fa-check-square me-2"></i>Gestión Rápida
+                        </a>
+                    </li>
                 </ul>
             </div>
 
