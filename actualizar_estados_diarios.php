@@ -54,10 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' || $_SERVER['REQUEST_METHOD'] === 'POST
                     // Obtener los límites de uso para esta prenda
                     $usageStatus = getUsageLimitStatus($prenda_tipo, $current_usos_semana);
 
-                    if ($current_usos_semana < $usageStatus['max_uses']) {
-                        // Si los usos son MENORES que el límite, la prenda pasa a 'disponible'
-                        $new_estado = 'disponible';
-                    } else {
+                    if ($current_usos_semana > $usageStatus['max_uses']) {
                         // Si los usos son IGUALES O MAYORES que el límite, la prenda pasa a 'sucio'
                         $new_estado = 'sucio';
                     }

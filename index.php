@@ -107,7 +107,8 @@ if ($result_history) {
         $outfits_usados_history[] = [
             'nombre' => $row['nombre'],
             'prendas' => $row['prendas_nombres'], // Esto será un string con nombres separados por coma
-            'comentarios' => $row['comentarios']
+            'comentarios' => $row['comentarios'],
+            'fecha_ultimo_uso' => $row['fecha_ultimo_uso_outfit'] ?? '' // Añadir la fecha para referencia en el prompt
         ];
     }
 }
@@ -624,10 +625,18 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                                 </div>
                                 <div class="card-body" id="outfitDelDia">
                                     <?php
-                                    // Consulta para obtener el outfit marcado como "del día"
-                                    $sql_outfit_dia = "SELECT id, nombre, contexto, clima_base FROM outfits WHERE es_outfit_del_dia = TRUE LIMIT 1";
-                                    $result_outfit_dia = $mysqli_obj->query($sql_outfit_dia);
-                                    $outfit_del_dia = $result_outfit_dia->fetch_assoc();
+                                    $sql_outfit_dia = "SELECT id, nombre, contexto, clima_base, fecha_ultimo_uso_outfit
+                                        FROM outfits
+                                        WHERE fecha_ultimo_uso_outfit = ?
+                                        ORDER BY fecha_ultimo_uso_outfit DESC, id DESC LIMIT 1"; // En caso de múltiples usos hoy, coge el último
+
+                                    if ($stmt_outfit_dia = $mysqli_obj->prepare($sql_outfit_dia)) {
+                                        $stmt_outfit_dia->bind_param("s", $fecha_actual);
+                                        $stmt_outfit_dia->execute();
+                                        $result_outfit_dia = $stmt_outfit_dia->get_result();
+                                        $outfit_del_dia = $result_outfit_dia->fetch_assoc();
+                                        $stmt_outfit_dia->close();
+                                    }
 
                                     if ($outfit_del_dia) {
                                         echo '
@@ -1570,6 +1579,81 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                 modal.hide();
             });
         });
+
+        // Asegúrate de que esta función esté fuera del DOMContentLoaded para ser global
+        async function sendUseOutfitRequest(outfitId, outfitName, forceOverwrite = false) {
+
+            // Proceder con la solicitud al backend (la lógica original para registrar el uso)
+            const formData = new FormData();
+            formData.append('outfit_id', outfitId);
+            formData.append('force_overwrite', forceOverwrite ? 'true' : 'false');
+
+            Swal.fire({
+                title: 'Registrando uso...',
+                text: 'Por favor espera.',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            try {
+                const response = await fetch('registrar_uso_outfit.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                Swal.close();
+
+                if (data.success) {
+                    Swal.fire('¡Registrado!', data.message, 'success')
+                        .then(() => {
+                            location.reload(); // Recargar la página principal
+                        });
+                } else if (data.code === 'PRENDAS_NO_DISPONIBLES') { // NUEVO: Interceptar este código
+                    Swal.fire({
+                        title: '¡Alerta: Prendas no disponibles!',
+                        html: data.message + '<br><br>¿Estás seguro que deseas usarlo de todos modos?',
+                        icon: 'warning', // Puedes usar 'error' si quieres más énfasis
+                        showCancelButton: true,
+                        confirmButtonColor: '#ffc107', // Amarillo/Naranja
+                        cancelButtonColor: '#dc3545',
+                        confirmButtonText: 'Sí, usar de todos modos',
+                        cancelButtonText: 'No, cancelar el uso'
+                    }).then((confirmDirtyUse) => {
+                        if (confirmDirtyUse.isConfirmed) {
+                            // Si el usuario confirma, re-enviar la solicitud forzando el uso con prendas sucias
+                            sendUseOutfitRequest(outfitId, outfitName, force_dirty_use, true); // Pasar force_dirty_use también
+                        } else {
+                            Swal.fire('Uso Cancelado', 'El outfit no ha sido marcado como usado.', 'info');
+                        }
+                    });
+                } else if (data.code === 'ALREADY_USED_TODAY') {
+                    Swal.fire({
+                        title: '¡Ya usaste un outfit hoy!',
+                        html: data.message + '<br><br>¿Deseas reemplazarlo con este outfit?',
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#667eea',
+                        cancelButtonColor: '#dc3545',
+                        confirmButtonText: 'Sí, reemplazar',
+                        cancelButtonText: 'No, mantener el anterior'
+                    }).then((confirmOverwrite) => {
+                        if (confirmOverwrite.isConfirmed) {
+                            sendUseOutfitRequest(outfitId, outfitName, force_overwrite, true);
+                        } else {
+                            Swal.fire('Cancelado', 'El outfit anterior se ha mantenido para hoy.', 'info');
+                        }
+                    });
+                } else {
+                    Swal.fire('Error', data.message || 'Error desconocido al registrar el uso del outfit', 'error');
+                }
+            } catch (error) {
+                Swal.close();
+                console.error('Error en la solicitud AJAX de uso de outfit:', error);
+                Swal.fire('Error de conexión', 'No se pudo comunicar con el servidor para registrar el uso del outfit.', 'error');
+            }
+        }
 
         function generarSugerencia(ciudad = 'Santiago') {
             fetch('obtener_sugerencias.php?city=' + encodeURIComponent(ciudad))
