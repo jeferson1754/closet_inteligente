@@ -25,16 +25,17 @@
 
                             <div class="col-md-6">
                                 <label class="form-label">Tipo</label>
-                                <select class="form-select" name="tipo" required>
-                                    <option value="">Seleccionar...</option>
+                                <input list="tipos" class="form-control" name="tipo" placeholder="Seleccionar..." value="<?php echo $row['tipo']; ?>">
+                                <datalist id='tipos'>
                                     <?php
-
-                                    foreach ($tipos as $tipo) {
-                                        $selected = ($row['tipo'] == $tipo) ? 'selected' : '';
-                                        echo "<option value=\"$tipo\" $selected>" . ucfirst($tipo) . "</option>";
+                                    $queryCargos = "SELECT DISTINCT(tipo) FROM prendas ORDER BY `prendas`.`tipo` ASC";
+                                    $resultCargos = mysqli_query($mysqli_obj, $queryCargos);
+                                    while ($rowCargos = mysqli_fetch_assoc($resultCargos)) {
+                                        echo "<option value='" . $rowCargos['tipo'] . "'></option>";
                                     }
                                     ?>
-                                </select>
+                                </datalist>
+
                             </div>
                         </div>
                     </div>
