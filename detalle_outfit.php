@@ -181,7 +181,7 @@ if (!empty($prendas_ids)) {
                         <button class="btn btn-primary me-2" id="usarOutfitBtn" data-id="<?php echo $outfit_id; ?>">
                             <i class="fas fa-calendar-check me-2"></i>Usar este Outfit Hoy
                         </button>
-                        <button class="btn btn-outline-secondary" id="editarOutfitBtn" data-id="<?php echo $outfit_id; ?>">
+                        <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalEditarOutfit" id="editarOutfitBtn" data-id="<?php echo $outfit_id; ?>">
                             <i class="fas fa-edit me-2"></i>Editar Outfit
                         </button>
                     </div>
@@ -216,11 +216,119 @@ if (!empty($prendas_ids)) {
         </div>
     </div>
 
+    <div class="modal fade" id="modalEditarOutfit" tabindex="-1" aria-labelledby="modalEditarOutfitLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content shadow">
+                <form action="editar_outfit.php" method="post" id="formEditarOutfit" enctype="multipart/form-data">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title" id="modalEditarOutfitLabel">Editar Outfit</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" name="id" id="editOutfitId">
+                        <div class="mb-3">
+                            <label class="form-label">Nombre del Outfit</label>
+                            <input type="text" class="form-control" name="nombre" id="editOutfitNombre" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Contexto</label>
+                            <select class="form-select" name="contexto" id="editOutfitContexto" required>
+                                <option value="">Seleccionar...</option>
+                                <option value="trabajo">Trabajo</option>
+                                <option value="universidad">Universidad</option>
+                                <option value="evento">Evento</option>
+                                <option value="casa">Casa</option>
+                                <option value="deporte">Deporte</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Clima Base</label>
+                            <select class="form-select" name="clima_base" id="editOutfitClimaBase">
+                                <?php
+                                // Asegúrate de que $climas_outfit esté definida o usa una lista estática
+                                $climas_outfit_modal = ['todo' => 'Todo clima', 'calor' => 'Calor', 'frio' => 'Frío', 'lluvia' => 'Lluvia'];
+                                foreach ($climas_outfit_modal as $valor => $texto) {
+                                    echo "<option value=\"$valor\">" . ucfirst($texto) . "</option>";
+                                }
+                                ?>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Comentarios</label>
+                            <textarea class="form-control" name="comentarios" id="editOutfitComentarios" rows="3"></textarea>
+                        </div>
+
+                        <h6 class="mt-4 mb-3">Prendas del Outfit:</h6>
+                        <input type="text" class="form-control mb-2" id="buscarPrendasEditOutfit" placeholder="Buscar prenda por nombre..." onkeyup="filterEditOutfitPrendas()">
+                        <div id="listaPrendasEditOutfit" style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 5px;">
+                            <?php
+                            // Consulta para obtener TODAS las prendas disponibles para la selección
+                            // Incluye el estado para la lógica de visualización si es necesario
+                            $sql_all_prendas_edit = "SELECT id, nombre, tipo, color_principal, foto, estado, uso_ilimitado FROM prendas ORDER BY nombre ASC";
+                            $result_all_prendas_edit = $mysqli_obj->query($sql_all_prendas_edit);
+
+                            if ($result_all_prendas_edit && $result_all_prendas_edit->num_rows > 0) {
+                                while ($prenda_edit = $result_all_prendas_edit->fetch_assoc()) {
+                                    $imagen_src_edit = !empty($prenda_edit['foto']) ? htmlspecialchars($prenda_edit['foto']) : 'https://via.placeholder.com/50x50?text=Sin+Imagen';
+                                    echo '
+                                <div class="form-check mb-2 prenda-edit-item"
+                                    data-prenda-id="' . $prenda_edit['id'] . '"
+                                    data-prenda-nombre="' . htmlspecialchars(strtolower($prenda_edit['nombre'])) . '"
+                                    data-prenda-tipo="' . htmlspecialchars(strtolower($prenda_edit['tipo'])) . '"
+                                    data-prenda-color="' . htmlspecialchars(strtolower($prenda_edit['color_principal'])) . '"
+                                    data-prenda-estado="' . htmlspecialchars($prenda_edit['estado']) . '">
+                                    <input class="form-check-input prenda-checkbox" type="checkbox" name="prendas[]" value="' . $prenda_edit['id'] . '" id="editPrenda' . $prenda_edit['id'] . '">
+                                    <label class="form-check-label d-flex align-items-center" for="editPrenda' . $prenda_edit['id'] . '">
+                                        <img src="' . $imagen_src_edit . '" alt="' . htmlspecialchars($prenda_edit['nombre']) . '" class="me-2 rounded" style="width: 40px; height: 40px; object-fit: cover;">
+                                        <div>
+                                            <strong>' . htmlspecialchars($prenda_edit['nombre']) . '</strong><br>
+                                            <small class="text-muted">' . htmlspecialchars($prenda_edit['tipo']) . ' • ' . htmlspecialchars($prenda_edit['color_principal']) . '</small>
+                                            ';
+                                    // Añadir un badge de estado si la prenda no está disponible y no es de uso ilimitado
+                                    $nonAvailableStates = ['sucio', 'en uso', 'prestado','Lavando'];
+                                    if (in_array($prenda_edit['estado'], $nonAvailableStates) && !$prenda_edit['uso_ilimitado']) {
+                                        echo '<span class="badge badge-sm rounded-pill bg-danger ms-2">No disp.</span>';
+                                    }
+                                    echo '
+                                        </div>
+                                    </label>
+                                </div>
+                                ';
+                                }
+                            } else {
+                                echo '<p class="text-muted">No hay prendas en tu clóset.</p>';
+                            }
+                            ?>
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Guardar cambios</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const outfitId = document.getElementById('usarOutfitBtn').dataset.id;
+            // --- Lógica del Modal de Edición de Outfit ---
+            const modalEditarOutfit = document.getElementById('modalEditarOutfit');
+            const formEditarOutfit = document.getElementById('formEditarOutfit');
+            const editOutfitId = document.getElementById('editOutfitId');
+            const editOutfitNombre = document.getElementById('editOutfitNombre');
+            const editOutfitContexto = document.getElementById('editOutfitContexto');
+            const editOutfitClimaBase = document.getElementById('editOutfitClimaBase');
+            const editOutfitComentarios = document.getElementById('editOutfitComentarios');
+            const buscarPrendasEditOutfit = document.getElementById('buscarPrendasEditOutfit');
+            const listaPrendasEditOutfit = document.getElementById('listaPrendasEditOutfit');
+            const allPrendaEditItems = listaPrendasEditOutfit.querySelectorAll('.prenda-edit-item'); // Obtener todas las prendas del modal
+
+            let outfitPrendasActuales = []; // Para guardar los IDs de las prendas que ya están en el outfit
+
 
             // Funcionalidad para "Usar este Outfit Hoy"
             document.getElementById('usarOutfitBtn').addEventListener('click', function() {
@@ -261,86 +369,106 @@ if (!empty($prendas_ids)) {
                 });
             });
 
-            // Funcionalidad para "Editar Outfit" (Aquí se abriría un modal o se redirigiría a otra página)
-            document.getElementById('editarOutfitBtn').addEventListener('click', function() {
-                // Aquí podrías redirigir a una página de edición:
-                // window.location.href = `editar_outfit.php?id=${outfitId}`;
 
-                // O, si prefieres un modal de edición (que tendrías que definir en esta página o incluir):
-                Swal.fire({
-                    title: 'Editar Outfit',
-                    html: `
-                        <form id="formEditarOutfit" class="text-start">
-                            <input type="hidden" name="id" value="${outfitId}">
-                            <div class="mb-3">
-                                <label for="editNombre" class="form-label">Nombre del Outfit</label>
-                                <input type="text" class="form-control" id="editNombre" name="nombre" value="<?php echo htmlspecialchars($outfit_details['nombre']); ?>" required>
-                            </div>
-                            <div class="mb-3">
-                                <label for="editContexto" class="form-label">Contexto</label>
-                                <select class="form-select" id="editContexto" name="contexto" required>
-                                    <option value="trabajo" <?php echo ($outfit_details['contexto'] == 'trabajo') ? 'selected' : ''; ?>>Trabajo</option>
-                                    <option value="universidad" <?php echo ($outfit_details['contexto'] == 'universidad') ? 'selected' : ''; ?>>Universidad</option>
-                                    <option value="evento" <?php echo ($outfit_details['contexto'] == 'evento') ? 'selected' : ''; ?>>Evento</option>
-                                    <option value="casa" <?php echo ($outfit_details['contexto'] == 'casa') ? 'selected' : ''; ?>>Casa</option>
-                                    <option value="deporte" <?php echo ($outfit_details['contexto'] == 'deporte') ? 'selected' : ''; ?>>Deporte</option>
-                                </select>
-                            </div>
-                            <div class="mb-3">
-                                <label for="editClimaBase" class="form-label">Clima Base</label>
-                                <select class="form-select" id="editClimaBase" name="clima_base">
-                                    <option value="todo" <?php echo ($outfit_details['clima_base'] == 'todo') ? 'selected' : ''; ?>>Todo clima</option>
-                                    <option value="calor" <?php echo ($outfit_details['clima_base'] == 'calor') ? 'selected' : ''; ?>>Calor</option>
-                                    <option value="frio" <?php echo ($outfit_details['clima_base'] == 'frio') ? 'selected' : ''; ?>>Frío</option>
-                                    <option value="lluvia" <?php echo ($outfit_details['clima_base'] == 'lluvia') ? 'selected' : ''; ?>>Lluvia</option>
-                                </select>
-                            </div>
-                            <div class="mb-3">
-                                <label for="editComentarios" class="form-label">Comentarios</label>
-                                <textarea class="form-control" id="editComentarios" name="comentarios" rows="3"><?php echo htmlspecialchars($outfit_details['comentarios'] ?? ''); ?></textarea>
-                            </div>
-                            </form>
-                    `,
-                    focusConfirm: false,
-                    showCancelButton: true,
-                    confirmButtonText: 'Guardar Cambios',
-                    cancelButtonText: 'Cancelar',
-                    preConfirm: () => {
-                        const form = document.getElementById('formEditarOutfit');
-                        const formData = new FormData(form);
-                        // Convertir formData a objeto para enviar como JSON si tu API espera JSON,
-                        // o dejarlo como FormData si tu API espera application/x-www-form-urlencoded
-                        const data = {};
-                        formData.forEach((value, key) => (data[key] = value));
+            // Función para filtrar prendas en el modal de edición
+            function filterEditOutfitPrendas() {
+                const searchTerm = buscarPrendasEditOutfit.value.toLowerCase().trim();
 
-                        return fetch('editar_outfit.php', { // Tendrás que crear este script 'editar_outfit.php'
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json', // o 'application/x-www-form-urlencoded'
-                                },
-                                body: JSON.stringify(data), // o new URLSearchParams(formData)
-                            })
-                            .then(response => {
-                                if (!response.ok) {
-                                    throw new Error(response.statusText)
-                                }
-                                return response.json()
-                            })
-                            .catch(error => {
-                                Swal.showValidationMessage(`Request failed: ${error}`);
-                            });
-                    }
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        if (result.value && result.value.success) {
-                            Swal.fire('Guardado!', result.value.message, 'success')
-                                .then(() => window.location.reload()); // Recargar la página para ver los cambios
-                        } else {
-                            Swal.fire('Error', result.value ? result.value.message : 'Error desconocido al guardar.', 'error');
-                        }
+                allPrendaEditItems.forEach(item => {
+                    const prendaNombre = item.dataset.prendaNombre;
+                    const prendaTipo = item.dataset.prendaTipo;
+                    const prendaColor = item.dataset.prendaColor;
+                    const prendaText = `${prendaNombre} ${prendaTipo} ${prendaColor}`;
+
+                    if (searchTerm === '' || prendaText.includes(searchTerm)) {
+                        item.style.display = 'flex';
+                    } else {
+                        item.style.display = 'none';
                     }
                 });
+            }
+
+            // Evento que se dispara cuando el modal de edición de outfit se abre
+            modalEditarOutfit.addEventListener('show.bs.modal', async function(event) {
+                const button = event.relatedTarget; // Botón que disparó el modal
+                const outfitId = button.dataset.id; // Obtener el ID del outfit desde el botón
+
+                // Cargar datos del outfit actual para rellenar el formulario
+                // Necesitamos un script para obtener los detalles COMPLETOS del outfit, incluyendo sus prendas asociadas
+                try {
+                    const response = await fetch(`obtener_outfit_completo.php?outfit_id=${outfitId}`); // Nuevo script PHP
+                    const outfitData = await response.json();
+
+                    if (outfitData.success) {
+                        const outfit = outfitData.outfit;
+                        outfitPrendasActuales = outfitData.prendas_asociadas.map(p => p.id); // Guardar IDs de prendas asociadas
+
+                        editOutfitId.value = outfit.id;
+                        editOutfitNombre.value = outfit.nombre;
+                        editOutfitContexto.value = outfit.contexto;
+                        editOutfitClimaBase.value = outfit.clima_base;
+                        editOutfitComentarios.value = outfit.comentarios || '';
+
+                        // Marcar los checkboxes de las prendas que ya están en el outfit
+                        allPrendaEditItems.forEach(item => {
+                            const checkbox = item.querySelector('.prenda-checkbox');
+                            if (checkbox) {
+                                checkbox.checked = outfitPrendasActuales.includes(parseInt(checkbox.value));
+                            }
+                        });
+
+                        // Limpiar el buscador del modal al abrirlo
+                        buscarPrendasEditOutfit.value = '';
+                        filterEditOutfitPrendas(); // Aplicar filtro inicial (mostrar todo)
+
+                    } else {
+                        Swal.fire('Error', outfitData.message || 'No se pudieron cargar los datos del outfit.', 'error');
+                        modalEditarOutfit.hide(); // Cerrar modal si falla la carga
+                    }
+                } catch (error) {
+                    console.error('Error cargando outfit para edición:', error);
+                    Swal.fire('Error de Conexión', 'No se pudieron cargar los datos del outfit para edición.', 'error');
+                    modalEditarOutfit.hide();
+                }
             });
+
+            // Listener para el formulario de edición (submit)
+            formEditarOutfit.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const formData = new FormData(this); // Captura todos los campos del formulario
+
+                Swal.fire({
+                    title: 'Guardando cambios...',
+                    text: 'Por favor espera.',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                try {
+                    const response = await fetch('editar_outfit.php', { // Este script guardará los cambios
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await response.json();
+                    Swal.close();
+
+                    if (data.success) {
+                        Swal.fire('¡Actualizado!', data.message, 'success')
+                            .then(() => {
+                                window.location.reload(); // Recargar la página para ver los cambios
+                            });
+                    } else {
+                        Swal.fire('Error', data.message || 'Error al guardar los cambios.', 'error');
+                    }
+                } catch (error) {
+                    Swal.close();
+                    console.error('Error al enviar la solicitud de edición:', error);
+                    Swal.fire('Error de Conexión', 'No se pudo comunicar con el servidor para guardar los cambios.', 'error');
+                }
+            });
+            // --- FIN Lógica del Modal de Edición de Outfit ---
         });
     </script>
 </body>
