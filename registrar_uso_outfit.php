@@ -72,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         // Actualizar usos_esta_semana a 0, fecha_ultimo_reset_semanal a inicio de semana actual
                         // Y actualizar el estado si la lógica anterior lo ha determinado.
-                        $sql_update_on_reset = "UPDATE prendas SET usos_esta_semana = 0, fecha_ultimo_reset_semanal = ?, estado = ? WHERE id = ?";
+                        $sql_update_on_reset = "UPDATE prendas SET fecha_ultimo_reset_semanal = ?, estado = ? WHERE id = ?";
                         if ($stmt_update_on_reset = $mysqli_obj->prepare($sql_update_on_reset)) {
                             $stmt_update_on_reset->bind_param("ssi", $start_of_current_week, $new_estado_after_reset, $prenda_id);
                             $stmt_update_on_reset->execute();
