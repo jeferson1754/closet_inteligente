@@ -7,9 +7,9 @@ include 'bd.php'; // Tu conexión a la base de datos
 $estado = $_GET['estado'] ?? '';
 
 if ($estado == 'todos') {
-    $sql_prendas_gestion = "SELECT * FROM prendas ORDER BY nombre ASC";
+    $sql_prendas_gestion = "SELECT * FROM prendas ORDER BY FIELD(estado, 'en uso', 'sucio', 'lavando', 'disponible'), usos_esta_semana DESC;";
 } else {
-    $sql_prendas_gestion = "SELECT * FROM prendas WHERE estado = ? ORDER BY nombre ASC";
+    $sql_prendas_gestion = "SELECT * FROM prendas WHERE estado = ? ORDER BY usos_esta_semana ASC";
 }
 
 $stmt = $mysqli_obj->prepare($sql_prendas_gestion);

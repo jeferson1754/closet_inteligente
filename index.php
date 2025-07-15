@@ -31,7 +31,7 @@ if ($last_update_date !== $today_date_str) {
 
 
 // Consulta para obtener prendas disponibles
-$sql = "SELECT * FROM prendas";
+$sql = "SELECT * FROM prendas ORDER BY FIELD(estado, 'en uso', 'disponible', 'sucio', 'lavando'), `prendas`.`usos_esta_semana` DESC, `prendas`.`fecha_agregado` DESC;";
 $result = $mysqli_obj->query($sql);
 $result_prendas = $mysqli_obj->query($sql);
 
