@@ -850,11 +850,21 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
 
                         <div class="col-md-8">
                             <div class="card">
-                                <div class="card-header d-flex justify-content-between align-items-center">
-                                    <h5><i class="fas fa-list me-2"></i>Mi Clóset</h5>
-                                    <div>
-                                        <input type="text" class="form-control d-inline-block" style="width: 200px;"
+                                <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
+                                    <h5 class="mb-0 me-3"><i class="fas fa-list me-2"></i>Mi Clóset</h5>
+                                    <div class="d-flex align-items-center gap-2 flex-grow-1 justify-content-end"> <input type="text" class="form-control" style="max-width: 200px;"
                                             placeholder="Buscar prendas..." id="buscarPrendas" onkeyup="filtrarPrendas()">
+
+                                        <select class="form-select" id="filterPrendaTipo" style="max-width: 150px;" onchange="filtrarPrendas()">
+                                            <option value="todos">Todos los Tipos</option>
+                                            <?php
+                                            $queryCargos2 = "SELECT DISTINCT(tipo) FROM prendas ORDER BY `prendas`.`tipo` ASC";
+                                            $resultCargos2 = mysqli_query($mysqli_obj, $queryCargos2);
+                                            while ($rowCargos = mysqli_fetch_assoc($resultCargos2)) {
+                                                echo "<option value='" . $rowCargos['tipo'] . "'>" . $rowCargos['tipo'] . "</option>";
+                                            }
+                                            ?>
+                                        </select>
                                     </div>
                                 </div>
                                 <div class="card-body">
@@ -865,7 +875,9 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
 
                                     <div class="row">
                                         <?php while ($row = $result_prendas->fetch_assoc()): ?>
-                                            <div class="col-md-6 mb-3 prenda-item" data-nombre-prenda="<?php echo htmlspecialchars(strtolower($row['nombre'])); ?>">
+                                            <div class="col-md-6 mb-3 prenda-item"
+                                                data-nombre-prenda="<?php echo htmlspecialchars(strtolower($row['nombre'])); ?>"
+                                                data-prenda-tipo="<?php echo htmlspecialchars(strtolower($row['tipo'])); ?>">
                                                 <div class="card prenda-card">
 
                                                     <?php
@@ -1709,16 +1721,22 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
 
         // Función para filtrar prendas en tiempo real
         function filtrarPrendas() {
-            const searchTerm = document.getElementById('buscarPrendas').value.toLowerCase(); // Obtener el texto de búsqueda en minúsculas
+            const searchTerm = document.getElementById('buscarPrendas').value.toLowerCase().trim();
+            const selectedType = document.getElementById('filterPrendaTipo').value; // Obtener el tipo seleccionado
             const prendaItems = document.querySelectorAll('.prenda-item'); // Seleccionar todas las tarjetas de prendas
 
             prendaItems.forEach(item => {
-                const nombrePrenda = item.getAttribute('data-nombre-prenda'); // Obtener el nombre de la prenda del atributo data-
+                const nombrePrenda = item.getAttribute('data-nombre-prenda');
+                const tipoPrenda = item.getAttribute('data-prenda-tipo'); // Obtener el tipo de la prenda
 
-                if (nombrePrenda.includes(searchTerm)) {
-                    item.style.display = ''; // Mostrar la tarjeta si el nombre coincide
+                // Lógica de filtrado
+                const matchesSearch = nombrePrenda.includes(searchTerm);
+                const matchesType = (selectedType === 'todos' || tipoPrenda === selectedType);
+
+                if (matchesSearch && matchesType) {
+                    item.style.display = ''; // Mostrar si coincide con ambos filtros
                 } else {
-                    item.style.display = 'none'; // Ocultar la tarjeta si no coincide
+                    item.style.display = 'none'; // Ocultar si no coincide con alguno
                 }
             });
         }
