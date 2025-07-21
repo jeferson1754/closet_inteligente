@@ -86,6 +86,7 @@ $sql_history = "
         o.id,
         o.nombre,
         o.comentarios,
+        o.fecha_ultimo_uso_outfit, -- NUEVO: Seleccionar la fecha de último uso
         GROUP_CONCAT(p.nombre ORDER BY p.nombre ASC SEPARATOR ', ') AS prendas_nombres
     FROM
         outfits o
@@ -1801,7 +1802,8 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
             if (outfitsUsedHistory.length > 0) {
                 outfitsHistoryForIA = '\n\nMis outfits anteriores que podrías usar como referencia o inspiración:\n';
                 outfitsUsedHistory.forEach(outfit => {
-                    outfitsHistoryForIA += `- Nombre: "${outfit.nombre}"\n`;
+                    const lastUsedDate = outfit.fecha_ultimo_uso ? ` (Último uso: ${outfit.fecha_ultimo_uso})` : ''; // Formato de fecha
+                    outfitsHistoryForIA += `- Nombre: "${outfit.nombre}"${lastUsedDate}\n`; // Añadir la fecha al nombre
                     outfitsHistoryForIA += `  Prendas: ${outfit.prendas}\n`;
                     if (outfit.comentarios) {
                         outfitsHistoryForIA += `  Comentarios: "${outfit.comentarios}"\n`;
