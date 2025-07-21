@@ -35,6 +35,41 @@ $sql = "SELECT * FROM prendas ORDER BY FIELD(estado, 'en uso', 'disponible', 'su
 $result = $mysqli_obj->query($sql);
 $result_prendas = $mysqli_obj->query($sql);
 
+$result2 = $mysqli_obj->query($sql);
+$result_prendas2 = $mysqli_obj->query($sql);
+
+
+if ($result_prendas2) {
+    while ($prenda_total = $result_prendas2->fetch_assoc()) {
+        $prenda_id = $prenda_total['id'];
+        $usos = $prenda_total['usos_esta_semana'];
+        $prenda_tipo = $prenda_total['tipo']; // Use original case or convert to lower as needed by the function
+        $es_uso_ilimitado = $prenda_total['uso_ilimitado'];
+
+        // Use the new function to get usage status
+        $usageStatus = getUsageLimitStatus($prenda_tipo, $usos);
+        $max_usos_permitidos = $usageStatus['max_uses'];
+        $isOverused = $usageStatus['is_overused'];
+
+        // Condition for filtering: if it's unlimited use OR it's not overused
+        if ($es_uso_ilimitado || !$isOverused) { // Use the boolean result from the function
+            $prendas_para_sugerencia_compras[] = [
+                'id' => $prenda_total['id'],
+                'nombre' => $prenda_total['nombre'],
+                'tipo' => $prenda_total['tipo'],
+                'color' => $prenda_total['color_principal'],
+                'usos_esta_semana' => $usos,
+                'comentarios' => $prenda_total['detalles_adicionales'] ?? '',
+                'uso_ilimitado' => $prenda_total
+            ];
+        }
+    }
+}
+
+// Convertir el array PHP a JSON para pasarlo a JavaScript
+$json_prendas_para_sugerencia_compras = json_encode($prendas_para_sugerencia_compras);
+
+
 // Consulta para obtener prendas disponibles y con menos de 3 usos esta semana
 $prendas_para_sugerencia_ia = [];
 
@@ -232,6 +267,17 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
 
 
 // --- FIN: Clima actual y pronóstico para mañana ---
+
+// Definir los límites aquí una vez, de forma consistente con getUsageLimitStatus
+$usage_limits_by_type = [];
+$all_garment_types = ['polera', 'camiseta', 'pantalon', 'short', 'zapatillas', 'camisa', 'falda', 'vestido', 'chaqueta', 'abrigo', 'accesorios']; // Asegúrate de listar todos tus tipos
+foreach ($all_garment_types as $type) {
+    // Usamos la función PHP getUsageLimitStatus para calcular los límites
+    $limits = getUsageLimitStatus($type, 0); // Pasamos 0 usos, solo nos interesa el max_uses
+    $usage_limits_by_type[$type] = $limits['max_uses'];
+}
+$json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+// --- FIN NUEVO ---
 
 ?>
 <!DOCTYPE html>
@@ -1231,6 +1277,9 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
                                         <button type="button" class="btn btn-primary w-100 mb-3" onclick="generarPrompt()">
                                             <i class="fas fa-magic me-2"></i>Generar Prompt para IA
                                         </button>
+                                        <button type="button" class="btn btn-info w-100 mb-3" onclick="generarPromptCompra()">
+                                            <i class="fas fa-shopping-bag me-2"></i>Recomendaciones de Compra
+                                        </button>
                                     </div>
 
                                     <div class="form-section mt-4">
@@ -1743,8 +1792,10 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
         }
 
         const availableFilteredPrendas = <?php echo $json_prendas_para_sugerencia_ia; ?>;
+        const availablePrendas = <?php echo $json_prendas_para_sugerencia_compras; ?>;
         const tomorrowForecast = <?php echo $json_forecast_data; ?>;
         const outfitsUsedHistory = <?php echo $json_outfits_usados_history; ?>; // NUEVA LÍNEA
+        const garmentUsageLimits = <?php echo $json_usage_limits_by_type; ?>; // NUEVA LÍNEA
 
 
         // Nueva función para generar el prompt para la IA
@@ -1830,7 +1881,7 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
 
              ${outfitsHistoryForIA}
 
-  Tu respuesta debe tener el siguiente formato JSON estricto: **un array de objetos, donde cada objeto representa un outfit sugerido.** Proporciona **3 ideas de outfit distintas** basadas en las condiciones dadas. Sin texto adicional antes ni después del JSON. Cada outfit en el array debe tener las propiedades "titulo", "descripcion", "prendas_sugeridas" (un array de strings concisos) y "tips_adicionales".
+           Tu respuesta debe tener el siguiente formato JSON estricto: un **objeto principal** que contenga una clave "type" (que será "outfit_suggestions") y una clave "suggestions" que sea un array de objetos. Proporciona **3 ideas de outfit distintas**. Sin texto adicional antes ni después del JSON. Cada objeto de outfit en el array "suggestions" debe tener las propiedades "titulo", "descripcion", "prendas_sugeridas" (un array de strings concisos) y "tips_adicionales".
             
             **IMPORTANTE: Para las "prendas_sugeridas", por favor, utiliza los nombres EXACTOS de las prendas que te proporcioné en mi lista de clóset, o en su defecto, la combinación 'Tipo de prenda - Color' si no hay un nombre específico.** Por ejemplo, si mi lista tiene 'Camiseta Naranja Salmón (camiseta, Naranja Salmón)', por favor, usa 'Camiseta Naranja Salmón' o 'camiseta - Naranja Salmón'. Si no puedes encontrar una prenda exacta, sugiere una genérica.
 
@@ -1878,6 +1929,108 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
             }
         }
 
+        // Nueva función para generar el prompt para recomendaciones de compra
+        function generarPromptCompra() {
+            // Recopilar datos generales del clóset
+            let prendasInventarioForIA = '';
+            if (availablePrendas.length > 0) { // availablePrendas ahora contiene TODAS las prendas
+                prendasInventarioForIA = '\n\nMi inventario actual de prendas (incluye usos semanales y comentarios):\n';
+                availablePrendas.forEach(prenda => {
+                    const comments = prenda.comentarios ? ` - Comentarios: "${prenda.comentarios}"` : '';
+                    prendasInventarioForIA += `- ${prenda.nombre} (Tipo: ${prenda.tipo}, Color: ${prenda.color}, Usos esta semana: ${prenda.usos_esta_semana}, Uso Ilimitado: ${prenda.uso_ilimitado ? 'No' : 'Sí'})${comments}\n`;
+                });
+                prendasInventarioForIA += '\n';
+            } else {
+                prendasInventarioForIA = '\n\nNo tienes prendas registradas en tu clóset. La recomendación será genérica.\n';
+            }
+
+            // Datos de uso y posibles "sobreusadas"
+            let prendasSobreusadasForIA = '';
+            const overusedGarments = availablePrendas.filter(p => {
+                // Si no es de uso ilimitado y ha excedido sus usos semanales
+                // Obtener el límite del objeto garmentUsageLimits
+                const maxUsesForType = garmentUsageLimits[p.tipo.toLowerCase()] || 2; // Default 2 si el tipo no está en la lista
+                return !p.uso_ilimitado && p.usos_esta_semana >= maxUsesForType;
+            });
+
+            if (overusedGarments.length > 0) {
+                prendasSobreusadasForIA = '\n\nLas siguientes prendas han sido sobreusadas esta semana (quizás necesito más opciones de este tipo o categoría):\n';
+                overusedGarments.forEach(prenda => {
+                    // Obtener el límite del objeto garmentUsageLimits para mostrarlo
+                    const maxUsesForDisplay = garmentUsageLimits[prenda.tipo.toLowerCase()] || 2;
+                    prendasSobreusadasForIA += `- ${prenda.nombre} (Tipo: ${prenda.tipo}, Usos esta semana: ${prenda.usos_esta_semana}, Límite: ${maxUsesForDisplay})\n`;
+                });
+                prendasSobreusadasForIA += '\n';
+            } else {
+                prendasSobreusadasForIA = '\n\nNinguna prenda ha sido sobreusada esta semana.\n';
+            }
+
+            // Historial de outfits usados (reutiliza la variable ya generada)
+            let outfitsHistoryForIA = '';
+            if (outfitsUsedHistory.length > 0) {
+                outfitsHistoryForIA = '\n\nMis outfits anteriores que podrían indicar mi estilo o necesidades:\n';
+                outfitsUsedHistory.forEach(outfit => {
+                    const lastUsedDate = outfit.fecha_ultimo_uso ? ` (Último uso: ${outfit.fecha_ultimo_uso})` : '';
+                    outfitsHistoryForIA += `- Nombre: "${outfit.nombre}"${lastUsedDate}\n`;
+                    outfitsHistoryForIA += `  Prendas: ${outfit.prendas}\n`;
+                    if (outfit.comentarios) {
+                        outfitsHistoryForIA += `  Comentarios: "${outfit.comentarios}"\n`;
+                    }
+                });
+                outfitsHistoryForIA += '\n';
+            } else {
+                outfitsHistoryForIA = '\n\nNo tengo historial de outfits usados para referencia.\n';
+            }
+
+            // Prompt principal
+            let prompt = `Como experto en moda, estilismo y optimización de guardarropas, necesito tu ayuda para identificar qué prendas debería considerar comprar para mejorar y complementar mi clóset existente.
+
+            Analiza la información de mi clóset a continuación, incluyendo mi inventario actual, mis patrones de uso semanal y mis outfits anteriores.
+
+            **Mi Objetivo:** Quiero prendas que:
+            - Rellenen "huecos" en mi guardarropa.
+            - Reduzcan el sobreuso de ciertas prendas.
+            - Aumenten la versatilidad de mis outfits.
+            - Se adapten a mi estilo (inferido de mis outfits anteriores).
+            - Consideren la comodidad y funcionalidad para mis contextos habituales.
+
+            ${prendasInventarioForIA}
+            ${prendasSobreusadasForIA}
+            ${outfitsHistoryForIA}
+
+            Tu respuesta debe tener el siguiente formato JSON estricto: un **objeto principal** que contenga una clave "type" (que será "purchase_recommendations") y una clave "recommendations" que sea un array de objetos. Proporciona **hasta 5 recomendaciones de prendas diferentes**. Sin texto adicional antes ni después del JSON.
+
+            {
+              "type": "purchase_recommendations",
+              "recommendations": [
+                {
+                  "prenda_sugerida": "Nombre descriptivo de la prenda a comprar (ej. Polera básica de algodón color neutro)",
+                  "tipo_recomendado": "Tipo de prenda (ej. polera, pantalon, chaqueta)",
+                  "justificacion": "Breve explicación de por qué esta prenda complementaría tu clóset (ej. 'Necesitas otra polera básica para reducir el sobreuso de las que ya tienes.')"
+                },
+                {
+                  "prenda_sugerida": "Zapatillas deportivas para running",
+                  "tipo_recomendado": "zapatillas",
+                  "justificacion": "Tus zapatillas de skate están sobreusadas para deporte, una opción específica para running sería útil."
+                }
+              ]
+            }
+            `;
+
+            const aiPromptElement = document.getElementById('aiPrompt');
+            aiPromptElement.value = prompt;
+
+            aiPromptElement.select();
+            aiPromptElement.setSelectionRange(0, 99999);
+            try {
+                navigator.clipboard.writeText(aiPromptElement.value);
+                Swal.fire('¡Copiado!', 'El prompt de compra ha sido copiado al portapapeles.', 'success');
+            } catch (err) {
+                console.error('No se pudo copiar el prompt de compra al portapapeles:', err);
+                Swal.fire('Error', 'No se pudo copiar el prompt automáticamente. Por favor, cópialo manualmente.', 'error');
+            }
+        }
+
         // Event listener para el botón de copiar prompt
         document.getElementById('copyPromptBtn').addEventListener('click', function() {
             const aiPromptElement = document.getElementById('aiPrompt');
@@ -1893,80 +2046,137 @@ $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_
         });
 
         // Función para procesar la respuesta de la IA
+        // Función para procesar la respuesta de la IA (MEJORADA)
         document.getElementById('processResponseBtn').addEventListener('click', function() {
-            const aiResponseText = document.getElementById('aiResponse').value;
+            const aiResponseText = document.getElementById('aiResponse').value.trim(); // .trim() para limpiar espacios
             const processedSuggestionDiv = document.getElementById('processedSuggestion');
 
-            try {
-                const suggestions = JSON.parse(aiResponseText); // Ahora esperamos un array
+            processedSuggestionDiv.innerHTML = ''; // Limpiar el contenido anterior de sugerencias
 
-                if (!Array.isArray(suggestions) || suggestions.length === 0) {
-                    throw new Error('La respuesta de la IA no es un array de outfits o está vacía.');
+            if (aiResponseText === '') {
+                Swal.fire('Atención', 'Por favor, pega la respuesta JSON de la IA en el campo.', 'info');
+                return;
+            }
+
+            try {
+                const aiResponseData = JSON.parse(aiResponseText); // Ahora esperamos un OBJETO principal
+
+                // 1. Validar que sea un objeto y tenga una propiedad 'type'
+                if (typeof aiResponseData !== 'object' || aiResponseData === null || !aiResponseData.type) {
+                    throw new Error('La respuesta de la IA no es un objeto JSON válido o no contiene una propiedad "type" que indique el tipo de sugerencia.');
                 }
 
-                let allOutfitsHtml = '';
-                suggestions.forEach((suggestion, index) => { // Iterar sobre cada sugerencia en el array
-                    if (suggestion && suggestion.titulo && suggestion.descripcion && suggestion.prendas_sugeridas && Array.isArray(suggestion.prendas_sugeridas) && suggestion.tips_adicionales) {
-                        let prendasListHtml = suggestion.prendas_sugeridas.map(prenda => `<li>${htmlspecialchars(prenda)}</li>`).join('');
-
-                        // Construir el HTML para cada sugerencia de outfit
-                        allOutfitsHtml += `
-                            <div class="suggestion-card mb-4 p-3">
-                                <h6>Idea de Outfit ${index + 1}: ${htmlspecialchars(suggestion.titulo)}</h6>
-                                <p>${htmlspecialchars(suggestion.descripcion)}</p>
-                                <div class="mb-2">
-                                    <strong>Prendas sugeridas:</strong>
-                                    <ul class="mb-2">
-                                        ${prendasListHtml}
-                                    </ul>
-                                </div>
-                                <div class="alert alert-light mb-2">
-                                    <i class="fas fa-lightbulb me-2"></i><strong>Tip:</strong> ${htmlspecialchars(suggestion.tips_adicionales)}
-                                </div>
-                                <div class="text-center mt-3">
-                                    <button class="btn btn-success btn-sm crear-outfit-sugerido"
-                                            data-index="${index}"
-                                            data-outfit-data='${JSON.stringify(suggestion)}'> <i class="fas fa-plus-circle me-2"></i>Crear este Outfit
-                                    </button>
-                                </div>
-                            </div>
-                        `;
-                    } else {
-                        allOutfitsHtml += `
-                            <div class="alert alert-warning mb-4" role="alert">
-                                <h4>Advertencia: Una de las ideas de outfit no tiene el formato correcto.</h4>
-                                <p>Por favor, revisa el formato JSON de cada outfit dentro del array.</p>
-                                <pre>${htmlspecialchars(JSON.stringify(suggestion, null, 2))}</pre>
-                            </div>
-                        `;
+                // 2. Delegar el renderizado basado en el 'type'
+                if (aiResponseData.type === 'outfit_suggestions') {
+                    if (!Array.isArray(aiResponseData.suggestions) || aiResponseData.suggestions.length === 0) {
+                        throw new Error('El tipo es "outfit_suggestions" pero "suggestions" no es un array o está vacío.');
                     }
-                });
+                    renderOutfitSuggestions(aiResponseData.suggestions);
+                } else if (aiResponseData.type === 'purchase_recommendations') {
+                    if (!Array.isArray(aiResponseData.recommendations) || aiResponseData.recommendations.length === 0) {
+                        throw new Error('El tipo es "purchase_recommendations" pero "recommendations" no es un array o está vacío.');
+                    }
+                    renderPurchaseRecommendations(aiResponseData.recommendations);
+                } else {
+                    throw new Error(`Tipo de respuesta de IA no reconocido: "${aiResponseData.type}".`);
+                }
 
-                processedSuggestionDiv.innerHTML = allOutfitsHtml;
-                Swal.fire('¡Sugerencias Listas!', 'La respuesta de la IA ha sido procesada. Se generaron varias ideas.', 'success');
-
-                // --- NUEVA LÓGICA: Añadir event listeners a los nuevos botones "Crear este Outfit" ---
-                document.querySelectorAll('.crear-outfit-sugerido').forEach(button => {
-                    button.addEventListener('click', function() {
-                        const outfitData = JSON.parse(this.dataset.outfitData); // Parsear los datos del outfit
-                        createOutfitFromSuggestion(outfitData);
-                    });
-                });
-                // --- FIN NUEVA LÓGICA ---
+                Swal.fire('¡Sugerencias Listas!', 'La respuesta de la IA ha sido procesada.', 'success');
 
             } catch (e) {
                 console.error('Error al procesar la respuesta de la IA:', e);
                 processedSuggestionDiv.innerHTML = `
                     <div class="alert alert-danger" role="alert">
-                        <h4>Error al procesar la respuesta:</h4>
-                        <p>${e.message}</p>
-                        <p>Asegúrate de que la IA devuelva un **ARRAY de objetos JSON** exactamente como se pide en el prompt.</p>
+                        <h4>Error al procesar la respuesta de la IA:</h4>
+                        <p>${htmlspecialchars(e.message)}</p>
+                        <p>Asegúrate de que la IA devuelva un **OBJETO JSON válido** con la estructura <code>{"type": "outfit_suggestions", "suggestions": [...] }</code> o <code>{"type": "purchase_recommendations", "recommendations": [...] }</code>.</p>
                         <p>Respuesta recibida: <pre>${htmlspecialchars(aiResponseText)}</pre></p>
                     </div>
                 `;
                 Swal.fire('Error', 'No se pudo procesar la respuesta. Revisa el formato.', 'error');
             }
         });
+
+
+        // Función para renderizar sugerencias de outfits
+        function renderOutfitSuggestions(suggestions) {
+            const processedSuggestionDiv = document.getElementById('processedSuggestion');
+            let allOutfitsHtml = '';
+
+            suggestions.forEach((suggestion, index) => {
+                if (suggestion && suggestion.titulo && suggestion.descripcion && suggestion.prendas_sugeridas && Array.isArray(suggestion.prendas_sugeridas) && suggestion.tips_adicionales) {
+                    let prendasListHtml = suggestion.prendas_sugeridas.map(prenda => `<li>${htmlspecialchars(prenda)}</li>`).join('');
+
+                    allOutfitsHtml += `
+                        <div class="suggestion-card mb-4 p-3">
+                            <h6>Idea de Outfit ${index + 1}: ${htmlspecialchars(suggestion.titulo)}</h6>
+                            <p>${htmlspecialchars(suggestion.descripcion)}</p>
+                            <div class="mb-2">
+                                <strong>Prendas sugeridas:</strong>
+                                <ul class="mb-2">
+                                    ${prendasListHtml}
+                                </ul>
+                            </div>
+                            <div class="alert alert-light mb-2">
+                                <i class="fas fa-lightbulb me-2"></i><strong>Tip:</strong> ${htmlspecialchars(suggestion.tips_adicionales)}
+                            </div>
+                            <div class="text-center mt-3">
+                                <button class="btn btn-success btn-sm crear-outfit-sugerido"
+                                        data-index="${index}"
+                                        data-outfit-data='${JSON.stringify(suggestion)}'>
+                                    <i class="fas fa-plus-circle me-2"></i>Crear este Outfit
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    allOutfitsHtml += `
+                        <div class="alert alert-warning mb-4" role="alert">
+                            <h4>Advertencia: Una de las ideas de outfit no tiene el formato correcto.</h4>
+                            <p>Por favor, revisa el formato JSON de cada outfit dentro del array.</p>
+                            <pre>${htmlspecialchars(JSON.stringify(suggestion, null, 2))}</pre>
+                        </div>
+                    `;
+                }
+            });
+            processedSuggestionDiv.innerHTML = allOutfitsHtml;
+
+            // Añadir event listeners a los nuevos botones "Crear este Outfit"
+            document.querySelectorAll('.crear-outfit-sugerido').forEach(button => {
+                button.addEventListener('click', function() {
+                    const outfitData = JSON.parse(this.dataset.outfitData);
+                    createOutfitFromSuggestion(outfitData);
+                });
+            });
+        }
+
+        // Función para renderizar recomendaciones de compra
+        function renderPurchaseRecommendations(recommendations) {
+            const processedSuggestionDiv = document.getElementById('processedSuggestion');
+            let allRecommendationsHtml = '<h5>Recomendaciones de Compra:</h5><div class="list-group">';
+
+            recommendations.forEach((rec, index) => {
+                if (rec && rec.prenda_sugerida && rec.tipo_recomendado && rec.justificacion) {
+                    allRecommendationsHtml += `
+                        <div class="list-group-item list-group-item-action mb-2 rounded shadow-sm">
+                            <h6 class="mb-1">${htmlspecialchars(rec.prenda_sugerida)} 
+                                <span class="badge bg-secondary ms-2">${htmlspecialchars(rec.tipo_recomendado)}</span>
+                            </h6>
+                            <p class="mb-1 text-muted"><small>${htmlspecialchars(rec.justificacion)}</small></p>
+                        </div>
+                    `;
+                } else {
+                    allRecommendationsHtml += `
+                        <div class="alert alert-warning mb-4" role="alert">
+                            <h4>Advertencia: Una recomendación de compra no tiene el formato correcto.</h4>
+                            <pre>${htmlspecialchars(JSON.stringify(rec, null, 2))}</pre>
+                        </div>
+                    `;
+                }
+            });
+            allRecommendationsHtml += '</div>';
+            processedSuggestionDiv.innerHTML = allRecommendationsHtml;
+        }
 
         // Helper function para escapar HTML y evitar XSS al mostrar la respuesta
         function htmlspecialchars(str) {
