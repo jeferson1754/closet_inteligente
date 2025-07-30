@@ -1144,6 +1144,12 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                 
                             </li>
                             <li>
+                                <a class="dropdown-item" href="detalle_outfit.php?id=' . $outfit['id'] . '">
+                                    <i class="fas fa-edit me-2"></i>Editar
+                                </a>
+                                
+                            </li>
+                            <li>
                                 <a class="dropdown-item usar-outfit" href="#" data-id="' . $outfit['id'] . '" data-action="usar">
                                     <i class="fas fa-play me-2"></i>Usar hoy
                                 </a>
@@ -1168,24 +1174,6 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                         echo '<div class="col-12"><p class="text-muted text-center">No hay outfits creados aún</p></div>';
                                     }
                                     ?>
-                                    <!-- Modal único -->
-                                    <div class="modal fade" id="modalAccionOutfit" tabindex="-1" aria-labelledby="modalAccionOutfitLabel" aria-hidden="true">
-                                        <div class="modal-dialog">
-                                            <div class="modal-content">
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title" id="modalAccionOutfitLabel">Título modal</h5>
-                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                                                </div>
-                                                <div class="modal-body">
-                                                    Contenido modal...
-                                                </div>
-                                                <div class="modal-footer">
-                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                                                    <button type="button" class="btn btn-primary" id="btnConfirmarAccion">Confirmar</button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
 
                                 </div>
                             </div>
