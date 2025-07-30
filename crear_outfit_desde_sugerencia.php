@@ -11,6 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $clima_base_outfit = $_POST['clima_base'] ?? 'todo';
     $comentarios_outfit = $_POST['comentarios'] ?? '';
     $prendas_ids_raw = $_POST['prendas'] ?? []; // Array de IDs de prendas (potencialmente sin validar)
+    $force_duplicate = isset($_POST['force_duplicate']) && $_POST['force_duplicate'] === 'true'; // Recibe el parámetro
 
     if (empty($nombre_outfit) || empty($prendas_ids_raw)) {
         $response['message'] = 'Nombre del outfit o prendas incompletos.';
@@ -76,16 +77,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         // --- FIN: Validación de IDs de Prendas ---
 
-
         $mysqli_obj->begin_transaction(); // Iniciar transacción
 
         try {
+            // --- Lógica de verificación de DUPLICADOS (COPIA EXACTA DE crear_outfit.php) ---
+            sort($valid_prendas_ids);
+            $prendas_combinadas_hash = md5(implode(',', $valid_prendas_ids));
+
+            $sql_check_duplicate = "SELECT id, nombre FROM outfits WHERE prendas_combinadas_hash = ?"; // Asumiendo que tienes esta columna
+            // Si no tienes prendas_combinadas_hash, usa la consulta GROUP_CONCAT del chat anterior.
+
+            if (!$force_duplicate) {
+                if ($stmt_duplicate = $mysqli_obj->prepare($sql_check_duplicate)) {
+                    $stmt_duplicate->bind_param("s", $prendas_combinadas_hash);
+                    $stmt_duplicate->execute();
+                    $result_duplicate = $stmt_duplicate->get_result();
+
+                    if ($result_duplicate->num_rows > 0) {
+                        $existing_outfit = $result_duplicate->fetch_assoc();
+                        $response['success'] = false;
+                        $response['message'] = 'Ya existe un outfit con esta combinación de prendas: "' . htmlspecialchars($existing_outfit['nombre']) . '". ¿Deseas crearlo de todas formas?';
+                        $response['code'] = 'DUPLICATE_OUTFIT';
+                        echo json_encode($response);
+                        $stmt_duplicate->close();
+                        $mysqli_obj->rollback();
+                        exit;
+                    }
+                    $stmt_duplicate->close();
+                } else {
+                    throw new Exception("Error al preparar la verificación de duplicados: " . $mysqli_obj->error);
+                }
+            }
+            // --- FIN Lógica de verificación de DUPLICADOS ---
+
+
             // 1. Insertar el nuevo outfit en la tabla 'outfits'
-            $sql_insert_outfit = "INSERT INTO outfits (nombre, contexto, clima_base, comentarios) VALUES (?, ?, ?, ?)";
+            $sql_insert_outfit = "INSERT INTO outfits (nombre, contexto, clima_base, comentarios, prendas_combinadas_hash) VALUES (?, ?, ?, ?, ?)"; // Añadir prendas_combinadas_hash
             if ($stmt_outfit = $mysqli_obj->prepare($sql_insert_outfit)) {
-                $stmt_outfit->bind_param("ssss", $nombre_outfit, $contexto_outfit, $clima_base_outfit, $comentarios_outfit);
+                $stmt_outfit->bind_param("sssss", $nombre_outfit, $contexto_outfit, $clima_base_outfit, $comentarios_outfit, $prendas_combinadas_hash);
                 $stmt_outfit->execute();
-                $new_outfit_id = $mysqli_obj->insert_id; // Obtener el ID del outfit recién insertado
+                $new_outfit_id = $mysqli_obj->insert_id;
                 $stmt_outfit->close();
 
                 if (!$new_outfit_id) {
@@ -95,26 +126,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception("Error al preparar la inserción del outfit: " . $mysqli_obj->error);
             }
 
-            // 2. Insertar las relaciones en la tabla 'outfit_prendas' usando solo los IDs válidos
+            // 2. Insertar las relaciones en la tabla 'outfit_prendas'
+            // 2. Insertar las relaciones en la tabla 'outfit_prendas'
             $sql_insert_outfit_prendas = "INSERT INTO outfit_prendas (outfit_id, prenda_id) VALUES (?, ?)";
-            if ($stmt_outfit_prendas = $mysqli_obj->prepare($sql_insert_outfit_prendas)) {
-                foreach ($valid_prendas_ids as $prenda_id) { // Usamos $valid_prendas_ids
-                    $stmt_outfit_prendas->bind_param("ii", $new_outfit_id, $prenda_id);
-                    $stmt_outfit_prendas->execute();
+
+            // Mover la asignación y el bucle dentro del if
+            if ($stmt_insert_associations = $mysqli_obj->prepare($sql_insert_outfit_prendas)) {
+                foreach ($valid_prendas_ids as $prenda_id) {
+                    $clean_prenda_id = intval($prenda_id);
+                    if ($clean_prenda_id > 0) {
+                        // Asegúrate de que $stmt_insert_associations no sea null aquí
+                        if (!$stmt_insert_associations->bind_param("ii", $new_outfit_id, $clean_prenda_id)) {
+                            throw new Exception("Error al bindear parámetros para prenda ID " . $clean_prenda_id . ": " . $stmt_insert_associations->error);
+                        }
+                        if (!$stmt_insert_associations->execute()) {
+                            throw new Exception("Error al ejecutar inserción para prenda ID " . $clean_prenda_id . ": " . $stmt_insert_associations->error);
+                        }
+                    }
                 }
-                $stmt_outfit_prendas->close();
+                $stmt_insert_associations->close(); // Cerrar el statement después del bucle
             } else {
+                // Si la preparación de la sentencia falla, lanzar una excepción
                 throw new Exception("Error al preparar la inserción de prendas al outfit: " . $mysqli_obj->error);
             }
 
-            $mysqli_obj->commit(); // Confirmar la transacción
+            $mysqli_obj->commit();
             $response['success'] = true;
             $response['message'] = 'Outfit "' . htmlspecialchars($nombre_outfit) . '" creado exitosamente a partir de la sugerencia.';
-            $response['prendas_ids'] = $valid_prendas_ids; // <- Aquí agregas los IDs válidos
-
         } catch (Exception $e) {
-            $mysqli_obj->rollback(); // Revertir la transacción en caso de error
-            $response['message'] = 'Error en la transacción: ' . $e->getMessage();
+            $mysqli_obj->rollback();
+            $response['message'] = $e->getMessage();
         }
     } // <-- Esta llave cierra el if ($_SERVER['REQUEST_METHOD'] === 'POST')
     else {

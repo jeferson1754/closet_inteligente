@@ -1126,7 +1126,7 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-start">
                         <div>
-                            <h6 class="card-title">' . htmlspecialchars($outfit['nombre']) . '</h6>
+                            <h6 class="card-title"><a style="text-decoration: none;" href="detalle_outfit.php?id=' . $outfit['id'] . '">' . htmlspecialchars($outfit['nombre']) . '</a></h6>
                             <p class="card-text">
                                 <small class="text-muted">' . htmlspecialchars($outfit['contexto']) . ' • ' . htmlspecialchars($outfit['clima_base']) . '</small><br>
                                 <small>' . $outfit['total_prendas'] . ' prendas</small>
@@ -1140,12 +1140,6 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                             <li>
                                 <a class="dropdown-item ver-detalles" href="#" data-id="' . $outfit['id'] . '" data-action="ver">
                                     <i class="fas fa-eye me-2"></i>Ver detalles
-                                </a>
-                                
-                            </li>
-                            <li>
-                                <a class="dropdown-item" href="detalle_outfit.php?id=' . $outfit['id'] . '">
-                                    <i class="fas fa-edit me-2"></i>Editar
                                 </a>
                                 
                             </li>
@@ -1174,6 +1168,24 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                         echo '<div class="col-12"><p class="text-muted text-center">No hay outfits creados aún</p></div>';
                                     }
                                     ?>
+                                    <!-- Modal único -->
+                                    <div class="modal fade" id="modalAccionOutfit" tabindex="-1" aria-labelledby="modalAccionOutfitLabel" aria-hidden="true">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title" id="modalAccionOutfitLabel">Título modal</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    Contenido modal...
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                                                    <button type="button" class="btn btn-primary" id="btnConfirmarAccion">Confirmar</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
 
                                 </div>
                             </div>
@@ -1305,6 +1317,60 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
+        // Asegúrate de que esta función esté fuera del DOMContentLoaded para ser global
+        async function sendCreateOutfitRequest(formData, forceDuplicate = false) {
+            if (forceDuplicate) {
+                formData.append('force_duplicate', 'true');
+            }
+
+            Swal.fire({
+                title: 'Creando Outfit...',
+                text: 'Por favor espera mientras tu outfit se guarda.',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            try {
+                const response = await fetch('crear_outfit.php', { // Endpoint para creación manual
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                Swal.close();
+
+                if (data.success) {
+                    Swal.fire('Outfit Creado!', data.message, 'success')
+                        .then(() => {
+                            location.reload();
+                        });
+                } else if (data.code === 'DUPLICATE_OUTFIT') {
+                    Swal.fire({
+                        title: 'Outfit Duplicado Detectado',
+                        html: data.message + '<br><br>¿Deseas crear este outfit duplicado de todas formas?',
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonText: 'Sí, crear duplicado',
+                        cancelButtonText: 'No, cancelar'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            // Si el usuario confirma, re-enviar la solicitud con el mismo formData y forzando
+                            sendCreateOutfitRequest(formData, true);
+                        } else {
+                            Swal.fire('Creación Cancelada', 'El outfit no ha sido creado.', 'info');
+                        }
+                    });
+                } else {
+                    Swal.fire('Error', data.message || 'Error desconocido al crear el outfit.', 'error');
+                }
+            } catch (error) {
+                Swal.close();
+                console.error('Error al enviar la solicitud de creación de outfit:', error);
+                Swal.fire('Error de Conexión', 'No se pudo comunicar con el servidor para crear el outfit.', 'error');
+            }
+        }
+
         // Agregar prenda
         document.getElementById('formPrenda').addEventListener('submit', function(e) {
             e.preventDefault();
@@ -1398,40 +1464,10 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             if (formOutfit) {
                 formOutfit.addEventListener('submit', function(e) {
                     e.preventDefault();
-                    const form = e.target;
-                    const formData = new FormData(form);
+                    const formData = new FormData(this); // Captura todos los campos del formulario
 
-                    for (let pair of formData.entries()) {
-                        console.log(pair[0] + ': ' + pair[1]);
-                    }
-
-
-                    fetch('crear_outfit.php', {
-                            method: 'POST',
-                            body: formData
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.success) {
-                                const outfit = {
-                                    id: data.id || Date.now(),
-                                    nombre: formData.get('nombre'),
-                                    contexto: formData.get('contexto'),
-                                    clima_base: formData.get('clima_base'),
-                                    comentarios: formData.get('comentarios'),
-                                    prendas: data.prendas || []
-                                };
-
-                                Swal.fire('Outfit creado exitosamente', data.message, 'success')
-                                    .then(() => location.reload());
-                            } else {
-                                Swal.fire('Error al crear el outfit', data.message || 'Error desconocido', 'error');
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error en la solicitud AJAX:', error);
-                            Swal.fire('Ocurrió un error al enviar el formulario', '', 'error');
-                        });
+                    // Llamar a la función unificada de envío
+                    sendCreateOutfitRequest(formData);
                 });
             }
 
@@ -1634,81 +1670,6 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                 modal.hide();
             });
         });
-
-        // Asegúrate de que esta función esté fuera del DOMContentLoaded para ser global
-        async function sendUseOutfitRequest(outfitId, outfitName, forceOverwrite = false) {
-
-            // Proceder con la solicitud al backend (la lógica original para registrar el uso)
-            const formData = new FormData();
-            formData.append('outfit_id', outfitId);
-            formData.append('force_overwrite', forceOverwrite ? 'true' : 'false');
-
-            Swal.fire({
-                title: 'Registrando uso...',
-                text: 'Por favor espera.',
-                allowOutsideClick: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                }
-            });
-
-            try {
-                const response = await fetch('registrar_uso_outfit.php', {
-                    method: 'POST',
-                    body: formData
-                });
-                const data = await response.json();
-                Swal.close();
-
-                if (data.success) {
-                    Swal.fire('¡Registrado!', data.message, 'success')
-                        .then(() => {
-                            location.reload(); // Recargar la página principal
-                        });
-                } else if (data.code === 'PRENDAS_NO_DISPONIBLES') { // NUEVO: Interceptar este código
-                    Swal.fire({
-                        title: '¡Alerta: Prendas no disponibles!',
-                        html: data.message + '<br><br>¿Estás seguro que deseas usarlo de todos modos?',
-                        icon: 'warning', // Puedes usar 'error' si quieres más énfasis
-                        showCancelButton: true,
-                        confirmButtonColor: '#ffc107', // Amarillo/Naranja
-                        cancelButtonColor: '#dc3545',
-                        confirmButtonText: 'Sí, usar de todos modos',
-                        cancelButtonText: 'No, cancelar el uso'
-                    }).then((confirmDirtyUse) => {
-                        if (confirmDirtyUse.isConfirmed) {
-                            // Si el usuario confirma, re-enviar la solicitud forzando el uso con prendas sucias
-                            sendUseOutfitRequest(outfitId, outfitName, force_dirty_use, true); // Pasar force_dirty_use también
-                        } else {
-                            Swal.fire('Uso Cancelado', 'El outfit no ha sido marcado como usado.', 'info');
-                        }
-                    });
-                } else if (data.code === 'ALREADY_USED_TODAY') {
-                    Swal.fire({
-                        title: '¡Ya usaste un outfit hoy!',
-                        html: data.message + '<br><br>¿Deseas reemplazarlo con este outfit?',
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonColor: '#667eea',
-                        cancelButtonColor: '#dc3545',
-                        confirmButtonText: 'Sí, reemplazar',
-                        cancelButtonText: 'No, mantener el anterior'
-                    }).then((confirmOverwrite) => {
-                        if (confirmOverwrite.isConfirmed) {
-                            sendUseOutfitRequest(outfitId, outfitName, force_overwrite, true);
-                        } else {
-                            Swal.fire('Cancelado', 'El outfit anterior se ha mantenido para hoy.', 'info');
-                        }
-                    });
-                } else {
-                    Swal.fire('Error', data.message || 'Error desconocido al registrar el uso del outfit', 'error');
-                }
-            } catch (error) {
-                Swal.close();
-                console.error('Error en la solicitud AJAX de uso de outfit:', error);
-                Swal.fire('Error de conexión', 'No se pudo comunicar con el servidor para registrar el uso del outfit.', 'error');
-            }
-        }
 
         function generarSugerencia(ciudad = 'Santiago') {
             fetch('obtener_sugerencias.php?city=' + encodeURIComponent(ciudad))
@@ -2174,7 +2135,7 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
         }
 
         // Función para crear un outfit en la DB a partir de una sugerencia de la IA
-        async function createOutfitFromSuggestion(suggestion) {
+        async function createOutfitFromSuggestion(suggestion, forceDuplicate = false) {
             Swal.fire({
                 title: 'Crear Outfit Sugerido',
                 html: `¿Quieres crear el outfit "${htmlspecialchars(suggestion.titulo)}" en tu clóset?`,
@@ -2298,26 +2259,7 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                     });
 
 
-                    // Enviar los datos al backend
-                    fetch('crear_outfit_desde_sugerencia.php', {
-                            method: 'POST',
-                            body: formData
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.success) {
-                                Swal.fire('Outfit Creado!', data.message, 'success')
-                                    .then(() => {
-                                        location.reload();
-                                    });
-                            } else {
-                                Swal.fire('Error', data.message || 'Error desconocido al crear el outfit.', 'error');
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error al enviar la solicitud:', error);
-                            Swal.fire('Error de Conexión', 'No se pudo comunicar con el servidor para crear el outfit.', 'error');
-                        });
+                    await sendCreateOutfitRequest(formData, forceDuplicate);
                 }
             });
         }
