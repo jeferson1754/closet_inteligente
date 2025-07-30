@@ -285,7 +285,7 @@ if (!empty($prendas_ids)) {
                                             <small class="text-muted">' . htmlspecialchars($prenda_edit['tipo']) . ' • ' . htmlspecialchars($prenda_edit['color_principal']) . '</small>
                                             ';
                                     // Añadir un badge de estado si la prenda no está disponible y no es de uso ilimitado
-                                    $nonAvailableStates = ['sucio', 'en uso', 'prestado','Lavando'];
+                                    $nonAvailableStates = ['sucio', 'en uso', 'prestado', 'Lavando'];
                                     if (in_array($prenda_edit['estado'], $nonAvailableStates) && !$prenda_edit['uso_ilimitado']) {
                                         echo '<span class="badge badge-sm rounded-pill bg-danger ms-2">No disp.</span>';
                                     }
@@ -437,6 +437,13 @@ if (!empty($prendas_ids)) {
                 e.preventDefault();
                 const formData = new FormData(this); // Captura todos los campos del formulario
 
+                // Nuevo: Leer si ya se ha forzado la edición duplicada
+                const forceDuplicateEdit = this.dataset.forceDuplicateEdit === 'true';
+                if (forceDuplicateEdit) {
+                    formData.append('force_duplicate_edit', 'true');
+                    this.dataset.forceDuplicateEdit = 'false'; // Resetear el flag después de enviarlo
+                }
+
                 Swal.fire({
                     title: 'Guardando cambios...',
                     text: 'Por favor espera.',
@@ -459,6 +466,23 @@ if (!empty($prendas_ids)) {
                             .then(() => {
                                 window.location.reload(); // Recargar la página para ver los cambios
                             });
+                    } else if (data.code === 'DUPLICATE_OUTFIT_ON_EDIT') { // NUEVO: Interceptar duplicado al editar
+                        Swal.fire({
+                            title: 'Combinación de prendas duplicada',
+                            html: data.message + '<br><br>¿Deseas guardar los cambios de todas formas? Esto creará un outfit con la misma combinación de prendas que otro.',
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonText: 'Sí, guardar cambios',
+                            cancelButtonText: 'No, cancelar edición'
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                // Si el usuario confirma, establecer un flag y re-enviar el formulario
+                                formEditarOutfit.dataset.forceDuplicateEdit = 'true';
+                                formEditarOutfit.requestSubmit(); // Re-envía el formulario
+                            } else {
+                                Swal.fire('Edición Cancelada', 'Los cambios no han sido guardados.', 'info');
+                            }
+                        });
                     } else {
                         Swal.fire('Error', data.message || 'Error al guardar los cambios.', 'error');
                     }
