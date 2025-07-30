@@ -1371,55 +1371,20 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             }
         }
 
+        
+        // --- NUEVA LÓGICA: Alternar formularios de agregar prenda ---
         // Agregar prenda
-        document.getElementById('formPrenda').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const form = e.target;
-            const formData = new FormData(form);
-
-            // Enviar datos al servidor mediante AJAX
-            fetch('crear_prenda.php', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.json()) // Asegúrate de que tu backend devuelva JSON
-                .then(data => {
-                    if (data.success) {
-                        // Puedes usar los datos del servidor o los del formulario, según necesites
-                        const prenda = {
-                            id: data.id || Date.now(), // Usa el ID que devuelva el backend o uno temporal
-                            nombre: formData.get('nombre'),
-                            tipo: formData.get('tipo'),
-                            color_principal: formData.get('color_principal'),
-                            tela: formData.get('tela'),
-                            textura: formData.get('textura'),
-                            estampado: formData.get('estampado'),
-                            clima_apropiado: formData.get('clima_apropiado'),
-                            formalidad: formData.get('formalidad'),
-                            comentarios: formData.get('comentarios'),
-                            estado: 'disponible',
-                            foto: null // Aquí puedes gestionar la foto si también se guarda
-                        };
-
-                        document.getElementById('previewPrenda').style.display = 'none';
-
-                        Swal.fire('Prenda agregada exitosamente', data.message, 'success')
-                            .then(() => location.reload());
-                    } else {
-
-                        Swal.fire('Error al agregar la prenda: ', (data.message || 'Error desconocido'), 'error');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error en la solicitud AJAX:', error);
-                    Swal.fire('Ocurrió un error al enviar el formulario', 'error');
-                });
-        });
+        const formPrendaManual = document.getElementById('formPrenda');
+        if (formPrendaManual) {
+            formPrendaManual.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const formData = new FormData(this);
+                sendPrendaRequest(formData, 'crear_prenda.php'); // Llama a la función unificada
+            });
+        }
 
         document.addEventListener('DOMContentLoaded', () => {
             // ... (Tu código JavaScript existente, variables, funciones como previewImage, etc.) ...
-
-            // --- NUEVA LÓGICA: Alternar formularios de agregar prenda ---
             const addManualRadio = document.getElementById('addManual');
             const addWithAIRadio = document.getElementById('addWithAI');
             const formManualContainer = document.getElementById('formManualContainer');
@@ -2411,67 +2376,41 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             // Función para procesar la respuesta de la IA y autocompletar campos
 
             // Listener para el botón "Guardar Prenda en Clóset" (final)
-            guardarPrendaIABtn.addEventListener('click', async (e) => {
-                e.preventDefault();
+            if (guardarPrendaIABtn) {
+                guardarPrendaIABtn.addEventListener('click', async (e) => {
+                    e.preventDefault(); // Esto es un click listener, así que prevenimos el submit si es un botón type="submit"
 
-                // Validar que la foto esté seleccionada
-                const fotoFile = aiPrendaFotoInput.files[0];
-                if (!fotoFile) {
-                    Swal.fire('Error', 'Debes seleccionar una imagen de la prenda.', 'error');
-                    return;
-                }
-
-                // Validar campos autocompletados
-                const iaNombre = document.getElementById('iaNombre').value.trim();
-                const iaTipo = document.getElementById('iaTipo').value.trim();
-                if (!iaNombre || !iaTipo) {
-                    Swal.fire('Error', 'Los campos "Nombre" y "Tipo" son obligatorios.', 'error');
-                    return;
-                }
-
-                // Crear FormData para enviar al PHP
-                const formData = new FormData();
-                formData.append('foto', fotoFile); // La imagen original
-                formData.append('nombre_ia', iaNombre);
-                formData.append('tipo_ia', iaTipo);
-                formData.append('color_principal_ia', document.getElementById('iaColorPrincipal').value.trim());
-                formData.append('tela_ia', document.getElementById('iaTela').value.trim());
-                formData.append('textura_ia', document.getElementById('iaTextura').value.trim());
-                formData.append('estampado_ia', document.getElementById('iaEstampado').value.trim());
-                formData.append('clima_apropiado_ia', document.getElementById('iaClimaApropiado').value.trim());
-                formData.append('formalidad_ia', document.getElementById('iaFormalidad').value.trim());
-                formData.append('comentarios_ia', document.getElementById('iaComentarios').value.trim());
-
-                // Enviar a save_prenda_from_ai.php
-                Swal.fire({
-                    title: 'Guardando Prenda...',
-                    text: 'Por favor espera mientras tu prenda se guarda.',
-                    allowOutsideClick: false,
-                    didOpen: () => {
-                        Swal.showLoading();
+                    // Validar que la foto esté seleccionada
+                    const iaPrendaFotoInput = document.getElementById('iaPrendaFotoAutomatica') || document.getElementById('iaPrendaFoto'); // Asegúrate del ID correcto
+                    const fotoFile = iaPrendaFotoInput.files[0];
+                    if (!fotoFile) {
+                        Swal.fire('Error', 'Debes seleccionar una imagen de la prenda.', 'error');
+                        return;
                     }
-                });
 
-                fetch('save_prenda_from_ai.php', {
-                        method: 'POST',
-                        body: formData
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        Swal.close();
-                        if (data.success) {
-                            Swal.fire('¡Guardada!', data.message, 'success')
-                                .then(() => location.reload()); // Recargar para ver la nueva prenda
-                        } else {
-                            Swal.fire('Error', data.message, 'error');
-                        }
-                    })
-                    .catch(error => {
-                        Swal.close();
-                        console.error('Error al guardar prenda con IA:', error);
-                        Swal.fire('Error de Conexión', 'No se pudo comunicar con el servidor para guardar la prenda.', 'error');
-                    });
-            });
+                    // Validar campos autocompletados (nombre, tipo)
+                    const iaNombre = document.getElementById('iaNombre').value.trim();
+                    const iaTipo = document.getElementById('iaTipo').value.trim();
+                    if (!iaNombre || !iaTipo) {
+                        Swal.fire('Error', 'Los campos "Nombre" y "Tipo" son obligatorios (autocompletados por IA).', 'error');
+                        return;
+                    }
+
+                    const formData2 = new FormData();
+                    formData2.append('foto', fotoFile);
+                    formData2.append('nombre', iaNombre); // Usar 'nombre' para consistencia con backend
+                    formData2.append('tipo', iaTipo);
+                    formData2.append('color_principal_ia', document.getElementById('iaColorPrincipal').value.trim());
+                    formData2.append('tela_ia', document.getElementById('iaTela').value.trim());
+                    formData2.append('textura_ia', document.getElementById('iaTextura').value.trim());
+                    formData2.append('estampado_ia', document.getElementById('iaEstampado').value.trim());
+                    formData2.append('clima_apropiado_ia', document.getElementById('iaClimaApropiado').value.trim());
+                    formData2.append('formalidad_ia', document.getElementById('iaFormalidad').value.trim());
+                    formData2.append('comentarios_ia', document.getElementById('iaComentarios').value.trim());
+
+                    sendPrendaRequest(formData2, 'save_prenda_from_ai.php'); // Llama a la función unificada
+                });
+            }
         });
 
         // Función para filtrar prendas en el formulario de creación de outfits

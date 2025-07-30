@@ -199,26 +199,19 @@
     document.querySelectorAll('formulario-prenda').forEach(form => {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
-            const formData = new FormData(form);
+            const formData = new FormData(this);
+            const prendaId = formData.get('id'); // Obtener el ID para la validación de duplicados en UPDATE
 
-            fetch('update_prenda.php', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        Swal.fire('¡Actualizado!', data.message, 'success')
-                            .then(() => location.reload());
-                    } else {
-                        Swal.fire('Error', data.message, 'error');
-                    }
-                })
-                .catch(err => {
-                    Swal.fire('Error', 'Error en la solicitud: ' + err, 'error');
-                });
+            // Leer si ya se ha forzado la edición duplicada por nombre
+            const forceDuplicateEditName = this.dataset.forceDuplicateEditName === 'true';
+            if (forceDuplicateEditName) {
+                formData.append('force_duplicate_name', 'true');
+                this.dataset.forceDuplicateEditName = 'false'; // Resetear el flag
+            }
+            sendPrendaRequest(formData, 'update_prenda.php', forceDuplicateEditName);
         });
     });
+
 
 
     function previewImage(input, previewId) {
