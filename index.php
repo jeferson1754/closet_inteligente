@@ -1371,8 +1371,58 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             }
         }
 
-        
+        async function sendPrendaRequest(formData, endpoint, forceDuplicateName = false) {
+            if (forceDuplicateName) {
+                formData.append('force_duplicate_name', 'true');
+            }
+
+            Swal.fire({
+                title: 'Guardando Prenda...',
+                text: 'Por favor espera.',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            try {
+                const response = await fetch(endpoint, { // El endpoint es variable (crear_prenda.php o upload_and_process_ai.php)
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                Swal.close();
+
+                if (data.success) {
+                    Swal.fire('¡Guardada!', data.message, 'success')
+                        .then(() => location.reload());
+                } else if (data.code === 'DUPLICATE_PRENDA_NAME') {
+                    Swal.fire({
+                        title: 'Nombre de Prenda Duplicado',
+                        html: data.message + '<br><br>¿Deseas guardar la prenda con este nombre duplicado de todas formas?',
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonText: 'Sí, guardar de todos modos',
+                        cancelButtonText: 'No, cancelar'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            // Re-enviar la solicitud forzando la creación
+                            sendPrendaRequest(formData, endpoint, true);
+                        } else {
+                            Swal.fire('Guardado Cancelado', 'La prenda no ha sido guardada.', 'info');
+                        }
+                    });
+                } else {
+                    Swal.fire('Error', data.message || 'Error desconocido al guardar la prenda.', 'error');
+                }
+            } catch (error) {
+                Swal.close();
+                console.error('Error al enviar la solicitud de prenda:', error);
+                Swal.fire('Error de Conexión', 'No se pudo comunicar con el servidor.', 'error');
+            }
+        }
         // --- NUEVA LÓGICA: Alternar formularios de agregar prenda ---
+        
         // Agregar prenda
         const formPrendaManual = document.getElementById('formPrenda');
         if (formPrendaManual) {
