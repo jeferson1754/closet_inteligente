@@ -214,52 +214,77 @@ if (!empty($data_current['coord']['lat']) && !empty($data_current['coord']['lon'
     // --- Pronóstico para mañana ---
     $api_url_forecast = API_BASE_URL . "forecast?lat={$lat}&lon={$lon}&appid=" . API_KEY . "&units=" . UNITS . "&lang=" . LANG;
     $data_forecast = fetch_api_data($api_url_forecast);
+    // ... (código existente hasta $data_forecast) ...
 
-    if (!empty($data_forecast['list'])) {
-        $tomorrow = (new DateTime('tomorrow', new DateTimeZone('America/Santiago')))->format('Y-m-d');
+    if ($data_forecast && !empty($data_forecast['list'])) {
+        date_default_timezone_set('America/Santiago');
+        $tomorrow = (new DateTime('tomorrow'))->format('Y-m-d');
 
-        // Horarios objetivo
-        $target_schedule = [
-            '5 AM'  => ['05'],
-            '5 PM'  => ['17'],
-            '10 PM' => ['22', '23', '21'], // más flexible
-        ];
+        $forecast_data = [];
+        $target_schedule_hours_24h = ['05', '17', '22']; // Horas objetivo en formato 24h
 
-        foreach ($target_schedule as $label => $hours) {
-            $found = false;
+        // Obtener todas las entradas del pronóstico para mañana
+        $tomorrow_forecast_items = array_filter($data_forecast['list'], function ($item) use ($tomorrow) {
+            $dt = new DateTime($item['dt_txt'], new DateTimeZone('UTC'));
+            $dt->setTimezone(new DateTimeZone('America/Santiago'));
+            return $dt->format('Y-m-d') === $tomorrow;
+        });
 
-            foreach ($hours as $target_hour) {
-                foreach ($data_forecast['list'] as $item) {
-                    if (empty($item['dt_txt'])) continue;
+        foreach ($target_schedule_hours_24h as $target_hour_24) {
+            $closest_temps = [];
+            $main_desc = 'No disponible';
+            $main_entry_for_desc = null;
+            $target_dt_obj = (new DateTime($tomorrow . ' ' . $target_hour_24 . ':00', new DateTimeZone('America/Santiago')));
+            $target_dt_timestamp = $target_dt_obj->getTimestamp();
 
-                    $dt = new DateTime($item['dt_txt'], new DateTimeZone('UTC'));
-                    $dt->setTimezone(new DateTimeZone('America/Santiago'));
+            // Buscar la entrada más cercana para la descripción
+            $min_time_diff = PHP_INT_MAX;
+            foreach ($tomorrow_forecast_items as $item) {
+                $item_dt = (new DateTime($item['dt_txt'], new DateTimeZone('UTC')))->setTimezone(new DateTimeZone('America/Santiago'));
+                $time_diff = abs($item_dt->getTimestamp() - $target_dt_timestamp);
+                if ($time_diff < $min_time_diff) {
+                    $min_time_diff = $time_diff;
+                    $main_entry_for_desc = $item;
+                }
+            }
+            if ($main_entry_for_desc) {
+                $main_desc = $main_entry_for_desc['weather'][0]['description'] ?? 'No disponible';
+            }
 
-                    if ($dt->format('Y-m-d') === $tomorrow && $dt->format('H') === $target_hour) {
-                        $forecast_data[] = [
-                            'label' => $label,
-                            'time'  => $dt->format('g A'),
-                            'temp'  => round($item['main']['temp']),
-                            'desc'  => $item['weather'][0]['description'] ?? 'No disponible',
-                        ];
-                        $found = true;
-                        break 2; // salir de ambos bucles
-                    }
+            // Buscar temperaturas en un rango de +/- 3 horas de la hora objetivo
+            foreach ($tomorrow_forecast_items as $item) {
+                $item_dt = (new DateTime($item['dt_txt'], new DateTimeZone('UTC')))->setTimezone(new DateTimeZone('America/Santiago'));
+                $item_timestamp = $item_dt->getTimestamp();
+
+                // Si la entrada de la API está a menos de 3 horas de nuestra hora objetivo
+                if (abs($item_timestamp - $target_dt_timestamp) <= 3 * 3600) {
+                    $closest_temps[] = round($item['main']['temp']);
                 }
             }
 
-            if (!$found) {
-                $forecast_data[] = [
-                    'label' => $label,
-                    'time'  => null,
-                    'temp'  => null,
-                    'desc'  => 'No disponible',
-                ];
+            // Si encontramos temperaturas, creamos el rango
+            if (!empty($closest_temps)) {
+                $min_temp = min($closest_temps);
+                $max_temp = max($closest_temps);
+                $temp_range = ($min_temp === $max_temp) ? $min_temp . '°C' : $min_temp . '°C - ' . $max_temp . '°C';
+            } else {
+                $temp_range = 'No disponible';
             }
+
+            $forecast_data[] = [
+                'label' => $target_dt_obj->format('g A'),
+                'temp_range' => $temp_range,
+                'desc' => $main_desc
+            ];
         }
+
+        // Opcional: Ordenar el array final para que las horas aparezcan en orden lógico
+        usort($forecast_data, function ($a, $b) {
+            $time_order = ['5 AM' => 1, '5 PM' => 2, '10 PM' => 3];
+            return $time_order[$a['label']] <=> $time_order[$b['label']];
+        });
     }
 }
-
 // --- Exportar JSON del pronóstico ---
 $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 
@@ -1795,19 +1820,16 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                 prendasListForIA = '\n\nNo tengo prendas disponibles con menos de 3 usos esta semana. Por favor, sugiere un outfit general basado en las condiciones.\n';
             }
 
-            // --- NUEVO: Obtener el pronóstico personalizado o usar el de la API ---
             let tomorrowForecastForIA = '';
             const pronosticoPersonalizado = document.getElementById('pronosticoPersonalizado').value.trim();
+
             if (pronosticoPersonalizado) {
                 tomorrowForecastForIA = '\n\nPronóstico del clima de mañana (personalizado por el usuario):\n' + pronosticoPersonalizado + '\n\n';
             } else if (tomorrowForecast.length > 0) {
                 tomorrowForecastForIA = '\n\nPronóstico del clima para mañana (basado en Santiago):\n';
                 tomorrowForecast.forEach(forecast => {
-                    if (forecast.time) {
-                        tomorrowForecastForIA += `- ${forecast.label}: ${forecast.temp}°C, ${forecast.desc}\n`;
-                    } else {
-                        tomorrowForecastForIA += `- ${forecast.label}: Clima no disponible\n`;
-                    }
+                    // Usar forecast.temp_range en lugar de forecast.temp
+                    tomorrowForecastForIA += `- ${forecast.label}: ${forecast.temp_range}, ${forecast.desc}\n`;
                 });
                 tomorrowForecastForIA += '\n';
             } else {
