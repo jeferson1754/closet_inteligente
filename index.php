@@ -76,9 +76,7 @@ $prendas_para_sugerencia_ia = [];
 
 
 // Consulta para obtener prendas disponibles
-$sql_prendas_disponibles = "SELECT *
-                                                    FROM prendas
-                                                    WHERE estado = 'disponible' OR uso_ilimitado = TRUE"; // AÑADIR uso_ilimitado
+$sql_prendas_disponibles = "SELECT * FROM prendas WHERE estado = 'disponible' OR uso_ilimitado = TRUE ORDER BY `prendas`.`nombre` ASC"; // AÑADIR uso_ilimitado
 $result_disponibles = $mysqli_obj->query($sql_prendas_disponibles);
 
 if ($result_disponibles) {
@@ -1422,7 +1420,7 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             }
         }
         // --- NUEVA LÓGICA: Alternar formularios de agregar prenda ---
-        
+
         // Agregar prenda
         const formPrendaManual = document.getElementById('formPrenda');
         if (formPrendaManual) {
@@ -1786,11 +1784,10 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
 
             let prendasListForIA = '';
             if (availableFilteredPrendas.length > 0) {
-                prendasListForIA = '\n\nAquí tienes una lista de las prendas disponibles en mi clóset que tienen menos de 3 usos esta semana. Por favor, prioriza estas prendas en tu sugerencia:\n';
+                prendasListForIA = '\n\nAquí tienes una lista de las prendas disponibles en mi clóset que tienen menos de 3 usos esta semana. Por favor, **utiliza SOLAMENTE estas prendas** en tu sugerencia:\n';
                 availableFilteredPrendas.forEach(prenda => {
-                    // Modificamos esta línea para añadir los comentarios si existen
-                    const comments = prenda.comentarios ? ` - Detalle: ${prenda.comentarios}` : '';
-                    prendasListForIA += `- ${prenda.nombre} (${prenda.tipo}, ${prenda.color})${comments}\n`;
+                    const comments = prenda.comentarios ? ` - Detalle: "${prenda.comentarios}"` : '';
+                    prendasListForIA += `- ${prenda.nombre} (Tipo: ${prenda.tipo}, Color: ${prenda.color})${comments}\n`;
                 });
                 prendasListForIA += '\n';
             } else {
@@ -1839,45 +1836,52 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             - ¿Posibilidad de llevar muda extra?: ${muda_extra ? 'Sí' : 'No'}
             ${tomorrowForecastForIA}
 
-             ${reglas_especificas ? `**Reglas o Requisitos Obligatorios:**\n- ${reglas_especificas}\n\n` : ''} 
-             
-             ${prendasListForIA}
+            ${reglas_especificas ? `**Reglas o Requisitos Obligatorios:**\n- ${reglas_especificas}\n\n` : ''}
 
-             ${outfitsHistoryForIA}
+             **Instrucción Adicional:** Para los 3 outfits que vas a sugerir, **no repitas las prendas superiores** (poleras, camisetas, camisas, abrigos o chaquetas) entre ellos. Asegúrate de que cada outfit tenga una prenda superior única.
+            
+            ${prendasListForIA}
+
+
+            ${outfitsHistoryForIA}
+            
 
            Tu respuesta debe tener el siguiente formato JSON estricto: un **objeto principal** que contenga una clave "type" (que será "outfit_suggestions") y una clave "suggestions" que sea un array de objetos. Proporciona **3 ideas de outfit distintas**. Sin texto adicional antes ni después del JSON. Cada objeto de outfit en el array "suggestions" debe tener las propiedades "titulo", "descripcion", "prendas_sugeridas" (un array de strings concisos) y "tips_adicionales".
             
             **IMPORTANTE: Para las "prendas_sugeridas", por favor, utiliza los nombres EXACTOS de las prendas que te proporcioné en mi lista de clóset, o en su defecto, la combinación 'Tipo de prenda - Color' si no hay un nombre específico.** Por ejemplo, si mi lista tiene 'Camiseta Naranja Salmón (camiseta, Naranja Salmón)', por favor, usa 'Camiseta Naranja Salmón' o 'camiseta - Naranja Salmón'. Si no puedes encontrar una prenda exacta, sugiere una genérica.
 
-            [
-              {
-                "titulo": "Un título atractivo para el Outfit 1",
-                "descripcion": "Una descripción breve y convincente del Outfit 1, explicando por qué es adecuado y cómo se adapta al clima y la comodidad.",
-                "prendas_sugeridas": [
-                  "Nombre Exacto de Prenda de tu lista 1", // Ejemplo: "Camiseta Naranja Salmón"
-                  "Tipo de prenda - Color (ej. 'pantalon - Azul Claro/Medio')", // Si no hay nombre exacto
-                  "Chaqueta Softshell Negra" // Otro ejemplo de nombre exacto
-                ],
-                "tips_adicionales": "Un consejo de estilo o practicidad relacionado con el Outfit 1 (ej. 'No olvides una bufanda ligera para la mañana fría.')"
-              },
-              {
-                "titulo": "Un título atractivo para el Outfit 2",
-                "descripcion": "Una descripción breve y convincente del Outfit 2.",
-                "prendas_sugeridas": [
-                  "Nombre Exacto de Prenda 1", "Nombre Exacto de Prenda 2"
-                ],
-                "tips_adicionales": "Tip para Outfit 2."
-              },
-              {
-                "titulo": "Un título atractivo para el Outfit 3",
-                "descripcion": "Una descripción breve y convincente del Outfit 3.",
-                "prendas_sugeridas": [
-                  "Nombre Exacto de Prenda X", "Nombre Exacto de Prenda Y"
-                ],
-                "tips_adicionales": "Tip para Outfit 3."
-              }
-            ]`;
-
+            {
+              "type": "outfit_suggestions",
+              "suggestions": [
+                {
+                "titulo": "Un título atractivo para el Outfit 1",
+                "descripcion": "Una descripción breve y convincente del Outfit 1, explicando por qué es adecuado y cómo se adapta al clima y la comodidad.",
+                "prendas_sugeridas": [
+                  "Nombre Exacto de Prenda de tu lista 1", // Ejemplo: "Camiseta Naranja Salmón"
+                  "Tipo de prenda - Color (ej. 'pantalon - Azul Claro/Medio')", // Si no hay nombre exacto
+                  "Chaqueta Softshell Negra" // Otro ejemplo de nombre exacto
+                ],
+                "tips_adicionales": "Un consejo de estilo o practicidad relacionado con el Outfit 1 (ej. 'No olvides una bufanda ligera para la mañana fría.')"
+              },
+              {
+                "titulo": "Un título atractivo para el Outfit 2",
+                "descripcion": "Una descripción breve y convincente del Outfit 2.",
+                "prendas_sugeridas": [
+                  "Nombre Exacto de Prenda 1", "Nombre Exacto de Prenda 2"
+                ],
+                "tips_adicionales": "Tip para Outfit 2."
+              },
+              {
+                "titulo": "Un título atractivo para el Outfit 3",
+                "descripcion": "Una descripción breve y convincente del Outfit 3.",
+                "prendas_sugeridas": [
+                  "Nombre Exacto de Prenda X", "Nombre Exacto de Prenda Y"
+                ],
+                "tips_adicionales": "Tip para Outfit 3."
+              }
+            ]
+        }
+`;
 
             const aiPromptElement = document.getElementById('aiPrompt');
             aiPromptElement.value = prompt;
