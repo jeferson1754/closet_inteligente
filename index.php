@@ -1246,11 +1246,12 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
 
                                         <div class="mb-3">
                                             <label for="reglasEspecificas" class="form-label">Reglas o Requisitos Específicos (opcional)</label>
-                                            <textarea class="form-control" id="reglasEspecificas" name="reglas_especificas" rows="3" placeholder="Ej: 'Obligado a usar la chaqueta azul de la empresa', 'No se permiten jeans rotos', 'Debe incluir un sombrero'..."></textarea>
-                                            <small class=" form-text text-muted">Añade cualquier requisito obligatorio para el outfit.</small>
-                                            <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="guardarReglasBtn">
-                                                <i class="fas fa-save me-2"></i>Guardar Reglas
-                                            </button>
+                                            <textarea class="form-control" id="reglasEspecificas" name="reglas_especificas" rows="3" placeholder="Ej: 'Obligado a usar la chaqueta azul de la empresa', 'No se permiten jeans rotos', 'Debe incluir un sombrero'."></textarea>
+                                        </div>
+                                        <div class=" mb-3">
+                                            <label for="pronosticoPersonalizado" class="form-label">Pronóstico del Clima de Mañana (Opcional)</label>
+                                            <textarea class="form-control" id="pronosticoPersonalizado" rows="5" placeholder="Ej: '5 AM: 10°C, soleado. 5 PM: 20°C, despejado. 10 PM: 15°C, nublado.'"></textarea>
+                                            <small class="form-text text-muted">Si no ingresas un pronóstico, se usará el de Santiago por defecto.</small>
                                         </div>
 
                                     </form>
@@ -1794,20 +1795,25 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                 prendasListForIA = '\n\nNo tengo prendas disponibles con menos de 3 usos esta semana. Por favor, sugiere un outfit general basado en las condiciones.\n';
             }
 
+            // --- NUEVO: Obtener el pronóstico personalizado o usar el de la API ---
             let tomorrowForecastForIA = '';
-            if (tomorrowForecast.length > 0) {
-                tomorrowForecastForIA = '\nPronóstico del clima para mañana (<?= $fecha_manana ?>):\n';
+            const pronosticoPersonalizado = document.getElementById('pronosticoPersonalizado').value.trim();
+            if (pronosticoPersonalizado) {
+                tomorrowForecastForIA = '\n\nPronóstico del clima de mañana (personalizado por el usuario):\n' + pronosticoPersonalizado + '\n\n';
+            } else if (tomorrowForecast.length > 0) {
+                tomorrowForecastForIA = '\n\nPronóstico del clima para mañana (basado en Santiago):\n';
                 tomorrowForecast.forEach(forecast => {
-                    if (forecast.time) { // Si hay datos para esta hora
+                    if (forecast.time) {
                         tomorrowForecastForIA += `- ${forecast.label}: ${forecast.temp}°C, ${forecast.desc}\n`;
-                    } else { // Si no se encontró el pronóstico para esta hora específica
+                    } else {
                         tomorrowForecastForIA += `- ${forecast.label}: Clima no disponible\n`;
                     }
                 });
-                tomorrowForecastForIA;
+                tomorrowForecastForIA += '\n';
             } else {
-                tomorrowForecastForIA = '\n\nNo se pudo obtener el pronóstico del clima para mañana. Considera un clima general para la temporada.\n';
+                tomorrowForecastForIA = '\n\nNo se pudo obtener el pronóstico del clima. Considera un clima general para la temporada.\n';
             }
+            // --- FIN NUEVO ---
 
             // --- INICIO: Historial de Outfits Usados para el prompt ---
             let outfitsHistoryForIA = '';
