@@ -372,21 +372,26 @@ if (!empty($prendas_ids)) {
 
             // Función para filtrar prendas en el modal de edición
             function filterEditOutfitPrendas() {
-                const searchTerm = buscarPrendasEditOutfit.value.toLowerCase().trim();
+                document.getElementById("buscarPrendasEditOutfit").addEventListener("input", function() {
+                    let filtro = this.value.toLowerCase().trim();
+                    let prendas = document.querySelectorAll("#listaPrendasEditOutfit .prenda-edit-item");
 
-                allPrendaEditItems.forEach(item => {
-                    const prendaNombre = item.dataset.prendaNombre;
-                    const prendaTipo = item.dataset.prendaTipo;
-                    const prendaColor = item.dataset.prendaColor;
-                    const prendaText = `${prendaNombre} ${prendaTipo} ${prendaColor}`;
+                    prendas.forEach(function(prenda) {
+                        let nombre = prenda.getAttribute("data-prenda-nombre");
+                        let tipo = prenda.getAttribute("data-prenda-tipo");
+                        let color = prenda.getAttribute("data-prenda-color");
 
-                    if (searchTerm === '' || prendaText.includes(searchTerm)) {
-                        item.style.display = 'flex';
-                    } else {
-                        item.style.display = 'none';
-                    }
+                        // Mostrar si coincide en nombre, tipo o color
+                        if (nombre.includes(filtro) || tipo.includes(filtro) || color.includes(filtro)) {
+                            prenda.style.display = "";
+                        } else {
+                            prenda.style.display = "none";
+                        }
+                    });
                 });
             }
+
+
 
             // Evento que se dispara cuando el modal de edición de outfit se abre
             modalEditarOutfit.addEventListener('show.bs.modal', async function(event) {
