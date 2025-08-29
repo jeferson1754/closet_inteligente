@@ -1586,15 +1586,251 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                         let contentHtml = '';
 
                                         // Detalles del Outfit (nuevo)
+                                        // Detalles del Outfit (mejorado)
+                                        // Detalles del Outfit (mejorado)
                                         if (data.outfit_details) {
                                             contentHtml += `
-                                            <div class="mb-3 text-center">
-                                                <h4>${data.outfit_details.nombre}</h4>
-                                                <p><strong>Contexto:</strong> ${data.outfit_details.contexto} | <strong>Clima:</strong> ${data.outfit_details.clima_base}</p>
-                                                ${data.outfit_details.comentarios ? `<p class="alert alert-info"><strong>Comentarios:</strong> ${data.outfit_details.comentarios}</p>` : ''}
-                                                <hr>
-                                            </div>
-                                        `;
+        <div class="outfit-details-container mb-4">
+            <!-- Header del outfit -->
+            <div class="outfit-header text-center mb-3">
+                <h4 class="outfit-title mb-2">
+                    <i class="fas fa-tshirt me-2 text-primary"></i>
+                    ${data.outfit_details.nombre}
+                </h4>
+                
+                <!-- Badges mejorados -->
+                <div class="d-flex flex-wrap justify-content-center gap-2 mb-3">
+                    <span class="badge bg-primary px-3 py-2 rounded-pill">
+                        <i class="fas fa-tag me-1"></i>
+                        ${data.outfit_details.contexto}
+                    </span>
+                    <span class="badge clima-${data.outfit_details.clima_base.toLowerCase()} px-3 py-2 rounded-pill">
+                        <i class="fas fa-cloud-sun me-1"></i>
+                        ${data.outfit_details.clima_base}
+                    </span>
+                </div>
+            </div>
+
+                            <div class="text-center mb-1">
+                            <div class="info-card">
+                                <div class="info-label">
+                                    <i class="fas fa-calendar-alt me-2 text-muted"></i>
+                                    <small class="text-muted text-uppercase fw-bold">Último uso</small>
+                                </div>
+                          <div class="info-value">
+                                <span class="text-muted capitalized">
+                                  ${data.outfit_details.fecha_ultimo_uso_outfit 
+                                    ? (() => {
+                                        let fecha = new Date(data.outfit_details.fecha_ultimo_uso_outfit);
+                                        fecha.setDate(fecha.getDate() + 1); // ➕ Sumar 1 día
+                                        return fecha.toLocaleDateString('es-ES', { 
+                                            weekday: 'long', 
+                                            day: '2-digit', 
+                                            month: '2-digit', 
+                                            year: '2-digit' 
+                                        });
+                                    })() 
+                                    : 'No disponible'}
+                                </span>
+                                </div>
+
+                            </div>
+                        </div>
+
+            <!-- Comentarios con diseño mejorado -->
+            ${data.outfit_details.comentarios ? `
+                <div class="outfit-comments">
+                    <div class="comment-card">
+                        <div class="comment-header mb-2">
+                            <i class="fas fa-quote-left text-primary me-2"></i>
+                            <span class="comment-label text-muted text-uppercase fw-bold fs-7">Comentarios</span>
+                        </div>
+                        <div class="comment-content">
+                            ${data.outfit_details.comentarios.replace(/\n/g, '<br>')}
+                        </div>
+                    </div>
+                </div>
+            ` : `
+                <div class="no-comments text-center">
+                    <i class="fas fa-comment-slash text-muted me-2"></i>
+                    <span class="text-muted fst-italic">Sin detalles adicionales</span>
+                </div>
+            `}
+
+        </div>
+
+        <style>
+        .outfit-details-container {
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+            border-radius: 15px;
+            padding: 1.5rem;
+            border: 1px solid rgba(0,123,255,0.1);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .outfit-details-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #007bff, #6f42c1, #e83e8c, #fd7e14);
+        }
+
+        .outfit-title {
+            color: #2c3e50;
+            font-weight: 600;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .badge {
+            font-weight: 500;
+            letter-spacing: 0.3px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .badge:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        /* Estilos mejorados para diferentes climas */
+        .clima-soleado {
+            background: linear-gradient(45deg, #ffc107, #fd7e14) !important;
+            color: white !important;
+        }
+
+        .clima-lluvioso {
+            background: linear-gradient(45deg, #6c757d, #495057) !important;
+            color: white !important;
+        }
+
+        .clima-nublado {
+            background: linear-gradient(45deg, #adb5bd, #6c757d) !important;
+            color: white !important;
+        }
+
+        .clima-frio {
+            background: linear-gradient(45deg, #007bff, #0056b3) !important;
+            color: white !important;
+        }
+
+        .clima-calido {
+            background: linear-gradient(45deg, #dc3545, #fd7e14) !important;
+            color: white !important;
+        }
+
+        .comment-card {
+            background: white;
+            border-radius: 10px;
+            padding: 1.25rem;
+            border-left: 4px solid #007bff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: transform 0.2s ease;
+        }
+
+        .comment-card:hover {
+            transform: translateY(-1px);
+        }
+
+        .comment-header {
+            display: flex;
+            align-items: center;
+        }
+
+        .comment-label {
+            font-size: 0.75rem;
+            letter-spacing: 1px;
+        }
+
+        .comment-content {
+            font-size: 1rem;
+            line-height: 1.6;
+            color: #495057;
+            font-style: italic;
+            margin: 0;
+        }
+
+        .no-comments {
+            padding: 1.5rem;
+            background: white;
+            border-radius: 10px;
+            border: 2px dashed #dee2e6;
+            transition: border-color 0.3s ease;
+        }
+
+        .no-comments:hover {
+            border-color: #adb5bd;
+        }
+
+        .separator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 1.5rem 0;
+        }
+
+        .separator-line {
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, #dee2e6, transparent);
+        }
+
+        .separator-icon {
+            margin: 0 1rem;
+            color: #007bff;
+            font-size: 0.8rem;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        /* Responsive design */
+        @media (max-width: 576px) {
+            .outfit-details-container {
+                padding: 1rem;
+                margin: 0.5rem 0;
+                border-radius: 10px;
+            }
+            
+            .badge {
+                font-size: 0.8rem;
+                padding: 0.5rem 1rem !important;
+            }
+            
+            .comment-card {
+                padding: 1rem;
+            }
+            
+            .outfit-title {
+                font-size: 1.25rem;
+            }
+        }
+
+        /* Animación de entrada */
+        .outfit-details-container {
+            animation: slideInUp 0.5s ease-out;
+        }
+
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        </style>
+    `;
                                         }
 
                                         // Prendas del Outfit

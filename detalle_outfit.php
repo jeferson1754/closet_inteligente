@@ -8,6 +8,17 @@ if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
     exit;
 }
 
+$dias = [
+    'Monday'    => 'Lunes',
+    'Tuesday'   => 'Martes',
+    'Wednesday' => 'Miércoles',
+    'Thursday'  => 'Jueves',
+    'Friday'    => 'Viernes',
+    'Saturday'  => 'Sábado',
+    'Sunday'    => 'Domingo'
+];
+
+
 $outfit_id = intval($_GET['id']);
 $outfit_details = null;
 $prendas_del_outfit = [];
@@ -22,7 +33,7 @@ if (isset($_GET['usado']) && $_GET['usado'] == 'true') {
 }
 
 // Obtener detalles del outfit principal
-$sql_outfit = "SELECT id, nombre, contexto, clima_base, comentarios FROM outfits WHERE id = ?";
+$sql_outfit = "SELECT * FROM outfits WHERE id = ?";
 if ($stmt_outfit = $mysqli_obj->prepare($sql_outfit)) {
     $stmt_outfit->bind_param("i", $outfit_id);
     $stmt_outfit->execute();
@@ -150,6 +161,106 @@ if (!empty($prendas_ids)) {
             background-color: #28a745;
             color: white;
         }
+
+        .outfit-info-container {
+            background: #f8f9fa;
+            border-radius: 12px;
+            margin: 1rem 0;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .info-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            display: inline-block;
+            min-width: 200px;
+        }
+
+        .info-label {
+            margin-bottom: 0.5rem;
+        }
+
+        .info-value {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .comment-card {
+            background: white;
+            border-left: 4px solid #007bff;
+            border-radius: 0 8px 8px 0;
+            padding: 1.25rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .comment-header {
+            margin-bottom: -1rem;
+            display: flex;
+            align-items: center;
+        }
+
+        .comment-content {
+            font-size: 1rem;
+            line-height: 1.6;
+            color: #555;
+            font-style: italic;
+        }
+
+        .no-comments {
+            text-align: center;
+            padding: 1rem;
+            background: white;
+            border-radius: 8px;
+            border: 2px dashed #dee2e6;
+        }
+
+        /* Mejoras para los badges */
+        .badge {
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            transition: transform 0.2s ease;
+        }
+
+        .badge:hover {
+            transform: translateY(-1px);
+        }
+
+        /* Estilos para diferentes climas (ejemplos) */
+        .clima-soleado {
+            background: linear-gradient(45deg, #ffc107, #fd7e14) !important;
+        }
+
+        .clima-lluvioso {
+            background: linear-gradient(45deg, #6c757d, #495057) !important;
+        }
+
+        .clima-nublado {
+            background: linear-gradient(45deg, #adb5bd, #6c757d) !important;
+        }
+
+        .clima-frio {
+            background: linear-gradient(45deg, #007bff, #0056b3) !important;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 576px) {
+            .outfit-info-container {
+                padding: 1rem;
+                margin: 0.5rem 0;
+            }
+
+            .info-card {
+                min-width: auto;
+                width: 100%;
+            }
+
+            .comment-card {
+                padding: 1rem;
+            }
+        }
     </style>
 </head>
 
@@ -163,21 +274,70 @@ if (!empty($prendas_ids)) {
 
             <div class="card mb-4">
                 <div class="card-body">
-                    <h2 class="card-title text-center mb-3"><?php echo htmlspecialchars($outfit_details['nombre']); ?></h2>
-                    <div class="d-flex justify-content-center mb-3">
-                        <span class="badge bg-primary"><?php echo htmlspecialchars($outfit_details['contexto']); ?></span>
-                        <span class="badge clima-<?php echo htmlspecialchars($outfit_details['clima_base']); ?>"><?php echo htmlspecialchars($outfit_details['clima_base']); ?></span>
+                    <h2 class="card-title text-center mb-1"><?php echo htmlspecialchars($outfit_details['nombre']); ?></h2>
+                    <!-- Contenedor principal con mejor estructura -->
+                    <div class="outfit-info-container">
+                        <!-- Badges con mejor espaciado y diseño -->
+
+                        <div class="d-flex flex-wrap justify-content-center gap-2 mb-4 mt-2">
+                            <?php if (!empty($outfit_details['contexto'])): ?>
+                                <span class="badge bg-primary px-3 py-2 rounded-pill fs-6">
+                                    <i class="fas fa-tag me-1"></i>
+                                    <?php echo htmlspecialchars($outfit_details['contexto']); ?>
+                                </span>
+                            <?php endif; ?>
+                            <span class="badge clima-<?php echo htmlspecialchars($outfit_details['clima_base']); ?> px-3 py-2 rounded-pill fs-6">
+                                <i class="fas fa-cloud me-1"></i>
+                                <?php echo htmlspecialchars($outfit_details['clima_base']); ?>
+                            </span>
+                        </div>
+
+                        <!-- Información de fecha con mejor presentación -->
+                        <div class="text-center mb-1">
+                            <div class="info-card">
+                                <div class="info-label">
+                                    <i class="fas fa-calendar-alt me-2 text-muted"></i>
+                                    <small class="text-muted text-uppercase fw-bold">Último uso</small>
+                                </div>
+                                <div class="info-value">
+                                    <?php
+                                    $timestamp = strtotime($outfit_details['fecha_ultimo_uso_outfit']);
+                                    $diaEn = date("l", $timestamp); // Día en inglés
+                                    $diaEs = $dias[$diaEn]; // Traducción al español
+
+                                    echo $diaEs . ", " . date("d-m-y", $timestamp);
+                                    ?>
+
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Comentarios con mejor diseño -->
+                        <div class="comments-section">
+                            <?php if (!empty($outfit_details['comentarios'])): ?>
+                                <div class="comment-card">
+                                    <div class="comment-header">
+                                        <i class="fas fa-quote-left text-primary me-2"></i>
+                                        <span class="comment-label text-muted text-uppercase fw-bold">Comentarios</span>
+                                    </div>
+                                    <div class="comment-content" style="white-space: pre-line;">
+                                        <?php echo htmlspecialchars($outfit_details['comentarios']); ?>
+                                    </div>
+
+
+                                </div>
+                            <?php else: ?>
+                                <div class="no-comments">
+                                    <i class="fas fa-comment-slash text-muted me-2"></i>
+                                    <span class="text-muted fst-italic">Sin detalles adicionales para este outfit</span>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+
                     </div>
 
-                    <p class="text-center lead">
-                        <?php if (!empty($outfit_details['comentarios'])): ?>
-                            <i class="fas fa-comment me-2"></i>"<?php echo nl2br(htmlspecialchars($outfit_details['comentarios'])); ?>"
-                        <?php else: ?>
-                            <span class="text-muted">Sin detalles adicionales para este outfit.</span>
-                        <?php endif; ?>
-                    </p>
 
-                    <div class="text-center mt-4">
+                    <div class="text-center mt-1">
                         <button class="btn btn-primary me-2" id="usarOutfitBtn" data-id="<?php echo $outfit_id; ?>">
                             <i class="fas fa-calendar-check me-2"></i>Usar este Outfit Hoy
                         </button>

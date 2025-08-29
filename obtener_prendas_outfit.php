@@ -57,7 +57,7 @@ if (isset($_GET['outfit_id']) && is_numeric($_GET['outfit_id'])) {
                     // ... (código existente para obtener detalles de prendas) ...
 
                     // Nueva consulta para obtener los detalles del outfit
-                    $sql_outfit_details = "SELECT nombre, contexto, clima_base, comentarios FROM outfits WHERE id = ?";
+                    $sql_outfit_details = "SELECT * FROM outfits WHERE id = ?";
                     if ($stmt_outfit_details = $mysqli_obj->prepare($sql_outfit_details)) {
                         $stmt_outfit_details->bind_param("i", $outfit_id);
                         $stmt_outfit_details->execute();
@@ -76,7 +76,7 @@ if (isset($_GET['outfit_id']) && is_numeric($_GET['outfit_id'])) {
                 } else {
                     // ... (código existente si no hay prendas) ...
                     // Aun así, intenta obtener los detalles del outfit para mostrarlos
-                    $sql_outfit_details = "SELECT nombre, contexto, clima_base, comentarios FROM outfits WHERE id = ?";
+                    $sql_outfit_details = "SELECT * FROM outfits WHERE id = ?";
                     if ($stmt_outfit_details = $mysqli_obj->prepare($sql_outfit_details)) {
                         $stmt_outfit_details->bind_param("i", $outfit_id);
                         $stmt_outfit_details->execute();
