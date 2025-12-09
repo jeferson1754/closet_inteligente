@@ -352,6 +352,31 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             max-width: 1200px;
         }
 
+        /* index.php - Dentro de la etiqueta <style> */
+
+        /* Estilo para outfits ya usados */
+        .outfit-card.outfit-usado {
+            /* Fondo más sutil o borde diferente */
+            background-color: #f8f9fa;
+            /* Gris muy claro */
+            border-left: 5px solid #6c757d;
+            /* Borde gris sutil */
+            opacity: 0.9;
+            /* Ligeramente más opaco que los nuevos */
+        }
+
+        /* Estilo para outfits nuevos (que no tienen fecha de uso) */
+        .outfit-card.outfit-nuevo {
+            /* Borde o sombra más prominente */
+            background-color: #ffffff;
+            /* Fondo blanco brillante */
+            border-left: 5px solid #28a745;
+            /* Borde verde para destacar */
+            box-shadow: 0 0 10px rgba(40, 167, 69, 0.3);
+            /* Sombra verde */
+        }
+
+
         .nav-pills .nav-link {
             border-radius: 25px;
             margin: 0 5px;
@@ -1173,9 +1198,23 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                             $prendas_ids = $outfit['prendas_ids'] ? explode(',', $outfit['prendas_ids']) : [];
                                             $data_prendas = htmlspecialchars(json_encode($prendas_ids));
 
+                                            // NUEVA LÓGICA: Determinar la clase visual
+                                            $clase_estado_uso = '';
+                                            $etiqueta_estado = '';
+
+                                            if (empty($outfit['fecha_ultimo_uso_outfit'])) {
+                                                // Outfit completamente nuevo, sin usar
+                                                $clase_estado_uso = 'outfit-nuevo';
+                            
+                                            } else {
+                                                // Outfit ya usado, lo marcamos para el orden
+                                                $clase_estado_uso = '';
+
+                                            }
+
                                             echo '
         <div class="col-md-6 mb-3">
-            <div class="card outfit-card" data-outfit-id="' . $outfit['id'] . '" data-prendas=\'' . $data_prendas . '\'>
+            <div class="card outfit-card ' . $clase_estado_uso . '" data-outfit-id="' . $outfit['id'] . '" data-prendas=\'' . $data_prendas . '\'>
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-start">
                         <div>
