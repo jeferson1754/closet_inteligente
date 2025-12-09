@@ -1048,6 +1048,16 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
 
                 <!-- Outfits -->
                 <div class="tab-pane fade" id="outfits">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div id="outfitsListHeader">
+                            <h4 class="mb-0">Lista de Outfits</h4>
+                        </div>
+
+                        <button type="button" class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#searchOutfitModal">
+                            <i class="fas fa-search me-2"></i>Búsqueda Avanzada
+                        </button>
+                    </div>
+
                     <div class="row">
                         <div class="col-md-4">
                             <div class="card mb-4">
@@ -1143,7 +1153,7 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                 <div class="card-header">
                                     <h5><i class="fas fa-palette me-2"></i>Mis Outfits</h5>
                                 </div>
-                                <div class="card-body row">
+                                <div class="card-body row" id="outfitsListContainer">
                                     <?php
 
                                     // Consulta que obtiene outfits y la cantidad de prendas asociadas
@@ -1346,6 +1356,10 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             </div>
         </div>
     </div>
+
+    <?php
+    include('modal_busqueda_prendas.php');
+    ?>
 
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -2619,6 +2633,165 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                         title: 'Error: Respuesta de IA no es JSON válido.'
                     });
                 }
+            }
+        }
+
+        // index.php - Dentro de las etiquetas <script> existentes
+
+        // Función para filtrar las prendas dentro del modal (se mantiene igual)
+        // index.php - Dentro de las etiquetas <script> existentes
+
+        function filterPrendasForSearch() {
+            // 1. Obtener el texto de búsqueda, convertirlo a minúsculas y eliminar espacios extras.
+            const searchTerm = document.getElementById('searchPrendasFilter').value.toLowerCase().trim();
+
+            // 2. Seleccionar TODOS los elementos de prenda dentro del contenedor.
+            const prendaItems = document.querySelectorAll('#listaPrendasBusqueda .prenda-search-item');
+
+            prendaItems.forEach(item => {
+                // 3. Obtener los atributos de datos. Usamos '|| '' ' por si alguno fuera nulo.
+                const nombre = item.getAttribute('data-nombre-prenda') || '';
+                const tipo = item.getAttribute('data-tipo-prenda') || '';
+
+                // 4. Combinar el texto de búsqueda.
+                const fullText = `${nombre} ${tipo}`;
+
+                // 5. Aplicar el filtro.
+                if (fullText.includes(searchTerm)) {
+                    // Si coincide, lo mostramos.
+                    // Al usar '' (cadena vacía), eliminamos el 'display: none' en línea y permitimos que 
+                    // la clase 'd-flex' de Bootstrap lo muestre correctamente.
+                    item.style.display = '';
+                } else {
+                    // Si no coincide, lo ocultamos.
+                    item.style.display = 'none';
+                }
+            });
+        }
+
+        // Lógica de Búsqueda AVANZADA: Ahora se ejecuta localmente
+        function buscarOutfitsAvanzada() {
+            // 1. Recolectar los IDs de las prendas seleccionadas
+            const checkboxes = document.querySelectorAll('#listaPrendasBusqueda input[type="checkbox"]:checked');
+            const selectedIds = Array.from(checkboxes).map(cb => cb.value); // Array de strings de IDs seleccionados
+
+            // Ocultar el modal
+            const searchModalEl = document.getElementById('searchOutfitModal');
+            const searchModal = bootstrap.Modal.getInstance(searchModalEl);
+            if (searchModal) {
+                searchModal.hide();
+            }
+
+            if (selectedIds.length === 0) {
+                // Si no seleccionó nada, restaurar la vista original
+                resetOutfitsView();
+                return;
+            }
+
+            // 2. Ejecutar el filtro localmente en los elementos del DOM
+            mostrarOutfitsFiltrados(selectedIds);
+        }
+
+        // Función principal para mostrar los resultados filtrados
+        function mostrarOutfitsFiltrados(selectedIds) {
+            const outfitCards = document.querySelectorAll('#outfitsListContainer .outfit-card');
+            const container = document.getElementById('outfitsListContainer');
+            let foundCount = 0;
+
+            // Iterar sobre todas las tarjetas de outfits
+            outfitCards.forEach(card => {
+                // Obtener la lista de IDs de prendas que contiene este outfit
+                // Se debe parsear el atributo 'data-prendas'
+                const outfitPrendasData = card.getAttribute('data-prendas');
+                let outfitPrendasIds;
+
+                try {
+                    outfitPrendasIds = JSON.parse(outfitPrendasData);
+                    // Convertir IDs de prendas del outfit a strings para fácil comparación
+                    outfitPrendasIds = Array.isArray(outfitPrendasIds) ? outfitPrendasIds.map(String) : [];
+                } catch (e) {
+                    console.error("Error al parsear prendas IDs para el outfit:", card.getAttribute('data-outfit-id'), e);
+                    outfitPrendasIds = [];
+                }
+
+                // 3. Lógica de Filtrado: Verificar si TODAS las prendas seleccionadas están en el outfit
+                const allSelectedFound = selectedIds.every(selectedId =>
+                    outfitPrendasIds.includes(selectedId)
+                );
+
+                const parentCol = card.closest('.col-md-6'); // Obtener el contenedor 'col' de Bootstrap
+
+                if (allSelectedFound) {
+                    // Mostrar el outfit
+                    if (parentCol) {
+                        parentCol.style.display = 'block';
+                    } else {
+                        card.style.display = 'block';
+                    }
+                    foundCount++;
+                } else {
+                    // Ocultar el outfit
+                    if (parentCol) {
+                        parentCol.style.display = 'none';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                }
+            });
+
+            // 4. Actualizar el encabezado y mostrar el estado del filtro
+            const headerDiv = document.getElementById('outfitsListHeader');
+            if (headerDiv) {
+                headerDiv.innerHTML = `<h4 class="mb-0">
+            Resultados de Búsqueda Avanzada (${foundCount} encontrados)
+            <button class="btn btn-sm btn-warning ms-2" onclick="resetOutfitsView()">
+                <i class="fas fa-undo"></i> Borrar Filtro
+            </button>
+        </h4>`;
+            }
+
+            // 5. Manejar el mensaje "No se encontraron resultados" si es necesario
+            const noResultsMessage = document.getElementById('noOutfitsFoundMessage');
+            if (foundCount === 0) {
+                if (!noResultsMessage) {
+                    // Añadir el mensaje si no existe
+                    container.innerHTML += `<div class="col-12" id="noOutfitsFoundMessage"><div class="alert alert-warning text-center" role="alert">
+                <i class="fas fa-exclamation-triangle me-2"></i> No se encontraron outfits que contengan **TODAS** las prendas seleccionadas.
+            </div></div>`;
+                } else {
+                    noResultsMessage.style.display = 'block';
+                }
+            } else if (noResultsMessage) {
+                // Ocultar el mensaje si hay resultados
+                noResultsMessage.style.display = 'none';
+            }
+        }
+
+
+        // Función para restaurar la vista original
+        function resetOutfitsView() {
+            const outfitCards = document.querySelectorAll('#outfitsListContainer .outfit-card');
+            const headerDiv = document.getElementById('outfitsListHeader');
+            const noResultsMessage = document.getElementById('noOutfitsFoundMessage');
+
+            // Mostrar todos los outfits
+            outfitCards.forEach(card => {
+                const parentCol = card.closest('.col-md-6');
+                if (parentCol) {
+                    parentCol.style.display = 'block';
+                } else {
+                    card.style.display = 'block';
+                }
+            });
+
+            // Restaurar el encabezado
+            if (headerDiv) {
+                headerDiv.innerHTML = `<h4 class="mb-0">Lista de Outfits</h4>`;
+            }
+
+            // Ocultar mensaje de no resultados
+            if (noResultsMessage) {
+                noResultsMessage.style.display = 'none';
             }
         }
 
