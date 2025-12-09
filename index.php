@@ -76,7 +76,7 @@ $prendas_para_sugerencia_ia = [];
 
 
 // Consulta para obtener prendas disponibles
-$sql_prendas_disponibles = "SELECT * FROM prendas WHERE estado = 'disponible' OR uso_ilimitado = TRUE ORDER BY `prendas`.`nombre` ASC"; // AÑADIR uso_ilimitado
+$sql_prendas_disponibles = "SELECT * FROM prendas WHERE estado IN('disponible','en uso') OR uso_ilimitado = TRUE ORDER BY `prendas`.`nombre` ASC"; // AÑADIR uso_ilimitado
 $result_disponibles = $mysqli_obj->query($sql_prendas_disponibles);
 
 if ($result_disponibles) {
@@ -237,7 +237,7 @@ if (!empty($data_current['coord']['lat']) && !empty($data_current['coord']['lon'
         $tomorrow = (new DateTime('tomorrow'))->format('Y-m-d');
 
         $forecast_data = [];
-        $target_schedule_hours_24h = ['05', '17', '22']; // Horas objetivo en formato 24h
+        $target_schedule_hours_24h = ['05', '10', '17', '22']; // Horas objetivo en formato 24h
 
         // Obtener todas las entradas del pronóstico para mañana
         $tomorrow_forecast_items = array_filter($data_forecast['list'], function ($item) use ($tomorrow) {
@@ -296,7 +296,7 @@ if (!empty($data_current['coord']['lat']) && !empty($data_current['coord']['lon'
 
         // Opcional: Ordenar el array final para que las horas aparezcan en orden lógico
         usort($forecast_data, function ($a, $b) {
-            $time_order = ['5 AM' => 1, '5 PM' => 2, '10 PM' => 3];
+            $time_order = ['5 AM' => 1, '10 AM' => 2, '5 PM' => 3, '10 PM' => 4];
             return $time_order[$a['label']] <=> $time_order[$b['label']];
         });
     }
