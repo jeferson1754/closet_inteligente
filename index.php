@@ -1181,15 +1181,37 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                 <div class="card-body row" id="outfitsListContainer">
                                     <?php
 
+                                    // 1. Definir el límite de resultados por página/carga
+                                    $outfits_por_carga = 20;
+                                    $offset_inicial = 0; // Siempre empezamos desde 0
+
+                                    // 2. Aplicar la lógica de ordenamiento más completa (Nuevos al inicio, luego por fecha)
+                                    $ordenamiento_sql = "
+                                        ORDER BY 
+                                            o.fecha_ultimo_uso_outfit IS NULL DESC, 
+                                            o.fecha_ultimo_uso_outfit DESC,
+                                            o.id DESC
+                                    ";
+
                                     // Consulta que obtiene outfits y la cantidad de prendas asociadas
                                     $sql = "
-                                        SELECT o.id, o.nombre, o.contexto, o.clima_base, COUNT(ot.prenda_id) AS total_prendas, GROUP_CONCAT(ot.prenda_id) AS prendas_ids, o.fecha_ultimo_uso_outfit FROM outfits o LEFT JOIN outfit_prendas ot ON o.id = ot.outfit_id GROUP BY o.id, o.nombre, o.contexto, o.clima_base  
-                                        ORDER BY 
-                                            o.fecha_ultimo_uso_outfit IS NULL DESC, /* 1. Nuevos al principio */
-                                            o.fecha_ultimo_uso_outfit DESC,         /* 2. Recientes primero */
-                                            o.id DESC;
-                                ";
+                                    SELECT 
+                                        o.id, o.nombre, o.contexto, o.clima_base, 
+                                        COUNT(ot.prenda_id) AS total_prendas, 
+                                        GROUP_CONCAT(ot.prenda_id) AS prendas_ids, 
+                                        o.fecha_ultimo_uso_outfit 
+                                    FROM outfits o 
+                                    LEFT JOIN outfit_prendas ot ON o.id = ot.outfit_id 
+                                    GROUP BY o.id, o.nombre, o.contexto, o.clima_base 
+                                    {$ordenamiento_sql}
+                                    LIMIT {$outfits_por_carga} 
+                                    OFFSET {$offset_inicial}; 
+";
 
+                                    // 3. Obtener el total de outfits para saber si mostrar el botón "Cargar Más"
+                                    $sql_total = "SELECT COUNT(id) AS total FROM outfits;";
+                                    $total_outfits_result = $mysqli_obj->query($sql_total)->fetch_assoc();
+                                    $total_outfits = $total_outfits_result['total'];
 
                                     $result = $mysqli_obj->query($sql);
 
@@ -1205,11 +1227,9 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                             if (empty($outfit['fecha_ultimo_uso_outfit'])) {
                                                 // Outfit completamente nuevo, sin usar
                                                 $clase_estado_uso = 'outfit-nuevo';
-                            
                                             } else {
                                                 // Outfit ya usado, lo marcamos para el orden
                                                 $clase_estado_uso = '';
-
                                             }
 
                                             echo '
@@ -1260,134 +1280,150 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                         echo '<div class="col-12"><p class="text-muted text-center">No hay outfits creados aún</p></div>';
                                     }
                                     ?>
-                                    <!-- Modal único -->
-                                    <div class="modal fade" id="modalAccionOutfit" tabindex="-1" aria-labelledby="modalAccionOutfitLabel" aria-hidden="true">
-                                        <div class="modal-dialog">
-                                            <div class="modal-content">
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title" id="modalAccionOutfitLabel">Título modal</h5>
-                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                                                </div>
-                                                <div class="modal-body">
-                                                    Contenido modal...
-                                                </div>
-                                                <div class="modal-footer">
-                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                                                    <button type="button" class="btn btn-primary" id="btnConfirmarAccion">Confirmar</button>
-                                                </div>
+
+                                </div>
+                                <div class="row mt-4">
+                                    <div class="col-12 text-center">
+                                        <?php if ($total_outfits > $outfits_por_carga): ?>
+                                            <button class="btn btn-primary" id="btnCargarMasOutfits" onclick="cargarMasOutfits(<?= $outfits_por_carga ?>)">
+                                                <i class="fas fa-arrow-down me-2"></i> Cargar más outfits (20 más)
+                                            </button>
+                                            <div id="spinnerCarga" class="spinner-border text-primary" role="status" style="display: none;">
+                                                <span class="visually-hidden">Cargando...</span>
+                                            </div>
+                                        <?php endif; ?>
+                                        <input type="hidden" id="outfitOffset" value="<?= $outfits_por_carga ?>">
+                                        <input type="hidden" id="totalOutfits" value="<?= $total_outfits ?>">
+                                    </div>
+                                </div>
+
+                                <!-- Modal único -->
+                                <div class="modal fade" id="modalAccionOutfit" tabindex="-1" aria-labelledby="modalAccionOutfitLabel" aria-hidden="true">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title" id="modalAccionOutfitLabel">Título modal</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                Contenido modal...
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                                                <button type="button" class="btn btn-primary" id="btnConfirmarAccion">Confirmar</button>
                                             </div>
                                         </div>
                                     </div>
-
                                 </div>
+
                             </div>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Sugerencias -->
-                <div class="tab-pane fade" id="sugerencias">
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="card">
-                                <div class="card-header">
-                                    <h5><i class="fas fa-cog me-2"></i>Configurar Sugerencia</h5>
-                                </div>
-                                <div class="card-body">
-                                    <form id="formSugerencia">
-                                        <div class="mb-3">
-                                            <label class="form-label d-block">Contexto</label>
-                                            <div class="d-flex flex-wrap gap-2">
-                                                <div class="form-check form-check-inline">
-                                                    <input class="form-check-input" type="checkbox" id="contextoTrabajo" name="contexto[]" value="trabajo">
-                                                    <label class="form-check-label" for="contextoTrabajo">Trabajo</label>
-                                                </div>
-                                                <div class="form-check form-check-inline">
-                                                    <input class="form-check-input" type="checkbox" id="contextoUniversidad" name="contexto[]" value="universidad">
-                                                    <label class="form-check-label" for="contextoUniversidad">Universidad</label>
-                                                </div>
-                                                <div class="form-check form-check-inline">
-                                                    <input class="form-check-input" type="checkbox" id="contextoEvento" name="contexto[]" value="evento">
-                                                    <label class="form-check-label" for="contextoEvento">Evento</label>
-                                                </div>
-                                                <div class="form-check form-check-inline">
-                                                    <input class="form-check-input" type="checkbox" id="contextoCasa" name="contexto[]" value="casa">
-                                                    <label class="form-check-label" for="contextoCasa">Casa</label>
-                                                </div>
-                                                <div class="form-check form-check-inline">
-                                                    <input class="form-check-input" type="checkbox" id="contextoDeporte" name="contexto[]" value="deporte">
-                                                    <label class="form-check-label" for="contextoDeporte">Deporte</label>
-                                                </div>
-                                            </div>
-                                            <small class="form-text text-muted">Selecciona uno o más contextos.</small>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Espacio en Mochila</label>
-                                            <select class="form-select" name="espacio_mochila">
-                                                <option value="limitado">Limitado</option>
-                                                <option value="normal">Normal</option>
-                                                <option value="amplio">Amplio</option>
-                                            </select>
-                                        </div>
-                                        <div class="mb-3">
-                                            <div class="form-check">
-                                                <input class="form-check-input" type="checkbox" name="muda_extra" id="mudaExtra">
-                                                <label class="form-check-label" for="mudaExtra">
-                                                    ¿Puedo llevar muda extra?
-                                                </label>
-                                            </div>
-                                        </div>
-
-                                        <div class="mb-3">
-                                            <label for="reglasEspecificas" class="form-label">Reglas o Requisitos Específicos (opcional)</label>
-                                            <textarea class="form-control" id="reglasEspecificas" name="reglas_especificas" rows="3" placeholder="Ej: 'Obligado a usar la chaqueta azul de la empresa', 'No se permiten jeans rotos', 'Debe incluir un sombrero'."></textarea>
-                                        </div>
-                                        <div class=" mb-3">
-                                            <label for="pronosticoPersonalizado" class="form-label">Pronóstico del Clima de Mañana (Opcional)</label>
-                                            <textarea class="form-control" id="pronosticoPersonalizado" rows="5" placeholder="Ej: '5 AM: 10°C, soleado. 5 PM: 20°C, despejado. 10 PM: 15°C, nublado.'"></textarea>
-                                            <small class="form-text text-muted">Si no ingresas un pronóstico, se usará el de Santiago por defecto.</small>
-                                        </div>
-
-                                    </form>
-                                </div>
+            <!-- Sugerencias -->
+            <div class="tab-pane fade" id="sugerencias">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="fas fa-cog me-2"></i>Configurar Sugerencia</h5>
                             </div>
-                        </div>
-
-                        <div class="col-md-8">
-                            <div class="card">
-                                <div class="card-header">
-                                    <h5><i class="fas fa-robot me-2"></i>Interacción con IA para Sugerencias</h5>
-                                </div>
-                                <div class="card-body">
-                                    <div class="form-section">
-                                        <h6>Prompt para la IA:</h6>
-                                        <div class="input-group mb-3">
-                                            <textarea id="aiPrompt" class="form-control" rows="8" readonly placeholder="El prompt para la IA aparecerá aquí..."></textarea>
-                                            <button class="btn btn-outline-secondary" type="button" id="copyPromptBtn">
-                                                <i class="fas fa-copy me-2"></i>Copiar
-                                            </button>
+                            <div class="card-body">
+                                <form id="formSugerencia">
+                                    <div class="mb-3">
+                                        <label class="form-label d-block">Contexto</label>
+                                        <div class="d-flex flex-wrap gap-2">
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="checkbox" id="contextoTrabajo" name="contexto[]" value="trabajo">
+                                                <label class="form-check-label" for="contextoTrabajo">Trabajo</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="checkbox" id="contextoUniversidad" name="contexto[]" value="universidad">
+                                                <label class="form-check-label" for="contextoUniversidad">Universidad</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="checkbox" id="contextoEvento" name="contexto[]" value="evento">
+                                                <label class="form-check-label" for="contextoEvento">Evento</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="checkbox" id="contextoCasa" name="contexto[]" value="casa">
+                                                <label class="form-check-label" for="contextoCasa">Casa</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="checkbox" id="contextoDeporte" name="contexto[]" value="deporte">
+                                                <label class="form-check-label" for="contextoDeporte">Deporte</label>
+                                            </div>
                                         </div>
-                                        <button type="button" class="btn btn-primary w-100 mb-3" onclick="generarPrompt()">
-                                            <i class="fas fa-magic me-2"></i>Generar Prompt para IA
-                                        </button>
-                                        <button type="button" class="btn btn-info w-100 mb-3" onclick="generarPromptCompra()">
-                                            <i class="fas fa-shopping-bag me-2"></i>Recomendaciones de Compra
-                                        </button>
+                                        <small class="form-text text-muted">Selecciona uno o más contextos.</small>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Espacio en Mochila</label>
+                                        <select class="form-select" name="espacio_mochila">
+                                            <option value="limitado">Limitado</option>
+                                            <option value="normal">Normal</option>
+                                            <option value="amplio">Amplio</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="muda_extra" id="mudaExtra">
+                                            <label class="form-check-label" for="mudaExtra">
+                                                ¿Puedo llevar muda extra?
+                                            </label>
+                                        </div>
                                     </div>
 
-                                    <div class="form-section mt-4">
-                                        <h6>Respuesta de la IA:</h6>
-                                        <div class="input-group mb-3">
-                                            <textarea id="aiResponse" class="form-control" rows="8" placeholder="Pega aquí la respuesta de la IA..."></textarea>
-                                            <button class="btn btn-outline-secondary" type="button" id="processResponseBtn">
-                                                <i class="fas fa-check-circle me-2"></i>Procesar Respuesta
-                                            </button>
-                                        </div>
-                                        <div id="processedSuggestion" class="mt-3">
-                                            <div class="text-center text-muted">
-                                                <i class="fas fa-magic fa-3x mb-3"></i>
-                                                <p>Pega la respuesta de la IA y haz clic en "Procesar" para ver tu sugerencia.</p>
-                                            </div>
+                                    <div class="mb-3">
+                                        <label for="reglasEspecificas" class="form-label">Reglas o Requisitos Específicos (opcional)</label>
+                                        <textarea class="form-control" id="reglasEspecificas" name="reglas_especificas" rows="3" placeholder="Ej: 'Obligado a usar la chaqueta azul de la empresa', 'No se permiten jeans rotos', 'Debe incluir un sombrero'."></textarea>
+                                    </div>
+                                    <div class=" mb-3">
+                                        <label for="pronosticoPersonalizado" class="form-label">Pronóstico del Clima de Mañana (Opcional)</label>
+                                        <textarea class="form-control" id="pronosticoPersonalizado" rows="5" placeholder="Ej: '5 AM: 10°C, soleado. 5 PM: 20°C, despejado. 10 PM: 15°C, nublado.'"></textarea>
+                                        <small class="form-text text-muted">Si no ingresas un pronóstico, se usará el de Santiago por defecto.</small>
+                                    </div>
+
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-8">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="fas fa-robot me-2"></i>Interacción con IA para Sugerencias</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-section">
+                                    <h6>Prompt para la IA:</h6>
+                                    <div class="input-group mb-3">
+                                        <textarea id="aiPrompt" class="form-control" rows="8" readonly placeholder="El prompt para la IA aparecerá aquí..."></textarea>
+                                        <button class="btn btn-outline-secondary" type="button" id="copyPromptBtn">
+                                            <i class="fas fa-copy me-2"></i>Copiar
+                                        </button>
+                                    </div>
+                                    <button type="button" class="btn btn-primary w-100 mb-3" onclick="generarPrompt()">
+                                        <i class="fas fa-magic me-2"></i>Generar Prompt para IA
+                                    </button>
+                                    <button type="button" class="btn btn-info w-100 mb-3" onclick="generarPromptCompra()">
+                                        <i class="fas fa-shopping-bag me-2"></i>Recomendaciones de Compra
+                                    </button>
+                                </div>
+
+                                <div class="form-section mt-4">
+                                    <h6>Respuesta de la IA:</h6>
+                                    <div class="input-group mb-3">
+                                        <textarea id="aiResponse" class="form-control" rows="8" placeholder="Pega aquí la respuesta de la IA..."></textarea>
+                                        <button class="btn btn-outline-secondary" type="button" id="processResponseBtn">
+                                            <i class="fas fa-check-circle me-2"></i>Procesar Respuesta
+                                        </button>
+                                    </div>
+                                    <div id="processedSuggestion" class="mt-3">
+                                        <div class="text-center text-muted">
+                                            <i class="fas fa-magic fa-3x mb-3"></i>
+                                            <p>Pega la respuesta de la IA y haz clic en "Procesar" para ver tu sugerencia.</p>
                                         </div>
                                     </div>
                                 </div>
@@ -1397,6 +1433,7 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                 </div>
             </div>
         </div>
+    </div>
     </div>
 
     <?php
@@ -1627,6 +1664,95 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             }
 
         });
+
+        // index.php - Dentro de las etiquetas <script>
+
+        function cargarMasOutfits(limit) {
+            const offsetInput = document.getElementById('outfitOffset');
+            const totalOutfitsInput = document.getElementById('totalOutfits');
+            const container = document.getElementById('outfitsListContainer');
+            const loadBtn = document.getElementById('btnCargarMasOutfits');
+            const spinner = document.getElementById('spinnerCarga');
+
+            // Si ya estamos cargando o no hay más outfits, salimos
+            if (loadBtn.disabled) return;
+
+            const currentOffset = parseInt(offsetInput.value);
+            const totalOutfits = parseInt(totalOutfitsInput.value);
+
+            // Deshabilitar botón y mostrar spinner
+            loadBtn.disabled = true;
+            loadBtn.style.display = 'none';
+            spinner.style.display = 'inline-block';
+
+            fetch('cargar_outfits.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `offset=${currentOffset}&limit=${limit}`
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.outfits.length > 0) {
+                        let html = '';
+
+                        // Generar el HTML para cada outfit recibido
+                        data.outfits.forEach(outfit => {
+                            // Aquí debes replicar la estructura HTML de la tarjeta de outfit 
+                            // Usando los datos recibidos en 'outfit'.
+                            html += `
+                <div class="col-md-6 mb-3">
+                    <div class="card outfit-card" 
+                         data-outfit-id="${outfit.id}" 
+                         data-prendas='${outfit.data_prendas_json}'>
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="card-title">
+                                        <a style="text-decoration: none;" href="detalle_outfit.php?id=${outfit.id}">${outfit.nombre}</a>
+                                    </h6>
+                                    <p class="card-text">
+                                        <small class="text-muted">${outfit.contexto} • ${outfit.clima_base}</small><br>
+                                        <small>${outfit.total_prendas} prendas</small>
+                                    </p>
+                                </div>
+                                </div>
+                            <div class="mt-2">
+                                <span class="badge bg-primary">${outfit.contexto}</span>
+                                <span class="badge clima-${outfit.clima_base}">${outfit.clima_base}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+                        });
+
+                        // 4. Añadir el nuevo HTML al contenedor y actualizar el offset
+                        container.innerHTML += html;
+                        const newOffset = currentOffset + data.outfits.length;
+                        offsetInput.value = newOffset;
+
+                        // 5. Ocultar botón si ya no hay más outfits
+                        if (newOffset >= totalOutfits) {
+                            loadBtn.remove(); // Ocultar el botón definitivamente
+                        } else {
+                            loadBtn.disabled = false;
+                            loadBtn.style.display = 'inline-block';
+                        }
+                    } else {
+                        // Si no hay más datos o falla
+                        loadBtn.remove();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al cargar más outfits:', error);
+                    loadBtn.disabled = false;
+                    loadBtn.style.display = 'inline-block';
+                })
+                .finally(() => {
+                    spinner.style.display = 'none';
+                });
+        }
 
         document.addEventListener('DOMContentLoaded', () => {
             const modalElement = document.getElementById('modalAccionOutfit');
