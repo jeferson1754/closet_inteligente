@@ -165,7 +165,7 @@ $city = $_GET['city'] ?? 'Santiago';
 $api_key = "22524bcc23b8c0635c013a41f40f6a4c";
 $api_url = "https://api.openweathermap.org/data/2.5/weather?q=" . urlencode($city) . "&appid=$api_key&units=metric&lang=es";
 
-
+/*
 // Obtener datos del clima
 $response = @file_get_contents($api_url);
 if (!$response) {
@@ -180,6 +180,22 @@ if (!isset($data['main']['temp']) || !isset($data['weather'][0])) {
     echo json_encode([]);
     exit;
 }
+*/
+
+$response = @file_get_contents($api_url);
+if (!$response) {
+    $data = null;
+} else {
+    $data = json_decode($response, true);
+}
+
+if (!$data || !isset($data['main']['temp']) || !isset($data['weather'][0])) {
+    $data = [
+        'main' => ['temp' => null],
+        'weather' => [['description' => 'No disponible']]
+    ];
+}
+
 
 
 // --- INICIO: Clima actual y pronóstico para mañana ---

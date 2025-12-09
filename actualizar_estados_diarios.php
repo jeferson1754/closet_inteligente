@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' || $_SERVER['REQUEST_METHOD'] === 'POST
 
         // 2. Obtener TODAS las prendas (excepto las ilimitadas que no se gestionan automáticamente)
         // para decidir su nuevo estado.
-        $sql_get_all_prendas = "SELECT id, tipo, estado, usos_esta_semana, uso_ilimitado FROM prendas WHERE uso_ilimitado = FALSE";
+        $sql_get_all_prendas = "SELECT id, tipo, estado, usos_esta_semana, uso_ilimitado FROM prendas WHERE uso_ilimitado = FALSE AND estado NOT IN ('sucio','lavando')";
         $result_all_prendas = $mysqli_obj->query($sql_get_all_prendas);
 
         $updates_queue = []; // Array para almacenar las actualizaciones a realizar
@@ -54,8 +54,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' || $_SERVER['REQUEST_METHOD'] === 'POST
                     // Obtener los límites de uso para esta prenda
                     $usageStatus = getUsageLimitStatus($prenda_tipo, $current_usos_semana);
 
-                    if ($current_usos_semana > $usageStatus['max_uses']) {
-                        // Si los usos son IGUALES O MAYORES que el límite, la prenda pasa a 'sucio'
+                    if ($current_usos_semana >= $usageStatus['max_uses']) {
+                        // Si los usos son iguales o mayores que el límite, la prenda pasa a 'sucio'
                         $new_estado = 'sucio';
                     }
                 }
