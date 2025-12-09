@@ -1,7 +1,32 @@
 <?php
 include 'bd.php'; // Tu conexión a la base de datos
 
+// --- NUEVO: Lógica para contar prendas por estado ---
+$counts = [
+    'todos' => 0,
+    'disponible' => 0,
+    'sucio' => 0,
+    'lavando' => 0
+];
 
+// 1. Obtener los conteos por estado
+$sql_state_counts = "SELECT estado, COUNT(id) AS count FROM prendas GROUP BY estado;";
+$result_state_counts = $mysqli_obj->query($sql_state_counts);
+
+$total_prendas = 0;
+if ($result_state_counts) {
+    while ($row = $result_state_counts->fetch_assoc()) {
+        $estado_key = strtolower($row['estado']);
+        // Solo almacenamos los estados que tienen botón en el filtro
+        if (array_key_exists($estado_key, $counts)) {
+            $counts[$estado_key] = (int)$row['count'];
+        }
+        $total_prendas += (int)$row['count'];
+    }
+    // Asignar el total a 'todos'
+    $counts['todos'] = $total_prendas;
+}
+// --- FIN NUEVO: Lógica de conteo ---
 // Consulta para obtener TODAS las prendas con sus datos relevantes para la gestión rápida
 // Incluye usos_esta_semana, estado, uso_ilimitado, foto y fecha_ultimo_lavado
 $estado = $_GET['estado'] ?? '';
@@ -234,6 +259,44 @@ if (!$result_prendas_gestion) {
             padding: 5px 10px;
             font-size: 0.8em;
         }
+
+        /* gestión_rapida_prendas.php - Dentro de la etiqueta <style> */
+
+        /* ... (Estilos existentes) ... */
+
+        /* Estilo general para los badges de conteo */
+        .btn-group .badge {
+            transition: all 0.2s ease-in-out;
+        }
+
+        /* 1. Cuando el enlace (<a>) está activo (simulando el check) o el input está checked: */
+        /* Selecciona el input radio oculto que está marcado */
+        .btn-group input[type="radio"]:checked+.btn-outline-primary .badge,
+        .btn-group input[type="radio"]:checked+.btn-outline-success .badge,
+        .btn-group input[type="radio"]:checked+.btn-outline-danger .badge,
+        .btn-group input[type="radio"]:checked+.btn-outline-warning .badge {
+            /* Aplica un borde blanco para destacarlo */
+            box-shadow: 0 0 0 2px white;
+            /* Borde blanco de 2px */
+        }
+
+        /* 2. Ajuste de color para el badge de "Lavando" (Warning) */
+        /* El color de fondo del botón Warning es claro, el texto debe ser oscuro. */
+        .btn-group input[type="radio"]:checked+.btn-outline-warning .badge {
+            /* El borde blanco puede hacer que el badge Warning se vea mal, 
+       así que oscurecemos ligeramente la sombra para que se vea bien sobre el fondo claro. */
+            box-shadow: 0 0 0 2px white, 0 0 0 3px rgba(0, 0, 0, 0.2);
+            color: #212529 !important;
+            /* Asegurar que el texto sea oscuro */
+        }
+
+        /* 3. Estilo para el hover/focus en general (opcional, pero mejora la UX) */
+        .btn-group .btn:hover .badge {
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+            /* Sombra sutil al pasar el ratón */
+        }
+
+        /* ... (El resto de tus estilos) ... */
     </style>
 </head>
 
@@ -247,17 +310,26 @@ if (!$result_prendas_gestion) {
 
             <div class="d-flex flex-column flex-md-row justify-content-center mb-4 gap-3">
                 <div class="btn-group" role="group" aria-label="Filtro por estado de prenda">
-                    <input type="radio" class="btn-check filter-radio" name="filterState" id="filterAll" value="todos" autocomplete="off" checked>
-                    <a href="?estado=todos" class="btn btn-outline-primary">Todos</a>
 
-                    <input type="radio" class="btn-check filter-radio" name="filterState" id="filterDisponible" value="disponible" autocomplete="off">
-                    <a href="?estado=disponible" name="filterState" id="filterDisponible" class="btn btn-outline-success">Disponible</a>
+                    <input type="radio" class="btn-check filter-radio" name="filterState" id="filterAll" value="todos" autocomplete="off" <?= ($estado == 'todos' || $estado == '') ? 'checked' : '' ?>>
+                    <label for="filterAll" class="btn btn-outline-primary filter-label" data-filter-value="todos">
+                        Todos <span class="badge rounded-pill bg-primary"><?= $counts['todos'] ?></span>
+                    </label>
 
-                    <input type="radio" class="btn-check filter-radio" name="filterState" id="filterSucio" value="sucio" autocomplete="off">
-                    <a href="?estado=sucio" class="btn btn-outline-danger">Sucio</a>
+                    <input type="radio" class="btn-check filter-radio" name="filterState" id="filterDisponible" value="disponible" autocomplete="off" <?= ($estado == 'disponible') ? 'checked' : '' ?>>
+                    <label for="filterDisponible" class="btn btn-outline-success filter-label" data-filter-value="disponible">
+                        Disponible <span class="badge rounded-pill bg-success"><?= $counts['disponible'] ?></span>
+                    </label>
 
-                    <input type="radio" class="btn-check filter-radio" name="filterState" id="filterLavando" value="lavando" autocomplete="off">
-                    <a href="?estado=lavando" class="btn btn-outline-warning">Lavando</a>
+                    <input type="radio" class="btn-check filter-radio" name="filterState" id="filterSucio" value="sucio" autocomplete="off" <?= ($estado == 'sucio') ? 'checked' : '' ?>>
+                    <label for="filterSucio" class="btn btn-outline-danger filter-label" data-filter-value="sucio">
+                        Sucio <span class="badge rounded-pill bg-danger"><?= $counts['sucio'] ?></span>
+                    </label>
+
+                    <input type="radio" class="btn-check filter-radio" name="filterState" id="filterLavando" value="lavando" autocomplete="off" <?= ($estado == 'lavando') ? 'checked' : '' ?>>
+                    <label for="filterLavando" class="btn btn-outline-warning filter-label" data-filter-value="lavando">
+                        Lavando <span class="badge rounded-pill bg-warning text-dark"><?= $counts['lavando'] ?></span>
+                    </label>
 
                 </div>
             </div>
@@ -408,7 +480,9 @@ if (!$result_prendas_gestion) {
             function setFilterInUrl(filterValue) {
                 const url = new URL(window.location.href);
                 url.searchParams.set('estado', filterValue);
-                // No cambiamos el 'search' en la URL, ya que se filtra en cliente
+
+                // Usamos history.pushState para cambiar la URL en el navegador
+                // Esto simula una navegación, permitiendo al usuario compartir o usar el botón "Atrás"
                 window.history.pushState({
                     path: url.href
                 }, '', url.href);
@@ -440,11 +514,21 @@ if (!$result_prendas_gestion) {
             applyFilter();
 
             // Escuchar cambios en los botones de radio (filtro de estado)
+            // Escuchar cambios en los botones de radio (filtro de estado)
             filterRadios.forEach(radio => {
+                // Usamos 'change' en el input radio (que es más rápido y nativo)
                 radio.addEventListener('change', function() {
-                    currentFilterState = this.value;
-                    applyFilter(); // Disparar filtro de cliente
-                    setFilterInUrl(currentFilterState); // Actualizar URL
+                    currentFilterState = this.value; // 'todos', 'disponible', 'sucio', etc.
+
+                    // 1. Aplicar filtro visual inmediatamente (¡Rapidez!)
+                    applyFilter();
+
+                    // 2. Actualizar el URL en segundo plano (¡Fluidez!)
+                    setFilterInUrl(currentFilterState);
+
+                    // Opcional: Si el filtro de estado cambia, puedes resetear la búsqueda:
+                    currentSearchTerm = '';
+                    searchInput.value = '';
                 });
             });
 
