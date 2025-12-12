@@ -1451,6 +1451,21 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
+        // --- FUNCIÓN ESENCIAL DE ESCAPE EN JAVASCRIPT (CORREGIDA) ---
+        // Esta versión solo escapa el delimitador de atributo (' y &) 
+        // y deja las comillas dobles (") sin tocar, lo cual es vital para JSON.parse.
+        function htmlspecialchars(str) {
+            if (typeof str !== 'string') return str;
+
+            return str.replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                // IMPORTANTE: NO TOCAR LAS COMILLAS DOBLES (") para que JSON.parse funcione.
+                // Solo reemplazamos la comilla simple, que es el delimitador del atributo HTML.
+                .replace(/'/g, '&#39;');
+        }
+        // ----------------------------------------------------------------
+
         // Asegúrate de que esta función esté fuera del DOMContentLoaded para ser global
         async function sendCreateOutfitRequest(formData, forceDuplicate = false) {
             if (forceDuplicate) {
@@ -2538,6 +2553,17 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                 if (suggestion && suggestion.titulo && suggestion.descripcion && suggestion.prendas_sugeridas && Array.isArray(suggestion.prendas_sugeridas) && suggestion.tips_adicionales) {
                     let prendasListHtml = suggestion.prendas_sugeridas.map(prenda => `<li>${htmlspecialchars(prenda)}</li>`).join('');
 
+                    // 1. Convertir el objeto a JSON
+                    let suggestionJson = JSON.stringify(suggestion);
+
+                    // 3. LIMPIEZA DE CARACTERES: Eliminar saltos de línea (que pueden romper el atributo)
+                    // Reemplaza newlines o retornos de carro por un espacio simple.
+                    suggestionJson = suggestionJson.replace(/[\n\r]/g, ' ');
+
+                    // 4. ESCAPAR el JSON para hacerlo seguro dentro del atributo HTML
+                    // Esto convierte comillas dobles y simples dentro del JSON a entidades HTML (ej: &quot; y &#039;)
+                    const suggestionJsonSeguro = htmlspecialchars(suggestionJson);
+
                     allOutfitsHtml += `
                         <div class="suggestion-card mb-4 p-3">
                             <h6>Idea de Outfit ${index + 1}: ${htmlspecialchars(suggestion.titulo)}</h6>
@@ -2554,7 +2580,7 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                             <div class="text-center mt-3">
                                 <button class="btn btn-success btn-sm crear-outfit-sugerido"
                                         data-index="${index}"
-                                        data-outfit-data='${JSON.stringify(suggestion)}'>
+                                        data-outfit-data='${suggestionJsonSeguro}'>
                                     <i class="fas fa-plus-circle me-2"></i>Crear este Outfit
                                 </button>
                             </div>
@@ -2575,8 +2601,14 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             // Añadir event listeners a los nuevos botones "Crear este Outfit"
             document.querySelectorAll('.crear-outfit-sugerido').forEach(button => {
                 button.addEventListener('click', function() {
-                    const outfitData = JSON.parse(this.dataset.outfitData);
-                    createOutfitFromSuggestion(outfitData);
+                    try {
+                        const outfitData = JSON.parse(this.dataset.outfitData);
+                        createOutfitFromSuggestion(outfitData);
+                    } catch (e) {
+                        console.error("Error al parsear el JSON de data-outfit-data:", e);
+                        console.log("Contenido del atributo data-outfit-data:", this.dataset.outfitData);
+                        Swal.fire('Error de Parsing', 'No se pudo leer la información del outfit sugerido. Revisa la consola para más detalles.', 'error');
+                    }
                 });
             });
         }
@@ -2607,13 +2639,6 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             });
             allRecommendationsHtml += '</div>';
             processedSuggestionDiv.innerHTML = allRecommendationsHtml;
-        }
-
-        // Helper function para escapar HTML y evitar XSS al mostrar la respuesta
-        function htmlspecialchars(str) {
-            let div = document.createElement('div');
-            div.appendChild(document.createTextNode(str));
-            return div.innerHTML;
         }
 
         // Función para crear un outfit en la DB a partir de una sugerencia de la IA
@@ -2704,7 +2729,7 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                     const nonAvailablePrendas = [];
                     selectedPrendaIds.forEach(prendaId => {
                         const prendaActual = availableFilteredPrendas.find(p => p.id === prendaId);
-                        const nonAvailableStates = ['sucio', 'en uso', 'prestado'];
+                        const nonAvailableStates = ['sucio', 'prestado', 'lavando'];
 
                         // Asegúrate de que prendaActual exista y que no sea una prenda de uso ilimitado
                         if (prendaActual && nonAvailableStates.includes(prendaActual.estado) && !prendaActual.uso_ilimitado) {
