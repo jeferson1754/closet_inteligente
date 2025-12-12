@@ -46,6 +46,7 @@
         $comentarios = $_POST['comentarios'] ?? '';
         $uso_ilimitado = ($_POST['uso_ilimitado'] ?? 'off') === 'on' ? 1 : 0;
         $usos_esta_semana = intval($_POST['usos_esta_semana'] ?? 0);
+        $usos_base = intval($_POST['usos_base'] ?? 0);
         $force_duplicate_name = ($_POST['force_duplicate_name'] ?? 'false') === 'true';
 
         if (!$id || empty($nombre) || empty($tipo)) {
@@ -133,6 +134,13 @@
                 ':usos_esta_semana' => $usos_esta_semana,
                 ':id' => $id
             ]);
+
+            if ($usos_esta_semana > $usos_base) {
+                // Si el uso de base cambian se incrementa el uso
+                $sql_log_use = "INSERT INTO historial_usos (prenda_id, fecha) VALUES (?, ?)"; // Eliminado outfit_id
+                $stmt_log = $pdo->prepare($sql_log_use);
+                $stmt_log->execute([$id, $fecha_actual]);
+            }
 
             $pdo->commit();
             alerta('¡Éxito!', 'Prenda actualizada correctamente.', 'success', 'index.php');

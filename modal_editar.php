@@ -124,6 +124,7 @@
                             <div class="col-md-6">
                                 <label class="form-label">Usos esta semana</label>
                                 <input type="number" class="form-control" name="usos_esta_semana" value="<?php echo (int)$row['usos_esta_semana']; ?>" min="0" required>
+                                <input type="hidden" class="form-control" name="usos_base" value="<?php echo (int)$row['usos_esta_semana']; ?>" min="0" required>
                                 <small class="form-text text-muted">Cantidad de veces usada esta semana.</small>
                             </div>
 
