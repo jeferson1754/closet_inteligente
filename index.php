@@ -336,6 +336,8 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
 
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+
 
     <style>
         body {
@@ -626,8 +628,8 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             <div class="p-3">
                 <ul class="nav nav-pills justify-content-center" id="mainTabs">
                     <li class="nav-item">
-                        <a class="nav-link active" data-bs-toggle="pill" href="#dashboard">
-                            <i class="fas fa-home me-2"></i>Dashboard
+                        <a class="nav-link active" data-bs-toggle="pill" href="#home">
+                            <i class="fas fa-home me-2"></i>Inicio
                         </a>
                     </li>
                     <li class="nav-item">
@@ -646,6 +648,11 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="pill" href="#reportes">
+                            <i class="fas fa-chart-pie me-2"></i>Estadísticas
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link" href="gestor_rapido_prendas.php?estado=todos">
                             <i class="fas fa-check-square me-2"></i>Gestión Rápida
                         </a>
@@ -655,8 +662,9 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
 
             <!-- Content -->
             <div class="tab-content p-4">
-                <!-- Dashboard -->
-                <div class="tab-pane fade show active" id="dashboard">
+                <!-- Inicio -->
+
+                <div class="tab-pane fade show active" id="home">
                     <?php
                     $total_prendas = $pdo->query("SELECT COUNT(*) FROM prendas")->fetchColumn() ?? 0;
                     $total_disponibles = $pdo->query("SELECT COUNT(*) FROM prendas WHERE estado = 'disponible'")->fetchColumn();
@@ -1320,110 +1328,110 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Sugerencias -->
-            <div class="tab-pane fade" id="sugerencias">
-                <div class="row">
-                    <div class="col-md-4">
-                        <div class="card">
-                            <div class="card-header">
-                                <h5><i class="fas fa-cog me-2"></i>Configurar Sugerencia</h5>
-                            </div>
-                            <div class="card-body">
-                                <form id="formSugerencia">
-                                    <div class="mb-3">
-                                        <label class="form-label d-block">Contexto</label>
-                                        <div class="d-flex flex-wrap gap-2">
-                                            <div class="form-check form-check-inline">
-                                                <input class="form-check-input" type="checkbox" id="contextoTrabajo" name="contexto[]" value="trabajo">
-                                                <label class="form-check-label" for="contextoTrabajo">Trabajo</label>
+                <!-- Sugerencias -->
+                <div class="tab-pane fade" id="sugerencias">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5><i class="fas fa-cog me-2"></i>Configurar Sugerencia</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="formSugerencia">
+                                        <div class="mb-3">
+                                            <label class="form-label d-block">Contexto</label>
+                                            <div class="d-flex flex-wrap gap-2">
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="checkbox" id="contextoTrabajo" name="contexto[]" value="trabajo">
+                                                    <label class="form-check-label" for="contextoTrabajo">Trabajo</label>
+                                                </div>
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="checkbox" id="contextoUniversidad" name="contexto[]" value="universidad">
+                                                    <label class="form-check-label" for="contextoUniversidad">Universidad</label>
+                                                </div>
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="checkbox" id="contextoEvento" name="contexto[]" value="evento">
+                                                    <label class="form-check-label" for="contextoEvento">Evento</label>
+                                                </div>
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="checkbox" id="contextoCasa" name="contexto[]" value="casa">
+                                                    <label class="form-check-label" for="contextoCasa">Casa</label>
+                                                </div>
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="checkbox" id="contextoDeporte" name="contexto[]" value="deporte">
+                                                    <label class="form-check-label" for="contextoDeporte">Deporte</label>
+                                                </div>
                                             </div>
-                                            <div class="form-check form-check-inline">
-                                                <input class="form-check-input" type="checkbox" id="contextoUniversidad" name="contexto[]" value="universidad">
-                                                <label class="form-check-label" for="contextoUniversidad">Universidad</label>
-                                            </div>
-                                            <div class="form-check form-check-inline">
-                                                <input class="form-check-input" type="checkbox" id="contextoEvento" name="contexto[]" value="evento">
-                                                <label class="form-check-label" for="contextoEvento">Evento</label>
-                                            </div>
-                                            <div class="form-check form-check-inline">
-                                                <input class="form-check-input" type="checkbox" id="contextoCasa" name="contexto[]" value="casa">
-                                                <label class="form-check-label" for="contextoCasa">Casa</label>
-                                            </div>
-                                            <div class="form-check form-check-inline">
-                                                <input class="form-check-input" type="checkbox" id="contextoDeporte" name="contexto[]" value="deporte">
-                                                <label class="form-check-label" for="contextoDeporte">Deporte</label>
+                                            <small class="form-text text-muted">Selecciona uno o más contextos.</small>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Espacio en Mochila</label>
+                                            <select class="form-select" name="espacio_mochila">
+                                                <option value="limitado">Limitado</option>
+                                                <option value="normal">Normal</option>
+                                                <option value="amplio">Amplio</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" name="muda_extra" id="mudaExtra">
+                                                <label class="form-check-label" for="mudaExtra">
+                                                    ¿Puedo llevar muda extra?
+                                                </label>
                                             </div>
                                         </div>
-                                        <small class="form-text text-muted">Selecciona uno o más contextos.</small>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Espacio en Mochila</label>
-                                        <select class="form-select" name="espacio_mochila">
-                                            <option value="limitado">Limitado</option>
-                                            <option value="normal">Normal</option>
-                                            <option value="amplio">Amplio</option>
-                                        </select>
-                                    </div>
-                                    <div class="mb-3">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" name="muda_extra" id="mudaExtra">
-                                            <label class="form-check-label" for="mudaExtra">
-                                                ¿Puedo llevar muda extra?
-                                            </label>
+
+                                        <div class="mb-3">
+                                            <label for="reglasEspecificas" class="form-label">Reglas o Requisitos Específicos (opcional)</label>
+                                            <textarea class="form-control" id="reglasEspecificas" name="reglas_especificas" rows="3" placeholder="Ej: 'Obligado a usar la chaqueta azul de la empresa', 'No se permiten jeans rotos', 'Debe incluir un sombrero'."></textarea>
                                         </div>
-                                    </div>
+                                        <div class=" mb-3">
+                                            <label for="pronosticoPersonalizado" class="form-label">Pronóstico del Clima de Mañana (Opcional)</label>
+                                            <textarea class="form-control" id="pronosticoPersonalizado" rows="5" placeholder="Ej: '5 AM: 10°C, soleado. 5 PM: 20°C, despejado. 10 PM: 15°C, nublado.'"></textarea>
+                                            <small class="form-text text-muted">Si no ingresas un pronóstico, se usará el de Santiago por defecto.</small>
+                                        </div>
 
-                                    <div class="mb-3">
-                                        <label for="reglasEspecificas" class="form-label">Reglas o Requisitos Específicos (opcional)</label>
-                                        <textarea class="form-control" id="reglasEspecificas" name="reglas_especificas" rows="3" placeholder="Ej: 'Obligado a usar la chaqueta azul de la empresa', 'No se permiten jeans rotos', 'Debe incluir un sombrero'."></textarea>
-                                    </div>
-                                    <div class=" mb-3">
-                                        <label for="pronosticoPersonalizado" class="form-label">Pronóstico del Clima de Mañana (Opcional)</label>
-                                        <textarea class="form-control" id="pronosticoPersonalizado" rows="5" placeholder="Ej: '5 AM: 10°C, soleado. 5 PM: 20°C, despejado. 10 PM: 15°C, nublado.'"></textarea>
-                                        <small class="form-text text-muted">Si no ingresas un pronóstico, se usará el de Santiago por defecto.</small>
-                                    </div>
-
-                                </form>
+                                    </form>
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="col-md-8">
-                        <div class="card">
-                            <div class="card-header">
-                                <h5><i class="fas fa-robot me-2"></i>Interacción con IA para Sugerencias</h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="form-section">
-                                    <h6>Prompt para la IA:</h6>
-                                    <div class="input-group mb-3">
-                                        <textarea id="aiPrompt" class="form-control" rows="8" readonly placeholder="El prompt para la IA aparecerá aquí..."></textarea>
-                                        <button class="btn btn-outline-secondary" type="button" id="copyPromptBtn">
-                                            <i class="fas fa-copy me-2"></i>Copiar
-                                        </button>
-                                    </div>
-                                    <button type="button" class="btn btn-primary w-100 mb-3" onclick="generarPrompt()">
-                                        <i class="fas fa-magic me-2"></i>Generar Prompt para IA
-                                    </button>
-                                    <button type="button" class="btn btn-info w-100 mb-3" onclick="generarPromptCompra()">
-                                        <i class="fas fa-shopping-bag me-2"></i>Recomendaciones de Compra
-                                    </button>
+                        <div class="col-md-8">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5><i class="fas fa-robot me-2"></i>Interacción con IA para Sugerencias</h5>
                                 </div>
-
-                                <div class="form-section mt-4">
-                                    <h6>Respuesta de la IA:</h6>
-                                    <div class="input-group mb-3">
-                                        <textarea id="aiResponse" class="form-control" rows="8" placeholder="Pega aquí la respuesta de la IA..."></textarea>
-                                        <button class="btn btn-outline-secondary" type="button" id="processResponseBtn">
-                                            <i class="fas fa-check-circle me-2"></i>Procesar Respuesta
+                                <div class="card-body">
+                                    <div class="form-section">
+                                        <h6>Prompt para la IA:</h6>
+                                        <div class="input-group mb-3">
+                                            <textarea id="aiPrompt" class="form-control" rows="8" readonly placeholder="El prompt para la IA aparecerá aquí..."></textarea>
+                                            <button class="btn btn-outline-secondary" type="button" id="copyPromptBtn">
+                                                <i class="fas fa-copy me-2"></i>Copiar
+                                            </button>
+                                        </div>
+                                        <button type="button" class="btn btn-primary w-100 mb-3" onclick="generarPrompt()">
+                                            <i class="fas fa-magic me-2"></i>Generar Prompt para IA
+                                        </button>
+                                        <button type="button" class="btn btn-info w-100 mb-3" onclick="generarPromptCompra()">
+                                            <i class="fas fa-shopping-bag me-2"></i>Recomendaciones de Compra
                                         </button>
                                     </div>
-                                    <div id="processedSuggestion" class="mt-3">
-                                        <div class="text-center text-muted">
-                                            <i class="fas fa-magic fa-3x mb-3"></i>
-                                            <p>Pega la respuesta de la IA y haz clic en "Procesar" para ver tu sugerencia.</p>
+
+                                    <div class="form-section mt-4">
+                                        <h6>Respuesta de la IA:</h6>
+                                        <div class="input-group mb-3">
+                                            <textarea id="aiResponse" class="form-control" rows="8" placeholder="Pega aquí la respuesta de la IA..."></textarea>
+                                            <button class="btn btn-outline-secondary" type="button" id="processResponseBtn">
+                                                <i class="fas fa-check-circle me-2"></i>Procesar Respuesta
+                                            </button>
+                                        </div>
+                                        <div id="processedSuggestion" class="mt-3">
+                                            <div class="text-center text-muted">
+                                                <i class="fas fa-magic fa-3x mb-3"></i>
+                                                <p>Pega la respuesta de la IA y haz clic en "Procesar" para ver tu sugerencia.</p>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -1431,9 +1439,11 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                         </div>
                     </div>
                 </div>
+
+                <!-- Reportes -->
+                <?php include 'includes/seccion_reportes.php'; ?>
             </div>
         </div>
-    </div>
     </div>
 
     <?php
