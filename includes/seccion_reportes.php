@@ -676,7 +676,6 @@ while ($row = $resScatter->fetch_assoc()) {
             series: [{
                 name: 'Colores',
                 type: 'pie',
-                radius: ['45%', '75%'], // Hueco central para que parezca una dona
                 avoidLabelOverlap: true,
                 itemStyle: {
                     borderRadius: 10,
