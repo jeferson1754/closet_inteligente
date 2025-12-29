@@ -94,6 +94,14 @@ if (!$result_prendas_gestion) {
             text-align: center;
         }
 
+        .prenda-item-gestion {
+            border: none;
+            background: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            padding: 20px;
+        }
+
         .prenda-item-gestion:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
@@ -126,33 +134,26 @@ if (!$result_prendas_gestion) {
         }
 
         .prenda-actions {
-            display: flex;
-            /* Para que los botones estén en fila */
-            flex-wrap: wrap;
-            /* Permitir que los botones salten de línea si no hay espacio */
-            gap: 5px;
-            /* Espacio entre los botones */
-            justify-content: center;
-            /* Alinear los botones al inicio */
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            /* Tres columnas iguales */
+            gap: 10px;
             width: 100%;
-            /* Ocupar todo el ancho disponible */
-            border-top: 1px dashed #e9ecef;
-            /* Separador visual */
-            padding-top: 10px;
-            margin: 0 auto;
-            /* Un poco de margen extra */
+            border-top: 1px solid #f0f0f0;
+            padding-top: 15px;
         }
 
         .prenda-actions .btn {
-            flex-grow: 1;
-            /* Los botones se estirarán para ocupar el espacio */
-            max-width: 120px;
-            /* Limitar el ancho máximo para que no sean demasiado grandes */
-            font-size: 0.85em;
-            padding: 8px 5px;
-            /* Ajustar padding para más espacio vertical en botones */
-            text-align: center;
-            /* Centrar texto */
+            border-radius: 12px;
+            padding: 10px 5px;
+            font-weight: 600;
+            font-size: 0.8rem;
+            display: flex;
+            flex-direction: column;
+            /* Icono arriba, texto abajo */
+            align-items: center;
+            gap: 4px;
+            border: none;
         }
 
         /* Ajuste para la sección de último lavado, para que también se alinee bien */
@@ -175,23 +176,36 @@ if (!$result_prendas_gestion) {
             /* Limitar ancho del input de fecha en móvil */
         }
 
-        /* Badge de usos */
+        /* Aseguramos que el contenedor de la imagen sea el punto de referencia */
+        .image-container-main {
+            position: relative;
+            /* CRUCIAL para que el badge se pegue aquí */
+            display: inline-block;
+        }
+
+        /* Badge de usos ajustado a la imagen */
         .uso-badge-gestion {
             position: absolute;
-            top: 5px;
-            left: 5px;
+            top: -5px;
+            /* Un poco hacia arriba del borde de la imagen */
+            left: -15px;
+            /* Un poco hacia la izquierda del borde de la imagen */
             background-color: #667eea;
             color: white;
             border-radius: 50%;
-            width: 25px;
-            height: 25px;
+            width: 28px;
+            /* Un poco más grande para mejor legibilidad */
+            height: 28px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.75em;
+            font-size: 0.8em;
             font-weight: bold;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-            z-index: 2;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            z-index: 10;
+            /* Asegura que esté por encima de la imagen */
+            border: 2px solid white;
+            /* Le da un toque limpio sobre la foto */
         }
 
         .uso-badge-gestion.high-usage {
@@ -296,7 +310,56 @@ if (!$result_prendas_gestion) {
             /* Sombra sutil al pasar el ratón */
         }
 
-        /* ... (El resto de tus estilos) ... */
+        .prenda-card-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .prenda-controls-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        .img-gestion-central {
+            width: 100px !important;
+            height: 100px !important;
+            object-fit: cover;
+            border-radius: 15px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-usage-control {
+            width: 45px;
+            /* Un poco más grandes para pulgares */
+            height: 45px;
+            border-radius: 12px;
+            /* Forma de ardilla (squircle) es más moderna */
+            border: 2px solid #ddd;
+            background-color: white;
+            transition: all 0.2s;
+        }
+
+        .btn-usage-control:active {
+            transform: scale(0.9);
+            /* Feedback táctil al presionar */
+        }
+
+        /* Mejora del nombre para que sea el protagonista */
+        .prenda-nombre-header strong {
+            font-size: 1.2rem;
+            color: #2d3436;
+            display: block;
+            margin-bottom: 8px;
+            text-transform: capitalize;
+        }
+
+        
     </style>
 </head>
 
@@ -345,43 +408,54 @@ if (!$result_prendas_gestion) {
                             data-prenda-nombre="<?= htmlspecialchars(strtolower($prenda['nombre'])) ?>"
                             data-prenda-tipo="<?= htmlspecialchars(strtolower($prenda['tipo'])) ?>"
                             data-prenda-color="<?= htmlspecialchars(strtolower($prenda['color_principal'])) ?>">
+                            <div class="prenda-card-header w-100">
+                                <?php
+                                // Lógica para el badge de usos
+                                $uso_badge_class = '';
+                                $current_garment_uses = (int)$prenda['usos_esta_semana'];
+                                $garment_type_for_function = $prenda['tipo'];
+                                $badgeUsageStatus = getUsageLimitStatus($garment_type_for_function, $current_garment_uses);
 
-                            <?php
-                            // Lógica para el badge de usos
-                            $uso_badge_class = '';
-                            $current_garment_uses = (int)$prenda['usos_esta_semana'];
-                            $garment_type_for_function = $prenda['tipo'];
-                            $badgeUsageStatus = getUsageLimitStatus($garment_type_for_function, $current_garment_uses);
+                                if (!$prenda['uso_ilimitado'] && $badgeUsageStatus['is_overused']) {
+                                    $uso_badge_class = ' high-usage';
+                                }
 
-                            if (!$prenda['uso_ilimitado'] && $badgeUsageStatus['is_overused']) {
-                                $uso_badge_class = ' high-usage';
-                            }
-                            if (!$prenda['uso_ilimitado']) {
-                                echo '<span class="uso-badge-gestion' . $uso_badge_class . '">' . $current_garment_uses . '</span>';
-                            }
 
-                            $imagen_src = !empty($prenda['foto']) ? htmlspecialchars($prenda['foto']) : 'https://via.placeholder.com/70x70?text=Sin+Imagen';
-                            ?>
+                                $imagen_src = !empty($prenda['foto']) ? htmlspecialchars($prenda['foto']) : 'https://via.placeholder.com/70x70?text=Sin+Imagen';
+                                ?>
 
-                            <div class="prenda-info-top"> <img src="<?= $imagen_src ?>" alt="<?= htmlspecialchars($prenda['nombre']) ?>">
-
-                                <div class="prenda-info">
+                                <div class="prenda-nombre-header">
                                     <strong><?= htmlspecialchars($prenda['nombre']) ?></strong>
+                                </div>
+
+                                <div class="prenda-controls-row">
+                                    <button class="btn btn-outline-secondary btn-usage-control" onclick="updateUsage(<?= $prenda['id'] ?>, -1)">
+                                        <i class="fas fa-minus"></i>
+                                    </button>
+
+                                    <div class="image-container-main">
+
+                                        <?php
+                                        if (!$prenda['uso_ilimitado']) {
+                                            echo '<span class="uso-badge-gestion' . $uso_badge_class . '">' . $current_garment_uses . '</span>';
+                                        } ?>
+                                        <img src="<?= $imagen_src ?>" alt="<?= htmlspecialchars($prenda['nombre']) ?>" class="img-gestion-central">
+                                    </div>
+
+                                    <button class="btn btn-outline-secondary btn-usage-control" onclick="updateUsage(<?= $prenda['id'] ?>, 1)">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+
+                                <div class="prenda-estado-footer mt-2">
                                     <span class="badge badge-estado estado-<?= str_replace(' ', '-', strtolower($prenda['estado'])) ?>">
                                         <?= htmlspecialchars(ucfirst($prenda['estado'])) ?>
                                     </span>
-                                    <br>
-                                    <small class="text-muted"><?= htmlspecialchars(ucfirst($prenda['tipo'])) ?> • <?= htmlspecialchars($prenda['color_principal']) ?></small>
-                                    <br>
                                     <?php if ($prenda['uso_ilimitado']): ?>
-                                        <small class="text-info"><i class="fas fa-infinity me-1"></i>Uso Ilimitado</small>
+                                        <br><small class="text-info"><i class="fas fa-infinity me-1"></i>Uso Ilimitado</small>
                                     <?php endif; ?>
-
                                 </div>
-
-
                             </div>
-
                             <div class="last-wash-section">
                                 <span>Últ. lavado:</span>
                                 <input type="date" class="form-control form-control-sm wash-date-input"
@@ -627,6 +701,9 @@ if (!$result_prendas_gestion) {
                                 // Esto es clave para que la prenda se oculte/muestre según su nuevo estado
                                 applyFilter();
                             });
+
+                        // Recargar la página o actualizar el número en el badge manualmente
+                        //location.reload();
                     } else {
                         Swal.fire('Error', data.message, 'error');
                     }
@@ -636,7 +713,42 @@ if (!$result_prendas_gestion) {
                     Swal.fire('Error de Conexión', 'No se pudo comunicar con el servidor.', 'error');
                 }
             }
+
+
         });
+
+        async function updateUsage(prendaId, delta) {
+            const formData = new FormData();
+            formData.append('id', prendaId);
+            formData.append('update_usage_delta', delta); // Enviamos cuánto sumar o restar
+
+            try {
+                const response = await fetch('update_prenda_quick.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    /*
+                                   Swal.fire('¡Actualizado!', data.message, 'success')
+                                       .then(() => {
+                                           // Después de actualizar, RE-APLICAR LOS FILTROS
+                                           // Esto es clave para que la prenda se oculte/muestre según su nuevo estado
+                                           applyFilter();
+                                       });
+
+                                   */
+
+                    // Recargar la página o actualizar el número en el badge manualmente
+                    location.reload();
+                } else {
+                    Swal.fire('Error', data.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
     </script>
 </body>
 
