@@ -47,6 +47,16 @@ if (!$result_prendas_gestion) {
     die("Error en la consulta: " . $mysqli_obj->error);
 }
 
+// --- NUEVO: Obtener tipos de prendas únicos para el filtro ---
+$sql_tipos = "SELECT DISTINCT tipo FROM prendas WHERE tipo IS NOT NULL AND tipo != '' ORDER BY tipo ASC";
+$result_tipos = $mysqli_obj->query($sql_tipos);
+$tipos_disponibles = [];
+if ($result_tipos) {
+    while ($row = $result_tipos->fetch_assoc()) {
+        $tipos_disponibles[] = $row['tipo'];
+    }
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -358,8 +368,6 @@ if (!$result_prendas_gestion) {
             margin-bottom: 8px;
             text-transform: capitalize;
         }
-
-        
     </style>
 </head>
 
@@ -397,7 +405,18 @@ if (!$result_prendas_gestion) {
                 </div>
             </div>
 
-            <input type="text" class="form-control" id="searchPrendaInput" placeholder="Buscar prenda por nombre..." style="width: 100%;margin-bottom: 10px;">
+            <div class="d-flex gap-2 mb-3">
+                <input type="text" class="form-control" id="searchPrendaInput" placeholder="Buscar por nombre..." style="flex: 2;">
+
+                <select class="form-select" id="filterTipoSelect" style="flex: 1;">
+                    <option value="todos">Todos los tipos</option>
+                    <?php foreach ($tipos_disponibles as $tipo): ?>
+                        <option value="<?= htmlspecialchars(strtolower($tipo)) ?>">
+                            <?= htmlspecialchars(ucfirst($tipo)) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
 
             <div id="prendasList">
                 <?php if ($result_prendas_gestion && $result_prendas_gestion->num_rows > 0): ?>
@@ -487,6 +506,9 @@ if (!$result_prendas_gestion) {
             const filterRadios = document.querySelectorAll('input[name="filterState"]');
             const searchInput = document.getElementById('searchPrendaInput'); // Tu buscador
 
+            const tipoSelect = document.getElementById('filterTipoSelect'); // Nuevo selector
+            let currentTipoFilter = 'todos'; // Nueva variable de estado
+
             // Obtener TODOS los items de prenda una sola vez al cargar la página
             // Esto es crucial porque el filtro se hará en el cliente.
             const allPrendaItems = document.querySelectorAll('.prenda-item-gestion');
@@ -498,6 +520,7 @@ if (!$result_prendas_gestion) {
             function applyFilter() {
                 const filterValue = currentFilterState;
                 const searchTerm = currentSearchTerm.toLowerCase().trim();
+                const tipoValue = currentTipoFilter; // Valor del nuevo filtro
 
                 let visibleCount = 0;
 
@@ -515,8 +538,9 @@ if (!$result_prendas_gestion) {
 
                     const matchesState = (filterValue === 'todos' || prendaEstado === filterValue);
                     const matchesSearch = (searchTerm === '' || prendaText.includes(searchTerm));
+                    const matchesTipo = (tipoValue === 'todos' || prendaTipo === tipoValue);
 
-                    if (matchesState && matchesSearch) {
+                    if (matchesState && matchesSearch && matchesTipo) {
                         item.style.display = 'flex'; // Asegurar que se muestre
                         visibleCount++;
                     } else {
@@ -608,12 +632,19 @@ if (!$result_prendas_gestion) {
 
             // Listener para el campo de búsqueda (con debounce)
             let searchTimeout;
+
             searchInput.addEventListener('input', function() {
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(() => {
                     currentSearchTerm = this.value; // Actualizar el término de búsqueda
                     applyFilter(); // Disparar filtro de cliente con el nuevo término
                 }, 300); // Esperar 300ms después de escribir
+            });
+
+            // Escuchar cambios en el nuevo filtro de tipo
+            tipoSelect.addEventListener('change', function() {
+                currentTipoFilter = this.value;
+                applyFilter();
             });
 
             // --- Listeners de acción de prendas (sin cambios importantes) ---
