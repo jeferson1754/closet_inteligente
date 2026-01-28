@@ -1,44 +1,44 @@
-# 👗 Smart Closet - AI-Powered Wardrobe Management
+# 👗 Closet Inteligente - Gestión de Vestuario con IA
 
 ![PHP](https://img.shields.io/badge/PHP-7.4%2B-777BB4?style=flat-stack&logo=php)
-![MySQL](https://img.shields.io/badge/MySQL-Data-4479A1?style=flat-stack&logo=mysql)
-![AI](https://img.shields.io/badge/AI-ChatGPT%20%7C%20Claude%20%7C%20Gemini-orange)
+![MySQL](https://img.shields.io/badge/MySQL-Datos-4479A1?style=flat-stack&logo=mysql)
+![IA](https://img.shields.io/badge/IA-ChatGPT%20%7C%20Claude%20%7C%20Gemini-orange)
 
 ### 🚀 El Concepto
-**Smart Closet** es una aplicación inteligente desarrollada para optimizar la gestión de vestuario personal. A diferencia de un inventario estático, este sistema actúa como un **asistente estratégico** que combina datos meteorológicos en tiempo real, análisis de uso e inteligencia artificial para maximizar la versatilidad del armario.
+**Closet Inteligente** es una aplicación avanzada desarrollada para optimizar la organización y el uso del armario personal. El sistema trasciende el concepto de inventario estático, funcionando como un **asistente estratégico** que utiliza datos meteorológicos y modelos de Inteligencia Artificial para recomendar combinaciones ideales según el contexto del usuario.
 
 ---
 
-## 🧠 Integración de IA & "Vibes Coding"
-Este proyecto implementa un flujo de trabajo optimizado para **LLMs (ChatGPT, Claude, Gemini)**:
-* **Prompt Engineering:** Generación automática de prompts estructurados basados en el inventario real y el clima actual.
-* **Sugerencias Inteligentes:** Procesamiento de respuestas de IA para recomendar outfits según contexto (Trabajo, Universidad, Eventos).
-* **Vibes Coding:** El desarrollo fue iterado utilizando asistentes de IA para acelerar la creación de lógica compleja y automatizaciones.
+## 🧠 Integración de IA y "Vibes Coding"
+Este proyecto destaca por su flujo de trabajo moderno alineado con las tendencias actuales de desarrollo:
+* **Ingeniería de Prompts:** Generación automática de instrucciones estructuradas para LLMs (**ChatGPT, Claude, Gemini**) basadas en el inventario real y el clima local.
+* **Sugerencias Inteligentes:** Procesamiento de respuestas de IA para proponer conjuntos según categorías (Trabajo, Universidad, Eventos, Deportes).
+* **Enfoque Builder:** Desarrollo iterativo apoyado en asistentes de IA para optimizar la lógica de negocio y la automatización de tareas.
 
 ## ✨ Capacidades Principales
-* **Gestión Avanzada de Prendas:** Clasificación por tipo, tela, color y " suitability" climática.
-* **Panel de Analytics:** +10 gráficos interactivos que muestran puntuaciones de versatilidad y composición del vestuario.
-* **Integración OpenWeatherMap:** Sincronización en tiempo real con el pronóstico de 5 días para sugerencias proactivas.
-* **Seguimiento de Uso:** Sistema de límites semanales para fomentar la rotación de ropa y evitar el desgaste excesivo.
-* **Automatización Crónica:** Scripts en segundo plano para reinicio de contadores y actualizaciones de estado diarias.
+* **Gestión Integral de Prendas:** Control detallado de atributos como material, color, nivel de formalidad y adecuación climática.
+* **Panel de Análisis (Dashboard):** Visualización de datos con más de 10 gráficos que analizan patrones de uso, versatilidad de prendas y balance del vestuario.
+* **Integración Meteorológica:** Conexión con la API de **OpenWeatherMap** para obtener pronósticos de 5 días en tiempo real.
+* **Seguimiento y Rotación:** Control automático del estado de las prendas y límites de uso semanal para promover una rotación sostenible.
+* **Automatización Crónica:** Procesos en segundo plano para la actualización diaria de estados y reinicios de contadores.
 
 ## 🛠️ Stack Tecnológico
-* **Backend:** PHP & MySQL (Arquitectura relacional robusta).
+* **Backend:** PHP y MySQL (Modelado de datos relacional).
 * **Frontend:** HTML5, CSS3, JavaScript (Dashboard dinámico).
-* **Integraciones:** API de OpenWeatherMap, External AI Models.
+* **Integraciones:** OpenWeatherMap API y modelos externos de IA.
 
 ---
 
-## 📂 Estructura del Proyecto (Documentación Detallada)
-Para profundizar en la lógica de cada subsistema, consulta los siguientes módulos:
-1. [Arquitectura & DB](./docs/architecture.md) - Esquema relacional y hub principal.
-2. [Gestión de Outfits](./docs/outfits.md) - Lógica de creación y seguimiento.
-3. [AI & Integration](./docs/ai.md) - Flujo de prompts y sugerencias.
-4. [Backend Automation](./docs/automation.md) - Cronjobs y tareas de mantenimiento.
+## 📂 Estructura del Proyecto
+Para más detalles sobre la arquitectura, consulta los subsistemas:
+1. **Arquitectura Central:** Diseño del núcleo y esquema de la base de datos.
+2. **Gestión de Conjuntos:** Ciclo de vida de creación y seguimiento de outfits.
+3. **Módulo de IA:** Lógica de integración y generación de sugerencias.
+4. **Automatización:** Detalles de los trabajos programados y tareas de mantenimiento.
 
 ---
 
 ## 🔧 Instalación
-1. Clonar: `git clone https://github.com/tu-usuario/smart-closet.git`
-2. Configurar la API Key de OpenWeatherMap en `config.php`.
-3. Ejecutar `setup.sql` para inicializar la base de datos.
+1. Clonar: `git clone https://github.com/tu-usuario/closet-inteligente.git`
+2. Configurar credenciales y API Key en `config.php`.
+3. Ejecutar `setup.sql` para preparar el entorno de base de datos.
