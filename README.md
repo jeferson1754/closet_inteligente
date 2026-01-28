@@ -37,8 +37,3 @@ Para más detalles sobre la arquitectura, consulta los subsistemas:
 4. **Automatización:** Detalles de los trabajos programados y tareas de mantenimiento.
 
 ---
-
-## 🔧 Instalación
-1. Clonar: `git clone https://github.com/tu-usuario/closet-inteligente.git`
-2. Configurar credenciales y API Key en `config.php`.
-3. Ejecutar `setup.sql` para preparar el entorno de base de datos.
