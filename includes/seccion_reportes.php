@@ -302,7 +302,7 @@ $sqlDiarioVisual = "
         COUNT(p.id) as total_prendas
     FROM historial_usos h
     JOIN prendas p ON h.prenda_id = p.id
-    WHERE h.fecha >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+    WHERE h.fecha >= DATE_SUB(CURDATE(), INTERVAL 9 DAY)
     GROUP BY DATE(h.fecha)
     ORDER BY dia DESC"; // O DESC para ver lo más reciente arriba
 
