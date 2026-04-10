@@ -106,6 +106,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (empty($prendas_ids)) {
                 throw new Exception("El outfit seleccionado no tiene prendas asociadas.");
             }
+            $aviso_repeticion = "";
+            if (!empty($prendas_ids)) {
+                $ids_string = implode(',', $prendas_ids);
+
+                // 2. Consulta para detectar repeticiones en fechas clave
+                // Buscamos: Ayer, y hace exactamente 7 días
+                $sql_historial = "
+                SELECT 
+                    DATE(fecha) as fecha_uso,
+                    COUNT(DISTINCT prenda_id) as coincidencias
+                FROM historial_usos 
+                WHERE prenda_id IN ($ids_string)
+                AND (
+                    DATE(fecha) = CURDATE() OR
+                    DATE(fecha) = DATE_SUB(CURDATE(), INTERVAL 1 DAY) OR 
+                    DATE(fecha) = DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+                )
+                GROUP BY DATE(fecha)";
+
+                $res_historial = $mysqli_obj->query($sql_historial);
+
+                while ($row_h = $res_historial->fetch_assoc()) {
+                    $fecha_uso = $row_h['fecha_uso'];
+                    $cant = (int)$row_h['coincidencias'];
+
+                    if ($cant >= 3) {
+                        if ($fecha_uso == date('Y-m-d')) {
+                            $aviso_repeticion = "Hoy ya usaste $cant prendas de este outfit.";
+                        } elseif ($fecha_uso == date('Y-m-d', strtotime('-1 day'))) {
+                            $aviso_repeticion = "Ayer usaste este mismo conjunto ($cant prendas iguales).";
+                        } else {
+                            $nombre_dia_semana = $dias[date('l', strtotime($fecha_uso))];
+                            $aviso_repeticion = "El $nombre_dia_semana pasado usaste este mismo outfit.";
+                        }
+                        break; // Detenemos al encontrar la primera coincidencia crítica
+                    }
+                }
+            }
+
+            // 3. Bloqueo por validación (si no viene forzado)
+            $force_repetition = isset($_POST['force_repetition']) && $_POST['force_repetition'] === 'true';
+
+            if ($aviso_repeticion != "" && !$force_repetition) {
+                echo json_encode([
+                    'success' => false,
+                    'is_repetition' => true,
+                    'message' => $aviso_repeticion . " ¿Deseas usarlo de todas formas?"
+                ]);
+                exit;
+            }
 
             // --- NUEVA LÓGICA: Verificar estado de las prendas del outfit antes de usarlo ---
             // Solo si NO se ha forzado el uso con prendas sucias
@@ -198,6 +248,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new Exception("Error al preparar la actualización de estado y contador para prenda ID " . $prenda_id . ": " . $mysqli_obj->error);
                 }
             }
+
 
             // --- NUEVA LÓGICA: Actualizar fecha_ultimo_uso_outfit ---
             $sql_update_outfit_date = "UPDATE outfits SET fecha_ultimo_uso_outfit = CURDATE() WHERE id = ?";

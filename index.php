@@ -2111,32 +2111,62 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
 
                 // Aquí colocas la lógica para confirmar la acción:
                 if (accionActual === 'usar') {
-                    // Lógica para registrar el uso del outfit y actualizar el estado de las prendas
-                    fetch('registrar_uso_outfit.php', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/x-www-form-urlencoded',
-                            },
-                            body: `outfit_id=${outfitIdActual}` // Envía el ID del outfit
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.success) {
-                                Swal.fire('Outfit Usado', data.message, 'success')
-                                    .then(() => {
-                                        modal.hide(); // Oculta el modal
-                                        location.reload(); // Recarga la página para mostrar los cambios (ej. en el dashboard y el estado de prendas)
+                    // Función para procesar el registro (la envolvemos para poder re-llamarla si el usuario confirma)
+                    function ejecutarRegistroOutfit(outfitId, forceRepetition = false) {
+                        // Preparamos el cuerpo de la solicitud
+                        let bodyData = `outfit_id=${outfitId}`;
+                        if (forceRepetition) {
+                            bodyData += `&force_repetition=true`;
+                        }
+
+                        fetch('registrar_uso_outfit.php', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/x-www-form-urlencoded',
+                                },
+                                body: bodyData
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    Swal.fire('¡Outfit Usado!', data.message, 'success')
+                                        .then(() => {
+                                            if (typeof modal !== 'undefined') modal.hide();
+                                            location.reload();
+                                        });
+                                }
+                                // Lógica de validación de repetición (Hoy, Ayer, Semana Pasada)
+                                else if (data.is_repetition) {
+                                    Swal.fire({
+                                        title: '¿Repetir estilo?',
+                                        text: data.message, // El mensaje dirá si fue hoy, ayer o la semana pasada
+                                        icon: 'warning',
+                                        showCancelButton: true,
+                                        confirmButtonColor: '#667eea',
+                                        cancelButtonColor: '#d33',
+                                        confirmButtonText: 'Sí, usar de todos modos',
+                                        cancelButtonText: 'No, elegir otro'
+                                    }).then((result) => {
+                                        if (result.isConfirmed) {
+                                            // Si confirma, volvemos a llamar a la función pasando forceRepetition como true
+                                            ejecutarRegistroOutfit(outfitId, true);
+                                        }
                                     });
-                            } else {
-                                Swal.fire('Error', data.message || 'Error desconocido al registrar el uso del outfit', 'error');
-                                modal.hide();
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error en la solicitud AJAX de uso de outfit:', error);
-                            Swal.fire('Error de conexión', 'No se pudo comunicar con el servidor para registrar el uso del outfit.', 'error');
-                            modal.hide();
-                        });
+                                } else {
+                                    Swal.fire('Error', data.message || 'Error desconocido al registrar el uso del outfit', 'error');
+                                    if (typeof modal !== 'undefined') modal.hide();
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error en la solicitud AJAX:', error);
+                                Swal.fire('Error de conexión', 'No se pudo comunicar con el servidor.', 'error');
+                                if (typeof modal !== 'undefined') modal.hide();
+                            });
+                    }
+
+                    // Llamada inicial (reemplaza tu bloque fetch anterior con esto)
+                    ejecutarRegistroOutfit(outfitIdActual);
+
                 } else if (accionActual === 'eliminar') {
                     // Lógica para ELIMINAR el outfit en la base de datos
                     fetch('eliminar_outfit.php', {
