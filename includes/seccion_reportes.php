@@ -1,4 +1,5 @@
 <?php
+
 // Consulta: Top Prendas más usadas (Excluyendo pijamas)
 $sqlMasUsadas = "SELECT p.nombre, COUNT(dv.id) AS Total_Usos 
                  FROM prendas p 
@@ -292,12 +293,30 @@ while ($row = $resScatter->fetch_assoc()) {
     ];
 }
 
+$sqlDiarioVisual = "
+    SELECT 
+        DATE(h.fecha) as dia, 
+        GROUP_CONCAT(p.nombre SEPARATOR '|') as nombres_usados,
+        GROUP_CONCAT(LOWER(p.tipo) SEPARATOR '|') as tipos_usados,
+        GROUP_CONCAT(p.foto SEPARATOR '|') as fotos_usadas,
+        COUNT(p.id) as total_prendas
+    FROM historial_usos h
+    JOIN prendas p ON h.prenda_id = p.id
+    WHERE h.fecha >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+    GROUP BY DATE(h.fecha)
+    ORDER BY dia DESC"; // O DESC para ver lo más reciente arriba
+
+$resDiario = $mysqli_obj->query($sqlDiarioVisual);
+
+
+
+
 ?>
 
 <div class="tab-pane fade" id="reportes">
     <div class="container mt-4">
 
-        <div class="col-12 mb-4">
+        <div class="col-12 mb-4 ">
             <div class="card border-0 bg-gradient-to-r from-emerald-600 to-teal-700 shadow-lg rounded-xl">
                 <div class="card-body p-4">
                     <div class="d-flex align-items-center mb-3">
@@ -331,7 +350,286 @@ while ($row = $resScatter->fetch_assoc()) {
         </div>
 
 
-        <div class="row">
+
+
+        <style>
+            /* --- ESTILOS GENERALES (MÓVIL PRIMERO) --- */
+            .diario-visual-container {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            }
+
+            /* Vista de Celular (Dibujo de la Pizarra) */
+            .diario-celular-view {
+                display: flex;
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .dia-card-celular {
+                background: #fff;
+                border-radius: 15px;
+                padding: 15px;
+                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+                border: 1px solid #eaeaea;
+            }
+
+            .header-celular {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 1px solid #eee;
+                padding-bottom: 10px;
+                margin-bottom: 10px;
+            }
+
+            .fecha-celular {
+                font-weight: bold;
+                font-size: 1.1em;
+                text-transform: capitalize;
+            }
+
+            .fotos-grid-celular {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                /* 4 fotos por fila como en tu dibujo */
+                gap: 10px;
+            }
+
+            .prenda-celular-item img {
+                width: 100%;
+                height: auto;
+                aspect-ratio: 1/1;
+                /* Cuadradas */
+                object-fit: cover;
+                border-radius: 10px;
+                border: 2px solid #fff;
+                box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            }
+
+            /* Ocultar la vista de PC por defecto */
+            .diario-pc-view {
+                display: none;
+            }
+
+
+            /* --- MEDIA QUERY PARA PC (PANTALLAS > 768px) --- */
+            @media (min-width: 768px) {
+
+                /* Ocultar vista de celular */
+                .diario-celular-view {
+                    display: none;
+                }
+
+                /* Mostrar vista de PC (Tabla) */
+                .diario-pc-view {
+                    display: block;
+                    background: #fff;
+                    border-radius: 15px;
+                    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+                    overflow: hidden;
+                }
+
+                .table-diario {
+                    width: 100%;
+                    border-collapse: collapse;
+                }
+
+                .table-diario th {
+                    background-color: #f8f9fa;
+                    color: #666;
+                    text-transform: uppercase;
+                    font-size: 0.8rem;
+                    letter-spacing: 1px;
+                    padding: 15px;
+                    text-align: left;
+                }
+
+                .table-diario td {
+                    padding: 15px;
+                    border-bottom: 1px solid #eee;
+                    vertical-align: middle;
+                }
+
+                .table-diario tr:last-child td {
+                    border-bottom: none;
+                }
+
+                .fecha-pc {
+                    font-weight: bold;
+                    text-transform: capitalize;
+                    color: #333;
+                }
+
+                .fotos-wrap-pc {
+                    display: flex;
+                    gap: 10px;
+                    flex-wrap: wrap;
+                }
+
+                .prenda-pc-item img {
+                    width: 60px;
+                    height: 60px;
+                    object-fit: cover;
+                    border-radius: 10px;
+                    border: 2px solid #fff;
+                    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+                    transition: transform 0.2s;
+                }
+
+                .prenda-pc-item img:hover {
+                    transform: scale(1.1);
+                    z-index: 5;
+                }
+            }
+
+            /* Estados de validación */
+            .status-badge {
+                font-size: 0.75rem;
+                padding: 5px 10px;
+                border-radius: 20px;
+                font-weight: bold;
+            }
+
+            .status-completo {
+                background-color: #e6f4ea;
+                color: #1e7e34;
+            }
+
+            .status-incompleto {
+                background-color: #f6f6f6;
+                color: #888;
+                border: 1px solid #ddd;
+            }
+        </style>
+
+        <div class="card diario-visual-container mt-4 shadow-lg rounded-xl border-0">
+            <h4 class="mb-3 me-4 text-dark"><i class="fas fa-history me-2"></i>Mi Diario Visual de Outfits</h4>
+
+            <?php if ($resDiario && $resDiario->num_rows > 0): ?>
+
+                <div class="diario-celular-view">
+                    <?php
+                    // Resetear el puntero del resultado para iterar de nuevo
+                    $resDiario->data_seek(0);
+                    while ($row = $resDiario->fetch_assoc()):
+                        $diaNum = date('N', strtotime($row['dia']));
+                        $fotos = explode('|', $row['fotos_usadas']);
+                        $tipos = explode('|', $row['tipos_usados']);
+
+                        // Lógica del audio (Semana: 4, Finde: 2)
+                        $meta = ($diaNum <= 5) ? 4 : 2;
+                        $completado = (count($tipos) >= $meta);
+                    ?>
+                        <div class="dia-card-celular">
+                            <div class="header-celular">
+                                <div class="fecha-celular">
+                                    <?php
+                                    $timestamp = strtotime($row['dia']);
+                                    $nombre_dia = $dias[date('l', $timestamp)];
+                                    $dia_num = date('d', $timestamp);
+                                    $nombre_mes = $meses[date('F', $timestamp)];
+                                    $anio = date('Y', $timestamp);
+                                    ?>
+
+                                    <?= $nombre_dia ?>
+                                    <span class="text-muted fw-normal fs-7 ms-1"><?= date('d/m', strtotime($row['dia'])) ?></span>
+                                </div>
+                                <?php if ($completado): ?>
+                                    <span class="status-badge status-completo"><i class="fas fa-check-circle"></i></span>
+                                <?php else: ?>
+                                    <span class="status-badge status-incompleto"><?= count($tipos) ?>/<?= $meta ?></span>
+                                <?php endif; ?>
+                            </div>
+
+                            <div class="fotos-grid-celular">
+                                <?php foreach ($fotos as $index => $foto):
+                                    $src = !empty($foto) ? "uploads/" . $foto : "assets/img/no-image.png";
+                                ?>
+                                    <div class="prenda-celular-item">
+                                        <img src="<?= $src ?>" alt="Prenda" title="<?= htmlspecialchars($tipos[$index]) ?>">
+                                    </div>
+                                <?php endforeach; ?>
+
+                                <?php for ($i = count($fotos); $i < 4; $i++): ?>
+                                    <div class="prenda-celular-item">
+                                        <div style="width:100%; aspect-ratio:1/1; background:#f9f9f9; border-radius:10px; border:2px dashed #ddd;"></div>
+                                    </div>
+                                <?php endfor; ?>
+                            </div>
+                        </div>
+                    <?php endwhile; ?>
+                </div>
+
+                <div class="diario-pc-view">
+                    <table class="table-diario">
+                        <thead>
+                            <tr>
+                                <th style="width: 15%;">Día</th>
+                                <th>Outfit Ocupado</th>
+                                <th style="width: 15%; text-align: center;">Validación</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php
+                            $resDiario->data_seek(0);
+                            while ($row = $resDiario->fetch_assoc()):
+                                $diaNum = date('N', strtotime($row['dia']));
+                                $fotos = explode('|', $row['fotos_usadas']);
+                                $tipos = explode('|', $row['tipos_usados']);
+
+                                $meta = ($diaNum <= 5) ? 4 : 2;
+                                $completado = (count($tipos) >= $meta);
+                            ?>
+                                <tr>
+                                    <td>
+                                        <?php
+                                        $timestamp = strtotime($row['dia']);
+                                        $nombre_dia = $dias[date('l', $timestamp)];
+                                        $dia_num = date('d', $timestamp);
+                                        $nombre_mes = $meses[date('F', $timestamp)];
+                                        $anio = date('Y', $timestamp);
+                                        ?>
+
+                                        <div class="fecha-pc"><?= $nombre_dia ?></div>
+                                        <div class="text-muted small"><?= "$dia_num de $nombre_mes, $anio" ?></div>
+                                    </td>
+                                    <td>
+                                        <div class="fotos-wrap-pc">
+                                            <?php foreach ($fotos as $index => $foto):
+                                                $src = !empty($foto) ? "uploads/" . $foto : "assets/img/no-image.png";
+                                            ?>
+                                                <div class="prenda-pc-item" title="<?= htmlspecialchars($tipos[$index]) ?>">
+                                                    <img src="<?= $src ?>" alt="Prenda">
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        <?php if ($completado): ?>
+                                            <span class="status-badge status-completo">
+                                                <i class="fas fa-check-circle me-1"></i>Outfit Listo
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="status-badge status-incompleto">
+                                                Falta <?= $meta - count($tipos) ?> prenda
+                                            </span>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endwhile; ?>
+                        </tbody>
+                    </table>
+                </div>
+
+            <?php else: ?>
+                <div class="alert alert-light border text-center p-4 rounded-xl">
+                    <i class="fas fa-box-open fa-2x text-muted mb-2"></i>
+                    <p class="mb-0 text-muted">No hay registros de uso en los últimos 7 días. ¡Empieza a vestirte!</p>
+                </div>
+            <?php endif; ?>
+        </div>
+
+        <div class="row mt-4">
             <div class="col-md-6 mb-4">
                 <div class="card border-0 shadow-sm rounded-xl">
                     <div class="card-body">

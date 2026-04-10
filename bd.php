@@ -61,3 +61,6 @@ $climas = ['todo' => 'Todo clima', 'calor' => 'Calor', 'frio' => 'Frío', 'lluvi
 $formalidades = ['casual', 'semi-formal', 'formal'];
 
 $estados = ['disponible' => 'disponible', 'sucio' => 'sucio', 'prestado' => 'Prestado', 'en uso' => 'En uso', 'lavando' => 'Lavando'];
+
+$dias = ["Sunday" => "Domingo", "Monday" => "Lunes", "Tuesday" => "Martes", "Wednesday" => "Miércoles", "Thursday" => "Jueves", "Friday" => "Viernes", "Saturday" => "Sábado"];
+$meses = ["January" => "Enero", "February" => "Febrero", "March" => "Marzo", "April" => "Abril", "May" => "Mayo", "June" => "Junio", "July" => "Julio", "August" => "Agosto", "September" => "Septiembre", "October" => "Octubre", "November" => "Noviembre", "December" => "Diciembre"];
