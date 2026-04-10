@@ -543,7 +543,7 @@ $resDiario = $mysqli_obj->query($sqlDiarioVisual);
 
                             <div class="fotos-grid-celular">
                                 <?php foreach ($fotos as $index => $foto):
-                                    $src = !empty($foto) ? "uploads/" . $foto : "assets/img/no-image.png";
+                                    $src = !empty($foto) ? "" . $foto : "";
                                 ?>
                                     <div class="prenda-celular-item">
                                         <img src="<?= $src ?>" alt="Prenda" title="<?= htmlspecialchars($tipos[$index]) ?>">
@@ -596,7 +596,7 @@ $resDiario = $mysqli_obj->query($sqlDiarioVisual);
                                     <td>
                                         <div class="fotos-wrap-pc">
                                             <?php foreach ($fotos as $index => $foto):
-                                                $src = !empty($foto) ? "uploads/" . $foto : "assets/img/no-image.png";
+                                                $src = !empty($foto) ? "" . $foto : "";
                                             ?>
                                                 <div class="prenda-pc-item" title="<?= htmlspecialchars($tipos[$index]) ?>">
                                                     <img src="<?= $src ?>" alt="Prenda">
