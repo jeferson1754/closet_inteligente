@@ -293,20 +293,24 @@ while ($row = $resScatter->fetch_assoc()) {
     ];
 }
 
+// Definimos el orden deseado: primero poleras/camisas, luego pantalones, luego zapatos, etc.
+$orden_prendas = "'camisa', 'chaqueta', 'pantalon','pijama', 'polera','short', 'sueter', 'zapatillas'";
+
 $sqlDiarioVisual = "
     SELECT 
         DATE(h.fecha) as dia, 
-        GROUP_CONCAT(p.nombre SEPARATOR '|') as nombres_usados,
-        GROUP_CONCAT(LOWER(p.tipo) SEPARATOR '|') as tipos_usados,
-        GROUP_CONCAT(p.foto SEPARATOR '|') as fotos_usadas,
+        GROUP_CONCAT(p.nombre ORDER BY FIELD(LOWER(p.tipo), $orden_prendas) ASC SEPARATOR '|') as nombres_usados,
+        GROUP_CONCAT(LOWER(p.tipo) ORDER BY FIELD(LOWER(p.tipo), $orden_prendas) ASC SEPARATOR '|') as tipos_usados,
+        GROUP_CONCAT(p.foto ORDER BY FIELD(LOWER(p.tipo), $orden_prendas) ASC SEPARATOR '|') as fotos_usadas,
         COUNT(p.id) as total_prendas
     FROM historial_usos h
     JOIN prendas p ON h.prenda_id = p.id
     WHERE h.fecha >= DATE_SUB(CURDATE(), INTERVAL 9 DAY)
     GROUP BY DATE(h.fecha)
-    ORDER BY dia DESC"; // O DESC para ver lo más reciente arriba
+    ORDER BY dia DESC";
 
 $resDiario = $mysqli_obj->query($sqlDiarioVisual);
+
 
 
 
@@ -600,6 +604,7 @@ $resDiario = $mysqli_obj->query($sqlDiarioVisual);
                                             ?>
                                                 <div class="prenda-pc-item" title="<?= htmlspecialchars($tipos[$index]) ?>">
                                                     <img src="<?= $src ?>" alt="Prenda">
+                                                    <div class="text-center" style="font-size: 0.6rem; color: #999;">#<?= $index + 1 ?></div>
                                                 </div>
                                             <?php endforeach; ?>
                                         </div>
