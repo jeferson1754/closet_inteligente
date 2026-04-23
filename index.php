@@ -76,29 +76,50 @@ $prendas_para_sugerencia_ia = [];
 
 
 // Consulta para obtener prendas disponibles
-$sql_prendas_disponibles = "SELECT * FROM prendas WHERE estado IN('disponible','en uso') OR uso_ilimitado = TRUE ORDER BY `prendas`.`nombre` ASC"; // AÑADIR uso_ilimitado
+$sql_prendas_disponibles = "SELECT 
+    p.*,
+    COUNT(h.id) AS usos_totales,
+    MAX(h.fecha) AS fecha_ultimo_uso,
+    DATEDIFF(CURDATE(), MAX(h.fecha)) AS dias_desde_ultimo_uso
+FROM prendas p
+LEFT JOIN historial_usos h ON p.id = h.prenda_id
+GROUP BY p.id
+ORDER BY 
+    FIELD(p.estado, 'en uso', 'disponible', 'sucio', 'lavando'), 
+    p.usos_esta_semana DESC, 
+    p.fecha_agregado DESC;"; // AÑADIR uso_ilimitado
 $result_disponibles = $mysqli_obj->query($sql_prendas_disponibles);
 
 if ($result_disponibles) {
     while ($prenda_disp = $result_disponibles->fetch_assoc()) {
         $prenda_id = $prenda_disp['id'];
-        $usos = $prenda_disp['usos_esta_semana'];
-        $prenda_tipo = $prenda_disp['tipo']; // Use original case or convert to lower as needed by the function
+        $usos_semana = $prenda_disp['usos_esta_semana'];
+        $prenda_tipo = $prenda_disp['tipo'];
         $es_uso_ilimitado = $prenda_disp['uso_ilimitado'];
 
-        // Use the new function to get usage status
-        $usageStatus = getUsageLimitStatus($prenda_tipo, $usos);
-        $max_usos_permitidos = $usageStatus['max_uses'];
+        // Datos nuevos de la consulta optimizada
+        $usos_totales = $prenda_disp['usos_totales'] ?? 0;
+        $fecha_ultimo_uso = $prenda_disp['fecha_ultimo_uso'] ?? 'Nunca usado';
+        $dias_desde_ultimo = $prenda_disp['dias_desde_ultimo_uso'] ?? 'N/A';
+
+        // Mantenemos tu lógica de límites de uso semanal
+        $usageStatus = getUsageLimitStatus($prenda_tipo, $usos_semana);
         $isOverused = $usageStatus['is_overused'];
 
-        // Condition for filtering: if it's unlimited use OR it's not overused
-        if ($es_uso_ilimitado || !$isOverused) { // Use the boolean result from the function
+        // Si la prenda es apta para ser sugerida (no está sobrepasada de uso semanal)
+        if ($es_uso_ilimitado || !$isOverused) {
             $prendas_para_sugerencia_ia[] = [
-                'id' => $prenda_disp['id'],
+                'id' => $prenda_id,
                 'nombre' => $prenda_disp['nombre'],
-                'tipo' => $prenda_disp['tipo'],
+                'tipo' => $prenda_tipo,
                 'color' => $prenda_disp['color_principal'],
-                'usos_esta_semana' => $usos,
+                'estado' => $prenda_disp['estado'],
+                'usos_esta_semana' => $usos_semana,
+                // --- NUEVOS CAMPOS PARA LA IA ---
+                'usos_totales' => $usos_totales,
+                'fecha_ultimo_uso' => $fecha_ultimo_uso,
+                'dias_descanso' => $dias_desde_ultimo, // Muy útil para el prompt
+                // -------------------------------
                 'comentarios' => $prenda_disp['detalles_adicionales'] ?? '',
                 'uso_ilimitado' => $es_uso_ilimitado
             ];
@@ -109,6 +130,7 @@ if ($result_disponibles) {
 // Convertir el array PHP a JSON para pasarlo a JavaScript
 $json_prendas_para_sugerencia_ia = json_encode($prendas_para_sugerencia_ia);
 
+echo "<script>console.log('Prendas para sugerencia IA:', $json_prendas_para_sugerencia_ia);</script>";
 
 // --- INICIO: Consulta para obtener el historial de outfits usados ---
 $outfits_usados_history = [];
@@ -2299,15 +2321,30 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             const reglas_especificas = document.getElementById('reglasEspecificas').value.trim(); // .trim() para quitar espacios al inicio/final
 
             let prendasListForIA = '';
+
             if (availableFilteredPrendas.length > 0) {
-                prendasListForIA = '\n\nAquí tienes una lista de las prendas disponibles en mi clóset que tienen menos de 3 usos esta semana. Por favor, **utiliza SOLAMENTE estas prendas** en tu sugerencia:\n';
+                prendasListForIA = '\n\n### INVENTARIO DE PRENDAS DISPONIBLES (Prioriza variedad y descanso):\n';
+                prendasListForIA += 'Utiliza los datos de "Días de descanso" para evitar repetir lo usado recientemente y "Usos totales" para dar rotación al clóset:\n\n';
+
                 availableFilteredPrendas.forEach(prenda => {
-                    const comments = prenda.comentarios ? ` - Detalle: "${prenda.comentarios}"` : '';
-                    prendasListForIA += `- ${prenda.nombre} (Tipo: ${prenda.tipo}, Color: ${prenda.color})${comments}\n`;
+                    // Formateamos los comentarios
+                    const comments = prenda.comentarios ? ` | Nota: "${prenda.comentarios}"` : '';
+
+                    // Manejo de prendas nuevas (si dias_descanso es muy alto o null)
+                    const descanso = (prenda.dias_descanso === null || prenda.dias_descanso > 99) ?
+                        'Nueva/Sin uso reciente' :
+                        `${prenda.dias_descanso} días`;
+
+                    // Construcción de la línea de la prenda con datos estratégicos
+                    prendasListForIA += `- **${prenda.nombre}** [ID: ${prenda.id}]\n`;
+                    prendasListForIA += `  Categoría: ${prenda.tipo} | Color: ${prenda.color}\n`;
+                    prendasListForIA += `  Estadísticas: Semanal: ${prenda.usos_esta_semana} | Total: ${prenda.usos_totales} | Descanso: ${descanso}${comments}\n`;
                 });
-                prendasListForIA += '\n';
+
+                prendasListForIA += '\n**Instrucción para la IA:** Sugiere un outfit balanceado. Si una prenda tiene muchos "Días de descanso" o pocos "Usos totales", dale prioridad para fomentar la rotación de mi ropa.\n';
+
             } else {
-                prendasListForIA = '\n\nNo tengo prendas disponibles con menos de 3 usos esta semana. Por favor, sugiere un outfit general basado en las condiciones.\n';
+                prendasListForIA = '\n\n⚠️ No hay prendas disponibles con menos de 3 usos esta semana. Por favor, sugiere qué prendas debería lavar con urgencia o propón un outfit general de respaldo.\n';
             }
 
             let tomorrowForecastForIA = '';
