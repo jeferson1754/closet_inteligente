@@ -299,9 +299,10 @@ $orden_prendas = "'camisa', 'chaqueta', 'pantalon','pijama', 'polera','short', '
 $sqlDiarioVisual = "
     SELECT 
         DATE(h.fecha) as dia, 
-        GROUP_CONCAT(p.nombre ORDER BY FIELD(LOWER(p.tipo), $orden_prendas) ASC SEPARATOR '|') as nombres_usados,
-        GROUP_CONCAT(LOWER(p.tipo) ORDER BY FIELD(LOWER(p.tipo), $orden_prendas) ASC SEPARATOR '|') as tipos_usados,
-        GROUP_CONCAT(p.foto ORDER BY FIELD(LOWER(p.tipo), $orden_prendas) ASC SEPARATOR '|') as fotos_usadas,
+        GROUP_CONCAT(p.nombre ORDER BY h.fecha ASC, FIELD(LOWER(p.tipo), $orden_prendas) ASC SEPARATOR '|') as nombres_usados,
+        GROUP_CONCAT(LOWER(p.tipo) ORDER BY h.fecha ASC, FIELD(LOWER(p.tipo), $orden_prendas) ASC SEPARATOR '|') as tipos_usados,
+        GROUP_CONCAT(p.foto ORDER BY h.fecha ASC, FIELD(LOWER(p.tipo), $orden_prendas) ASC SEPARATOR '|') as fotos_usadas,
+        GROUP_CONCAT(TIME_FORMAT(h.fecha, '%H:%i') ORDER BY h.fecha ASC SEPARATOR '|') as horas_usadas,
         COUNT(p.id) as total_prendas
     FROM historial_usos h
     JOIN prendas p ON h.prenda_id = p.id
@@ -310,7 +311,6 @@ $sqlDiarioVisual = "
     ORDER BY dia DESC";
 
 $resDiario = $mysqli_obj->query($sqlDiarioVisual);
-
 
 
 
@@ -519,7 +519,7 @@ $resDiario = $mysqli_obj->query($sqlDiarioVisual);
                         $diaNum = date('N', strtotime($row['dia']));
                         $fotos = explode('|', $row['fotos_usadas']);
                         $tipos = explode('|', $row['tipos_usados']);
-
+                        $horas = explode('|', $row['horas_usadas']); // Nuevo array de horas
                         // Lógica del audio (Semana: 4, Finde: 2)
                         $meta = ($diaNum <= 5) ? 4 : 2;
                         $completado = (count($tipos) >= $meta);
@@ -549,8 +549,13 @@ $resDiario = $mysqli_obj->query($sqlDiarioVisual);
                                 <?php foreach ($fotos as $index => $foto):
                                     $src = !empty($foto) ? "" . $foto : "";
                                 ?>
-                                    <div class="prenda-celular-item">
-                                        <img src="<?= $src ?>" alt="Prenda" title="<?= htmlspecialchars($tipos[$index]) ?>">
+                                    <div class="prenda-item-contenedor text-center">
+                                        <div class="prenda-celular-item">
+                                            <img src="<?= $src ?>" alt="Prenda" title="<?= htmlspecialchars($tipos[$index]) ?>">
+                                        </div>
+                                        <small class="text-muted" style="font-size: 0.65rem;">
+                                            <i class="far fa-clock"></i> <?= $horas[$index] ?>
+                                        </small>
                                     </div>
                                 <?php endforeach; ?>
 
@@ -580,6 +585,7 @@ $resDiario = $mysqli_obj->query($sqlDiarioVisual);
                                 $diaNum = date('N', strtotime($row['dia']));
                                 $fotos = explode('|', $row['fotos_usadas']);
                                 $tipos = explode('|', $row['tipos_usados']);
+                                $horas = explode('|', $row['horas_usadas']);
 
                                 $meta = ($diaNum <= 5) ? 4 : 2;
                                 $completado = (count($tipos) >= $meta);
@@ -604,7 +610,7 @@ $resDiario = $mysqli_obj->query($sqlDiarioVisual);
                                             ?>
                                                 <div class="prenda-pc-item" title="<?= htmlspecialchars($tipos[$index]) ?>">
                                                     <img src="<?= $src ?>" alt="Prenda">
-                                                    <div class="text-center" style="font-size: 0.6rem; color: #999;">#<?= $index + 1 ?></div>
+                                                    <div class="text-center" style="font-size: 0.6rem; color: #999;"><i class="far fa-clock"></i><?= $horas[$index] ?></div>
                                                 </div>
                                             <?php endforeach; ?>
                                         </div>

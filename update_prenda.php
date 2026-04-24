@@ -139,7 +139,7 @@
                 // Si el uso de base cambian se incrementa el uso
                 $sql_log_use = "INSERT INTO historial_usos (prenda_id, fecha) VALUES (?, ?)"; // Eliminado outfit_id
                 $stmt_log = $pdo->prepare($sql_log_use);
-                $stmt_log->execute([$id, $fecha_actual]);
+                $stmt_log->execute([$id, $datetime_actual]);
             }
 
             $pdo->commit();
