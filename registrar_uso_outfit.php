@@ -239,7 +239,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             foreach ($prendas_ids as $prenda_id) {
                 // Registrar uso en historial_usos
                 if ($stmt_log = $mysqli_obj->prepare($sql_log_use)) {
-                    $stmt_log->bind_param("id", $prenda_id, $datetime_actual);
+                    $stmt_log->bind_param("is", $prenda_id, $datetime_actual);
                     $stmt_log->execute();
                     $stmt_log->close();
                 } else {
