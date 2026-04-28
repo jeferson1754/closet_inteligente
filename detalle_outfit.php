@@ -56,8 +56,6 @@ if (!empty($prendas_ids)) {
     $sql_detalles_prendas = "SELECT id, nombre, tipo, color_principal, tela, foto, textura, detalles_adicionales FROM prendas WHERE id IN ($placeholders)
     ORDER BY FIELD(LOWER(tipo), $orden_prendas) ASC";
 
-    echo $sql_detalles_prendas; // Para depuración, muestra la consulta generada con placeholders
-
     if ($stmt_detalles = $mysqli_obj->prepare($sql_detalles_prendas)) {
         // --- INICIO DE LA SOLUCIÓN ---
         $types = str_repeat('i', count($prendas_ids)); // Genera el string de tipos (ej. 'iiii')
