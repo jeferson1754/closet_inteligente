@@ -55,25 +55,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
 
                     if ($reset_needed) {
-                        $new_estado_after_reset = $current_estado; // Por defecto, mantener el estado
+                        // 1. Mantenemos el estado actual por defecto (que podría ser 'disponible', 'sucio', etc.)
+                        $new_estado_after_reset = $current_estado;
 
-                        // Lógica para cambiar estado solo si no es de uso ilimitado
-                        if (!$uso_ilimitado) {
-                            $usageStatus = getUsageLimitStatus($prenda_tipo, $current_usos);
+                        // 2. NUEVA CONDICIÓN: Si está 'lavando', ignoramos completamente la lógica de cambio de estado
+                        if ($current_estado !== 'lavando') {
 
-                            // Si la prenda estaba en uso (y no fue "limpiada" o reseteada antes) O sus usos superaron el límite
-                            if ($current_estado === 'en uso' || $current_usos >= $usageStatus['max_uses']) {
-                                $new_estado_after_reset = 'sucio';
+                            // Lógica para cambiar estado solo si no es de uso ilimitado
+                            if (!$uso_ilimitado) {
+                                $usageStatus = getUsageLimitStatus($prenda_tipo, $current_usos);
+
+                                // Si la prenda estaba en uso O sus usos superaron el límite, pasa a 'sucio'
+                                if ($current_estado === 'en uso' || $current_usos >= $usageStatus['max_uses']) {
+                                    $new_estado_after_reset = 'sucio';
+                                }
                             }
-                            // Si no fue usada y sus usos no superaron el límite, podríamos considerar 'disponible'
-                            // Pero la lógica de actualizar_estados_diarios.php ya lo gestiona diariamente.
-                            // Aquí nos enfocamos en marcar como 'sucio' si la semana pasada se "agotó" su uso.
+                        } else {
+                            // Si el estado es 'lavando', nos aseguramos de que se mantenga como 'lavando'
+                            $new_estado_after_reset = 'lavando';
                         }
 
-                        // Actualizar usos_esta_semana a 0, fecha_ultimo_reset_semanal a inicio de semana actual
-                        // Y actualizar el estado si la lógica anterior lo ha determinado.
-                        $sql_update_on_reset = "UPDATE prendas SET fecha_ultimo_reset_semanal = ?, estado = ? WHERE id = ?";
+                        // 3. Actualizar fecha_ultimo_reset_semanal y usos_esta_semana a 0
+                        // IMPORTANTE: En el SQL añadimos el reset de usos_esta_semana = 0 que faltaba explícitamente en el bind_param
+                        $sql_update_on_reset = "UPDATE prendas SET fecha_ultimo_reset_semanal = ?, estado = ?, usos_esta_semana = 0 WHERE id = ?";
+
                         if ($stmt_update_on_reset = $mysqli_obj->prepare($sql_update_on_reset)) {
+                            // Bind de: fecha (s), estado (s), id (i)
                             $stmt_update_on_reset->bind_param("ssi", $start_of_current_week, $new_estado_after_reset, $prenda_id);
                             $stmt_update_on_reset->execute();
                             $stmt_update_on_reset->close();
