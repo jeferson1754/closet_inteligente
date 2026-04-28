@@ -294,7 +294,6 @@ while ($row = $resScatter->fetch_assoc()) {
 }
 
 // Definimos el orden deseado: primero poleras/camisas, luego pantalones, luego zapatos, etc.
-$orden_prendas = "'camisa', 'chaqueta', 'pantalon','pijama', 'polera','short', 'sueter', 'zapatillas'";
 
 $sqlDiarioVisual = "
     SELECT 

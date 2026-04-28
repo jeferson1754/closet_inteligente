@@ -233,13 +233,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // --- FIN NUEVA LÓGICA ---
 
             // 2. Registrar el uso para cada prenda y actualizar su estado y contador semanal
-            $sql_log_use = "INSERT INTO historial_usos (prenda_id, fecha) VALUES (?, NOW())"; // Eliminado outfit_id
+            $sql_log_use = "INSERT INTO historial_usos (prenda_id, fecha) VALUES (?, ?)"; // Eliminado outfit_id
             $sql_update_prenda = "UPDATE prendas SET estado = 'en uso', usos_esta_semana = usos_esta_semana + 1 WHERE id = ?"; // Incrementar contador
 
             foreach ($prendas_ids as $prenda_id) {
                 // Registrar uso en historial_usos
                 if ($stmt_log = $mysqli_obj->prepare($sql_log_use)) {
-                    $stmt_log->bind_param("i", $prenda_id);
+                    $stmt_log->bind_param("id", $prenda_id, $datetime_actual);
                     $stmt_log->execute();
                     $stmt_log->close();
                 } else {

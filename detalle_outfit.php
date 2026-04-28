@@ -8,17 +8,6 @@ if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
     exit;
 }
 
-$dias = [
-    'Monday'    => 'Lunes',
-    'Tuesday'   => 'Martes',
-    'Wednesday' => 'Miércoles',
-    'Thursday'  => 'Jueves',
-    'Friday'    => 'Viernes',
-    'Saturday'  => 'Sábado',
-    'Sunday'    => 'Domingo'
-];
-
-
 $outfit_id = intval($_GET['id']);
 $outfit_details = null;
 $prendas_del_outfit = [];
@@ -64,7 +53,10 @@ if ($stmt_prendas_ids = $mysqli_obj->prepare($sql_prendas_ids)) {
 if (!empty($prendas_ids)) {
     $placeholders = implode(',', array_fill(0, count($prendas_ids), '?'));
     // Asegúrate de incluir 'detalles_adicionales' en la selección de prendas
-    $sql_detalles_prendas = "SELECT id, nombre, tipo, color_principal, tela, foto, textura, detalles_adicionales FROM prendas WHERE id IN ($placeholders)";
+    $sql_detalles_prendas = "SELECT id, nombre, tipo, color_principal, tela, foto, textura, detalles_adicionales FROM prendas WHERE id IN ($placeholders)
+    ORDER BY FIELD(LOWER(tipo), $orden_prendas) ASC";
+
+    echo $sql_detalles_prendas; // Para depuración, muestra la consulta generada con placeholders
 
     if ($stmt_detalles = $mysqli_obj->prepare($sql_detalles_prendas)) {
         // --- INICIO DE LA SOLUCIÓN ---

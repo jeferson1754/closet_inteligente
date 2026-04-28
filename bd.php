@@ -64,3 +64,5 @@ $estados = ['disponible' => 'disponible', 'sucio' => 'sucio', 'prestado' => 'Pre
 
 $dias = ["Sunday" => "Domingo", "Monday" => "Lunes", "Tuesday" => "Martes", "Wednesday" => "Miércoles", "Thursday" => "Jueves", "Friday" => "Viernes", "Saturday" => "Sábado"];
 $meses = ["January" => "Enero", "February" => "Febrero", "March" => "Marzo", "April" => "Abril", "May" => "Mayo", "June" => "Junio", "July" => "Julio", "August" => "Agosto", "September" => "Septiembre", "October" => "Octubre", "November" => "Noviembre", "December" => "Diciembre"];
+
+$orden_prendas = " 'chaqueta', 'sueter', 'camisa','polera', 'pantalon', 'zapatillas', 'pijama', 'short'";
