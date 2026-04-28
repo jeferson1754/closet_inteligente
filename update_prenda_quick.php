@@ -19,8 +19,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['update_usage_delta'])) {
         $id = intval($_POST['id']);
         $delta = (int)$_POST['update_usage_delta'];
-        $fecha_actual = date('Y-m-d H:i:s');
-
 
         $sql_update = "UPDATE prendas SET usos_esta_semana = GREATEST(0, usos_esta_semana + ?) WHERE id = ?";
         if ($stmt = $mysqli_obj->prepare($sql_update)) {
@@ -33,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($delta > 0) {
                     $sql_log = "INSERT INTO historial_usos (prenda_id, fecha) VALUES (?, ?)";
                     $stmt_log = $mysqli_obj->prepare($sql_log);
-                    $stmt_log->bind_param("is", $prenda_id, $fecha_actual);
+                    $stmt_log->bind_param("is", $prenda_id, $datetime_actual);
                     $stmt_log->execute();
                 }
             } else {
