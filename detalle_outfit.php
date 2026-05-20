@@ -522,6 +522,7 @@ if (!empty($prendas_ids)) {
                                             text: data.message, // El mensaje dirá si fue hoy, ayer o la semana pasada
                                             icon: 'warning',
                                             showCancelButton: true,
+                                            html: data.message.replace(/\n/g, '<br>'),
                                             confirmButtonColor: '#667eea',
                                             cancelButtonColor: '#d33',
                                             confirmButtonText: 'Sí, usar de todos modos',

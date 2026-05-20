@@ -117,37 +117,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!empty($prendas_ids)) {
                 $ids_string = implode(',', $prendas_ids);
 
-                // 2. Consulta para detectar repeticiones en fechas clave
-                // Buscamos: Ayer, y hace exactamente 7 días
+                // 1. Modificamos el SEPARATOR para agregar un salto de línea y un guion por cada prenda
                 $sql_historial = "
                 SELECT 
-                    DATE(fecha) as fecha_uso,
-                    COUNT(DISTINCT prenda_id) as coincidencias
-                FROM historial_usos 
-                WHERE prenda_id IN ($ids_string)
+                    DATE(h.fecha) as fecha_uso,
+                    COUNT(DISTINCT h.prenda_id) as coincidencias,
+                    GROUP_CONCAT(CONCAT('- ', p.nombre) SEPARATOR '\n') as prendas_repetidas
+                FROM historial_usos h
+                JOIN prendas p ON h.prenda_id = p.id
+                WHERE h.prenda_id IN ($ids_string)
                 AND (
-                    DATE(fecha) = CURDATE() OR
-                    DATE(fecha) = DATE_SUB(CURDATE(), INTERVAL 1 DAY) OR 
-                    DATE(fecha) = DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+                    DATE(h.fecha) = CURDATE() OR
+                    DATE(h.fecha) = DATE_SUB(CURDATE(), INTERVAL 1 DAY) OR 
+                    DATE(h.fecha) = DATE_SUB(CURDATE(), INTERVAL 7 DAY)
                 )
-                GROUP BY DATE(fecha)";
+                GROUP BY DATE(h.fecha)";
 
                 $res_historial = $mysqli_obj->query($sql_historial);
 
                 while ($row_h = $res_historial->fetch_assoc()) {
                     $fecha_uso = $row_h['fecha_uso'];
                     $cant = (int)$row_h['coincidencias'];
+                    $lista_prendas = $row_h['prendas_repetidas']; // Ahora viene con saltos de línea y guiones
 
                     if ($cant >= 3) {
                         if ($fecha_uso == date('Y-m-d')) {
-                            $aviso_repeticion = "Hoy ya usaste $cant prendas de este outfit.";
+                            $aviso_repeticion = "Hoy ya usaste estas prendas:\n" . $lista_prendas;
                         } elseif ($fecha_uso == date('Y-m-d', strtotime('-1 day'))) {
-                            $aviso_repeticion = "Ayer usaste este mismo conjunto ($cant prendas iguales).";
+                            $aviso_repeticion = "Ayer usaste este mismo conjunto de prendas:\n" . $lista_prendas;
                         } else {
                             $nombre_dia_semana = $dias[date('l', strtotime($fecha_uso))];
-                            $aviso_repeticion = "El $nombre_dia_semana pasado usaste este mismo outfit.";
+                            $aviso_repeticion = "El $nombre_dia_semana pasado usaste estas mismas prendas:\n" . $lista_prendas;
                         }
-                        break; // Detenemos al encontrar la primera coincidencia crítica
+                        break;
                     }
                 }
             }
@@ -159,7 +161,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 echo json_encode([
                     'success' => false,
                     'is_repetition' => true,
-                    'message' => $aviso_repeticion . " ¿Deseas usarlo de todas formas?"
+                    'message' => $aviso_repeticion . "\n ¿Deseas usarlo de todas formas?"
                 ]);
                 exit;
             }
