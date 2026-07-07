@@ -13,9 +13,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $sql_update_prendas = "
         UPDATE prendas p
-        JOIN outfit_prendas op ON op.prenda_id = p.id
-        SET p.estado = 'disponible'
-        WHERE p.estado = 'en uso'";
+        JOIN outfit_prendas op
+        ON op.prenda_id = p.id
+        SET
+            p.estado = 'disponible',
+            p.fecha_cambio_estado = '$datetime_actual'
+        WHERE p.estado='en uso'
+        ";
 
         $mysqli_obj->query($sql_update_prendas);
 
@@ -58,26 +62,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         // 1. Mantenemos el estado actual por defecto (que podría ser 'disponible', 'sucio', etc.)
                         $new_estado_after_reset = $current_estado;
 
-                        // 2. NUEVA CONDICIÓN: Si está 'lavando', ignoramos completamente la lógica de cambio de estado
-                        if ($current_estado !== 'lavando') {
-
-                            // Lógica para cambiar estado solo si no es de uso ilimitado
-                            if (!$uso_ilimitado) {
-                                $usageStatus = getUsageLimitStatus($prenda_tipo, $current_usos);
-
-                                // Si la prenda estaba en uso O sus usos superaron el límite, pasa a 'sucio'
-                                if ($current_estado === 'en uso' || $current_usos >= $usageStatus['max_uses']) {
-                                    $new_estado_after_reset = 'sucio';
-                                }
-                            }
-                        } else {
-                            // Si el estado es 'lavando', nos aseguramos de que se mantenga como 'lavando'
-                            $new_estado_after_reset = 'lavando';
-                        }
-
                         // 3. Actualizar fecha_ultimo_reset_semanal y usos_esta_semana a 0
                         // IMPORTANTE: En el SQL añadimos el reset de usos_esta_semana = 0 que faltaba explícitamente en el bind_param
-                        $sql_update_on_reset = "UPDATE prendas SET fecha_ultimo_reset_semanal = ?, estado = ?, usos_esta_semana = 0 WHERE id = ?";
+                        $sql_update_on_reset = "UPDATE prendas SET fecha_ultimo_reset_semanal = ?, estado = ? WHERE id = ?";
 
                         if ($stmt_update_on_reset = $mysqli_obj->prepare($sql_update_on_reset)) {
                             // Bind de: fecha (s), estado (s), id (i)
@@ -236,12 +223,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // 2. Registrar el uso para cada prenda y actualizar su estado y contador semanal
             $sql_log_use = "INSERT INTO historial_usos (prenda_id, fecha) VALUES (?, ?)"; // Eliminado outfit_id
-            $sql_update_prenda = "UPDATE prendas SET estado = 'en uso', usos_esta_semana = usos_esta_semana + 1 WHERE id = ?"; // Incrementar contador
+            $sql_update_prenda = "UPDATE prendas SET estado = 'en uso',fecha_cambio_estado=?, usos_esta_semana = usos_esta_semana + 1 WHERE id = ?"; // Incrementar contador
 
             foreach ($prendas_ids as $prenda_id) {
                 // Registrar uso en historial_usos
                 if ($stmt_log = $mysqli_obj->prepare($sql_log_use)) {
-                    $stmt_log->bind_param("is", $prenda_id, $datetime_actual);
+                    $stmt_log->bind_param("si", $datetime_actual, $prenda_id);
                     $stmt_log->execute();
                     $stmt_log->close();
                 } else {
@@ -250,7 +237,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 // Actualizar estado y contador semanal de la prenda
                 if ($stmt_update = $mysqli_obj->prepare($sql_update_prenda)) {
-                    $stmt_update->bind_param("i", $prenda_id);
+                    $stmt_update->bind_param("si", $datetime_actual, $prenda_id);
                     $stmt_update->execute();
                     $stmt_update->close();
                 } else {

@@ -49,11 +49,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Solo añadir a la consulta si el valor no es null
         if ($new_estado !== null) {
-            $sql_parts[] = "estado = ?";
-            $bind_types .= 's'; // 's' para string (estado)
-            $bind_params_values[] = $new_estado;
-        }
 
+            $sql_parts[] = "estado = ?";
+            $bind_types .= 's';
+            $bind_params_values[] = $new_estado;
+
+            $sql_parts[] = "fecha_cambio_estado = ?";
+            $bind_types .= 's';
+            $bind_params_values[] = $datetime_actual;
+        }
+        
         if ($new_estado == 'disponible') {
             $sql_parts[] = "usos_esta_semana = 0";
         }

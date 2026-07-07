@@ -112,9 +112,13 @@
                 fecha_agregado = :fecha_agregado,
                 detalles_adicionales = :comentarios,
                 uso_ilimitado = :uso_ilimitado,
-                usos_esta_semana = :usos_esta_semana
+                usos_esta_semana = :usos_esta_semana,
+                fecha_cambio_estado = CASE
+                    WHEN estado <> :estado THEN :fecha_cambio_estado
+                    ELSE fecha_cambio_estado
+                END
             WHERE id = :id
-        ";
+            ";
 
             $stmt = $pdo->prepare($sql_update);
             $stmt->execute([
@@ -132,6 +136,7 @@
                 ':comentarios' => $comentarios,
                 ':uso_ilimitado' => $uso_ilimitado,
                 ':usos_esta_semana' => $usos_esta_semana,
+                ':fecha_cambio_estado' => $datetime_actual,
                 ':id' => $id
             ]);
 
