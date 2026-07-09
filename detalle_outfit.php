@@ -249,6 +249,21 @@ if (!empty($prendas_ids)) {
             background: linear-gradient(45deg, #007bff, #0056b3) !important;
         }
 
+        /* Info */
+        .estado-lavando {
+            background-color: #6f42c1;
+            color: white;
+        }
+
+        /* Purple */
+
+        .badge-estado {
+            font-size: 0.7em;
+            padding: 4px 8px;
+            border-radius: 5px;
+            margin-left: 5px;
+        }
+
         /* Responsive adjustments */
         @media (max-width: 576px) {
             .outfit-info-container {
@@ -430,37 +445,66 @@ if (!empty($prendas_ids)) {
                         <div id="listaPrendasEditOutfit" style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 5px;">
                             <?php
                             // Consulta para obtener TODAS las prendas disponibles para la selección
-                            // Incluye el estado para la lógica de visualización si es necesario
                             $sql_all_prendas_edit = "SELECT id, nombre, tipo, color_principal, foto, estado, uso_ilimitado FROM prendas ORDER BY nombre ASC";
                             $result_all_prendas_edit = $mysqli_obj->query($sql_all_prendas_edit);
 
                             if ($result_all_prendas_edit && $result_all_prendas_edit->num_rows > 0) {
                                 while ($prenda_edit = $result_all_prendas_edit->fetch_assoc()) {
                                     $imagen_src_edit = !empty($prenda_edit['foto']) ? htmlspecialchars($prenda_edit['foto']) : 'https://via.placeholder.com/50x50?text=Sin+Imagen';
-                                    echo '
-                                <div class="form-check mb-2 prenda-edit-item"
-                                    data-prenda-id="' . $prenda_edit['id'] . '"
-                                    data-prenda-nombre="' . htmlspecialchars(strtolower($prenda_edit['nombre'])) . '"
-                                    data-prenda-tipo="' . htmlspecialchars(strtolower($prenda_edit['tipo'])) . '"
-                                    data-prenda-color="' . htmlspecialchars(strtolower($prenda_edit['color_principal'])) . '"
-                                    data-prenda-estado="' . htmlspecialchars($prenda_edit['estado']) . '">
-                                    <input class="form-check-input prenda-checkbox" type="checkbox" name="prendas[]" value="' . $prenda_edit['id'] . '" id="editPrenda' . $prenda_edit['id'] . '">
-                                    <label class="form-check-label d-flex align-items-center" for="editPrenda' . $prenda_edit['id'] . '">
-                                        <img src="' . $imagen_src_edit . '" alt="' . htmlspecialchars($prenda_edit['nombre']) . '" class="me-2 rounded" style="width: 40px; height: 40px; object-fit: cover;">
-                                        <div>
-                                            <strong>' . htmlspecialchars($prenda_edit['nombre']) . '</strong><br>
-                                            <small class="text-muted">' . htmlspecialchars($prenda_edit['tipo']) . ' • ' . htmlspecialchars($prenda_edit['color_principal']) . '</small>
-                                            ';
-                                    // Añadir un badge de estado si la prenda no está disponible y no es de uso ilimitado
-                                    $nonAvailableStates = ['sucio', 'en uso', 'prestado', 'Lavando'];
-                                    if (in_array($prenda_edit['estado'], $nonAvailableStates) && !$prenda_edit['uso_ilimitado']) {
-                                        echo '<span class="badge badge-sm rounded-pill bg-danger ms-2">No disp.</span>';
+
+                                    // Asignar el color y texto del badge de forma dinámica según el estado actual de la prenda
+                                    $estado_actual = strtolower($prenda_edit['estado']);
+                                    $badge_clase = 'bg-secondary';
+                                    $badge_texto = ucfirst($prenda_edit['estado']);
+
+                                    switch ($estado_actual) {
+                                        case 'disponible':
+                                            $badge_clase = 'bg-success';
+                                            $badge_texto = 'Disponible';
+                                            break;
+                                        case 'sucio':
+                                            $badge_clase = 'bg-danger';
+                                            $badge_texto = 'Sucio';
+                                            break;
+                                        case 'en uso':
+                                            $badge_clase = 'bg-warning text-dark';
+                                            $badge_texto = 'En Uso';
+                                            break;
+                                        case 'lavando':
+                                            $badge_clase = 'badge-estado estado-lavando';
+                                            $badge_texto = 'Lavando';
+                                            break;
+                                        case 'prestado':
+                                            $badge_clase = 'bg-dark';
+                                            $badge_texto = 'Prestado';
+                                            break;
                                     }
+
+                                    // Si es de uso ilimitado, podemos añadirle una etiqueta extra aclaratoria
+                                    if ($prenda_edit['uso_ilimitado']) {
+                                        $badge_texto .= ' (Ilimitado)';
+                                    }
+
                                     echo '
-                                        </div>
-                                    </label>
-                                </div>
-                                ';
+        <div class="form-check mb-2 prenda-edit-item"
+            data-prenda-id="' . $prenda_edit['id'] . '"
+            data-prenda-nombre="' . htmlspecialchars(strtolower($prenda_edit['nombre'])) . '"
+            data-prenda-tipo="' . htmlspecialchars(strtolower($prenda_edit['tipo'])) . '"
+            data-prenda-color="' . htmlspecialchars(strtolower($prenda_edit['color_principal'])) . '"
+            data-prenda-estado="' . htmlspecialchars($prenda_edit['estado']) . '">
+            <input class="form-check-input prenda-checkbox" type="checkbox" name="prendas[]" value="' . $prenda_edit['id'] . '" id="editPrenda' . $prenda_edit['id'] . '">
+            <label class="form-check-label d-flex align-items-center w-100 justify-content-between" for="editPrenda' . $prenda_edit['id'] . '">
+                <div class="d-flex align-items-center">
+                    <img src="' . $imagen_src_edit . '" alt="' . htmlspecialchars($prenda_edit['nombre']) . '" class="me-2 rounded" style="width: 40px; height: 40px; object-fit: cover;">
+                    <div>
+                        <strong>' . htmlspecialchars($prenda_edit['nombre']) . '</strong><br>
+                        <small class="text-muted">' . htmlspecialchars($prenda_edit['tipo']) . ' • ' . htmlspecialchars($prenda_edit['color_principal']) . '</small>
+                    </div>
+                </div>
+                <span class="badge ' . $badge_clase . ' ms-2 rounded-pill px-2 py-1" style="font-size: 0.75rem;">' . $badge_texto . '</span>
+            </label>
+        </div>
+        ';
                                 }
                             } else {
                                 echo '<p class="text-muted">No hay prendas en tu clóset.</p>';
