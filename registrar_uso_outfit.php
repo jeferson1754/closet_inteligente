@@ -11,6 +11,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $force_overwrite = isset($_POST['force_overwrite']) && $_POST['force_overwrite'] === 'true'; // Nuevo parámetro
         $force_dirty_use = isset($_POST['force_dirty_use']) && $_POST['force_dirty_use'] === 'true'; // NUEVO: Para forzar uso con prendas sucias
 
+        $solo_validar = isset($_POST['solo_validar']) && $_POST['solo_validar'] === 'true';
+        $fecha_destino = isset($_POST['fecha_destino']) ? $_POST['fecha_destino'] : 'hoy';
+
         $sql_update_prendas = "
         UPDATE prendas p
         JOIN outfit_prendas op
@@ -32,8 +35,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             // 0. Lógica para reiniciar contadores semanales si es una nueva semana
             // Obtenemos la fecha de hoy, inicio de la semana actual
-            $today = date('Y-m-d');
-            $start_of_current_week = date('Y-m-d', strtotime('monday this week'));
+            $today = isset($_POST['fecha_destino']) && $_POST['fecha_destino'] === 'manana' ? date('Y-m-d', strtotime('tomorrow')) : date('Y-m-d');
+
+            $start_of_current_week = isset($_POST['fecha_destino']) && $_POST['fecha_destino'] === 'manana' ? date('Y-m-d', strtotime('monday next week')) : date('Y-m-d', strtotime('monday this week'));
 
             // Obtener las prendas, su estado actual, usos_esta_semana, tipo y última fecha de reset semanal
             $sql_check_resets_and_status = "SELECT id, tipo, estado, usos_esta_semana, uso_ilimitado, fecha_ultimo_reset_semanal FROM prendas";
@@ -105,6 +109,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $ids_string = implode(',', $prendas_ids);
 
                 // 1. Modificamos el SEPARATOR para agregar un salto de línea y un guion por cada prenda
+                // 1. Determinamos cuál es la fecha base para la base de datos
+                // Si es mañana, la fecha base será la de mañana, si no, la de hoy.
+                $fecha_base_sql = ($fecha_destino === 'manana') ? "DATE_ADD(CURDATE(), INTERVAL 1 DAY)" : "CURDATE()";
+
+                // 2. La consulta ahora usa la fecha base dinámica
                 $sql_historial = "
                 SELECT 
                     DATE(h.fecha) as fecha_uso,
@@ -114,9 +123,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 JOIN prendas p ON h.prenda_id = p.id
                 WHERE h.prenda_id IN ($ids_string)
                 AND (
-                    DATE(h.fecha) = CURDATE() OR
-                    DATE(h.fecha) = DATE_SUB(CURDATE(), INTERVAL 1 DAY) OR 
-                    DATE(h.fecha) = DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+                    DATE(h.fecha) = $fecha_base_sql OR
+                    DATE(h.fecha) = DATE_SUB($fecha_base_sql, INTERVAL 1 DAY) OR 
+                    DATE(h.fecha) = DATE_SUB($fecha_base_sql, INTERVAL 7 DAY)
                 )
                 GROUP BY DATE(h.fecha)";
 
@@ -128,13 +137,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $lista_prendas = $row_h['prendas_repetidas']; // Ahora viene con saltos de línea y guiones
 
                     if ($cant >= 3) {
-                        if ($fecha_uso == date('Y-m-d')) {
-                            $aviso_repeticion = "Hoy ya usaste estas prendas:\n" . $lista_prendas;
-                        } elseif ($fecha_uso == date('Y-m-d', strtotime('-1 day'))) {
-                            $aviso_repeticion = "Ayer usaste este mismo conjunto de prendas:\n" . $lista_prendas;
+                        // 1. Definimos las fechas de comparación según el destino
+                        if (isset($_POST['fecha_destino']) && $_POST['fecha_destino'] === 'manana') {
+                            $fecha_objetivo = date('Y-m-d', strtotime('tomorrow'));    // Mañana
+                            $fecha_anterior = date('Y-m-d');                           // Hoy (ayer respecto a mañana)
+
+                            $texto_objetivo = "Mañana ya usarías estas prendas:\n";
+                            $texto_anterior = "Hoy usaste este mismo conjunto de prendas:\n";
+                            $texto_pasado   = "El %s pasado usaste estas mismas prendas:\n";
+                        } else {
+                            $fecha_objetivo = date('Y-m-d');                           // Hoy
+                            $fecha_anterior = date('Y-m-d', strtotime('-1 day'));      // Ayer
+
+                            $texto_objetivo = "Hoy ya usaste estas prendas:\n";
+                            $texto_anterior = "Ayer usaste este mismo conjunto de prendas:\n";
+                            $texto_pasado   = "El %s pasado usaste estas mismas prendas:\n";
+                        }
+
+                        // 2. Comparamos la fecha del historial y asignamos el aviso correspondiente
+                        if ($fecha_uso == $fecha_objetivo) {
+                            $aviso_repeticion = $texto_objetivo . $lista_prendas;
+                        } elseif ($fecha_uso == $fecha_anterior) {
+                            $aviso_repeticion = $texto_anterior . $lista_prendas;
                         } else {
                             $nombre_dia_semana = $dias[date('l', strtotime($fecha_uso))];
-                            $aviso_repeticion = "El $nombre_dia_semana pasado usaste estas mismas prendas:\n" . $lista_prendas;
+                            $aviso_repeticion = sprintf($texto_pasado, $nombre_dia_semana) . $lista_prendas;
                         }
                         break;
                     }
@@ -219,7 +246,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new Exception("Error al verificar outfit existente para hoy: " . $mysqli_obj->error);
                 }
             }
-            // --- FIN NUEVA LÓGICA ---
+            // --- FIN NUEVA LÓGICA (Validación de outfit usado hoy) ---
+
+            // =================================================================
+            // NUEVO CAMBIO: INTERCEPCIÓN PARA MODO "SÓLO VALIDAR"
+            // =================================================================
+            if ($solo_validar) {
+                $response['success'] = true;
+                $response['message'] = 'El outfit está completamente disponible para usarse mañana.';
+                echo json_encode($response);
+
+                // Revertimos cualquier cambio temporal en la transacción por máxima seguridad
+                $mysqli_obj->rollback();
+                exit; // Detiene la ejecución completa del script PHP aquí
+            }
 
             // 2. Registrar el uso para cada prenda y actualizar su estado y contador semanal
             $sql_log_use = "INSERT INTO historial_usos (fecha, prenda_id) VALUES (?, ?)"; // Eliminado outfit_id

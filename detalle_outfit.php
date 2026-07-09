@@ -120,6 +120,20 @@ if (!empty($prendas_ids)) {
             font-weight: 500;
         }
 
+        .btn-success-gradient {
+            background: linear-gradient(45deg, #11998e, #38ef7d);
+            border: none;
+            border-radius: 25px;
+            padding: 10px 25px;
+            font-weight: 500;
+            color: white;
+        }
+
+        .btn-success-gradient:hover {
+            color: white;
+            filter: brightness(1.05);
+        }
+
         .badge {
             border-radius: 15px;
             padding: 5px 12px;
@@ -327,9 +341,12 @@ if (!empty($prendas_ids)) {
                     </div>
 
 
-                    <div class="text-center mt-1">
-                        <button class="btn btn-primary me-2" id="usarOutfitBtn" data-id="<?php echo $outfit_id; ?>">
+                    <div class="text-center mt-1 d-flex flex-wrap justify-content-center gap-2">
+                        <button class="btn btn-primary" id="usarOutfitBtn" data-id="<?php echo $outfit_id; ?>">
                             <i class="fas fa-calendar-check me-2"></i>Usar este Outfit Hoy
+                        </button>
+                        <button class="btn btn-success-gradient" id="usarOutfitMananaBtn" data-id="<?php echo $outfit_id; ?>">
+                            <i class="fas fa-calendar-plus me-2"></i>Verificar Uso Mañana
                         </button>
                         <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalEditarOutfit" id="editarOutfitBtn" data-id="<?php echo $outfit_id; ?>">
                             <i class="fas fa-edit me-2"></i>Editar Outfit
@@ -680,6 +697,61 @@ if (!empty($prendas_ids)) {
                 }
             });
             // --- FIN Lógica del Modal de Edición de Outfit ---
+
+            // Funcionalidad para "Verificar Uso Mañana" (SOLO VALIDACIÓN, NO REGISTRA)
+            // NUEVO: Funcionalidad para "Verificar Uso Mañana" (SOLO VALIDACIÓN)
+            document.getElementById('usarOutfitMananaBtn').addEventListener('click', function() {
+                const nombreOutfit = document.querySelector('.card-title').textContent;
+
+                Swal.fire({
+                    title: 'Verificando prendas...',
+                    text: `Comprobando la disponibilidad de "${nombreOutfit}" para mañana sin registrar cambios.`,
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                // Enviamos el ID del outfit, fecha_destino como mañana y el flag solo_validar en true
+                fetch('registrar_uso_outfit.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: `outfit_id=${outfitId}&fecha_destino=manana&solo_validar=true`
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        Swal.close(); // Cerramos el loader
+
+                        if (data.success) {
+                            // Si pasó todas las reglas y no hubo conflictos
+                            Swal.fire({
+                                title: '¡Outfit Disponible!',
+                                text: 'Ninguna de las prendas se repite de forma consecutiva para mañana. ¡Puedes usarlo con confianza!',
+                                icon: 'success',
+                                confirmButtonColor: '#11998e'
+                            });
+                        } else if (data.is_repetition) {
+                            // Si hay un conflicto de repetición, mostramos cuáles son las prendas repetidas
+                            Swal.fire({
+                                title: 'Conflicto de prendas para mañana',
+                                html: data.message.replace(/\n/g, '<br>'), // Hacemos los saltos de línea legibles en HTML
+                                icon: 'warning',
+                                confirmButtonColor: '#667eea',
+                                confirmButtonText: 'Entendido'
+                            });
+                        } else {
+                            // Errores de prendas sucias u otros bloqueos detectados por el backend
+                            Swal.fire('Atención', data.message || 'El outfit no está disponible.', 'warning');
+                        }
+                    })
+                    .catch(error => {
+                        Swal.close();
+                        console.error('Error en la solicitud de validación:', error);
+                        Swal.fire('Error de conexión', 'No se pudo comunicar con el servidor.', 'error');
+                    });
+            });
         });
     </script>
 </body>
