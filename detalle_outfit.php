@@ -53,7 +53,7 @@ if ($stmt_prendas_ids = $mysqli_obj->prepare($sql_prendas_ids)) {
 if (!empty($prendas_ids)) {
     $placeholders = implode(',', array_fill(0, count($prendas_ids), '?'));
     // Asegúrate de incluir 'detalles_adicionales' en la selección de prendas
-    $sql_detalles_prendas = "SELECT id, nombre, tipo, color_principal, tela, foto, textura, detalles_adicionales FROM prendas WHERE id IN ($placeholders)
+    $sql_detalles_prendas = "SELECT * FROM prendas WHERE id IN ($placeholders)
     ORDER BY FIELD(LOWER(tipo), $orden_prendas) ASC";
 
     if ($stmt_detalles = $mysqli_obj->prepare($sql_detalles_prendas)) {
@@ -264,6 +264,35 @@ if (!empty($prendas_ids)) {
             margin-left: 5px;
         }
 
+        .uso-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: #667eea;
+            /* Color principal */
+            color: white;
+            border-radius: 50%;
+            /* Para que sea un círculo */
+            width: 30px;
+            /* Tamaño del círculo */
+            height: 30px;
+            /* Tamaño del círculo */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8em;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            z-index: 10;
+            /* Asegura que esté por encima de la imagen */
+        }
+
+        /* Color si los usos son altos (opcional, para avisar que está cerca del límite) */
+        .uso-badge.high-usage {
+            background-color: #dc3545;
+            /* Rojo */
+        }
+
         /* Responsive adjustments */
         @media (max-width: 576px) {
             .outfit-info-container {
@@ -375,16 +404,65 @@ if (!empty($prendas_ids)) {
                 <div class="row">
                     <?php foreach ($prendas_del_outfit as $prenda): ?>
                         <div class="col-md-4 mb-4">
-                            <div class="card prenda-card h-100">
-                                <img src="<?php echo htmlspecialchars($prenda['foto']); ?>" class="card-img-top" alt="Imagen de <?php echo htmlspecialchars($prenda['nombre']); ?>" style="object-fit: cover; max-height: 180px;">
-                                <div class="card-body">
-                                    <h5 class="card-title"><?php echo htmlspecialchars($prenda['nombre']); ?></h5>
-                                    <p class="card-text">
-                                        <small class="text-muted"><?php echo htmlspecialchars($prenda['tipo']); ?> • <?php echo htmlspecialchars($prenda['color_principal']); ?></small><br>
-                                        <small><?php echo htmlspecialchars($prenda['tela']); ?> • <?php echo htmlspecialchars($prenda['textura']); ?></small>
-                                    </p>
+                            <div class="card prenda-card h-100 border-0 shadow-sm position-relative overflow-hidden" style="border-radius: 16px;">
+
+                                <?php
+                                $uso_badge_class = 'bg-primary';
+                                $current_garment_uses = (int)$prenda['usos_esta_semana'];
+                                $garment_type_for_function = $prenda['tipo'];
+
+                                // Utiliza la función para obtener el estado de uso
+                                $badgeUsageStatus = getUsageLimitStatus($garment_type_for_function, $current_garment_uses);
+
+                                // Aplica un color rojo/alerta si está sobreusada
+                                if (!$prenda['uso_ilimitado'] && $badgeUsageStatus['is_overused']) {
+                                    $uso_badge_class = 'bg-danger';
+                                }
+
+                                // Muestra el contador circular minimalista en la esquina superior derecha
+                                if (!$prenda['uso_ilimitado']) {
+                                    echo '<span class="badge position-absolute top-0 end-0 m-3 d-flex align-items-center justify-content-center ' . $uso_badge_class . '" 
+                        style="width: 24px; height: 24px; border-radius: 50%; font-size: 0.75rem; z-index: 2; box-shadow: 0 2px 6px rgba(0,0,0,0.15); font-weight: 600;">'
+                                        . $current_garment_uses .
+                                        '</span>';
+                                }
+                                ?>
+
+                                <div style="height: 180px; overflow: hidden; background-color: #f8f9fa;">
+                                    <img src="<?php echo htmlspecialchars($prenda['foto']); ?>" class="w-100 h-100" alt="Imagen de <?php echo htmlspecialchars($prenda['nombre']); ?>" style="object-fit: cover;">
+                                </div>
+
+                                <div class="card-body d-flex flex-column p-3">
+                                    <h6 class="card-title fw-bold text-dark mb-1" style="font-size: 0.95rem; line-height: 1.3; min-height: 2.6em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                                        <?php echo htmlspecialchars($prenda['nombre']); ?>
+                                    </h6>
+
+                                    <div class="mb-3">
+                                        <span class="text-muted d-block" style="font-size: 0.75rem; text-transform: lowercase;">
+                                            <?php echo htmlspecialchars($prenda['tipo']); ?> • <?php echo htmlspecialchars($prenda['color_principal']); ?>
+                                        </span>
+                                        <span class="text-secondary d-block mt-0.5" style="font-size: 0.72rem; letter-spacing: 0.2px;">
+                                            <?php echo htmlspecialchars($prenda['tela']); ?><?php echo !empty($prenda['textura']) ? ' • ' . htmlspecialchars($prenda['textura']) : ''; ?>
+                                        </span>
+                                    </div>
+
+                                    <div class="mb-2">
+                                        <?php
+                                        $estado = strtolower($prenda['estado']);
+                                        $badge_bg = 'bg-secondary';
+                                        if ($estado === 'disponible') $badge_bg = 'bg-success-subtle text-success border border-success-subtle';
+                                        elseif ($estado === 'sucio') $badge_bg = 'bg-danger-subtle text-danger border border-danger-subtle';
+                                        elseif (in_array($estado, ['en uso', 'lavando', 'prestado'])) $badge_bg = 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
+                                        ?>
+                                        <span class="badge rounded-pill <?php echo $badge_bg; ?> px-2.5 py-1 fw-semibold text-uppercase" style="font-size: 0.65rem; letter-spacing: 0.5px;">
+                                            <?php echo htmlspecialchars($prenda['estado']); ?>
+                                        </span>
+                                    </div>
+
                                     <?php if (!empty($prenda['detalles_adicionales'])): ?>
-                                        <p class="card-text"><small class="text-muted"><em>"<?php echo nl2br(htmlspecialchars(substr($prenda['detalles_adicionales'], 0, 100))); ?><?php echo (strlen($prenda['detalles_adicionales']) > 100) ? '...' : ''; ?>"</em></small></p>
+                                        <p class="card-text mt-2 mb-0 pt-2 border-top border-light text-muted fst-italic" style="font-size: 0.75rem; line-height: 1.4;">
+                                            <?php echo nl2br(htmlspecialchars(substr($prenda['detalles_adicionales'], 0, 85))); ?><?php echo (strlen($prenda['detalles_adicionales']) > 85) ? '...' : ''; ?>
+                                        </p>
                                     <?php endif; ?>
                                 </div>
                             </div>
