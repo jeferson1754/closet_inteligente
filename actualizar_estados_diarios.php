@@ -72,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' || $_SERVER['REQUEST_METHOD'] === 'POST
         // 3. Ejecutar las actualizaciones masivas
         $rows_updated_count = 0;
         if (!empty($updates_queue)) {
-            $sql_update_single_prenda = "UPDATE prendas SET estado = ?, fecha_cambio_estado = ?WHERE id = ?";
+            $sql_update_single_prenda = "UPDATE prendas SET estado = ?, fecha_cambio_estado = ? WHERE id = ?";
             if ($stmt_update = $mysqli_obj->prepare($sql_update_single_prenda)) {
                 foreach ($updates_queue as $id_to_update => $new_state_value) {
                     $stmt_update->bind_param("ssi", $new_state_value, $datetime_actual, $id_to_update);

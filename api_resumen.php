@@ -36,26 +36,56 @@ $hoy = date('Y-m-d');
    PRENDAS QUE PASARON A SUCIO HOY
 ========================================== */
 
-$sql_sucias = "
-SELECT
-    id,
-    nombre,
-    tipo,
-    color_principal,
-    fecha_cambio_estado
+$sql_sucias_hoy = "
+SELECT *
 FROM prendas
-WHERE estado='sucio' 
+WHERE estado = 'sucio'
 AND uso_ilimitado = 0
 AND DATE(fecha_cambio_estado)=CURDATE()
 ORDER BY fecha_cambio_estado DESC
 ";
 
-$resultado_sucias = $mysqli_obj->query($sql_sucias);
+$resultado = $mysqli_obj->query($sql_sucias_hoy);
 
 $prendas_sucias_hoy = [];
 
-while ($fila = $resultado_sucias->fetch_assoc()) {
+while ($fila = $resultado->fetch_assoc()) {
     $prendas_sucias_hoy[] = $fila;
+}
+
+/* ==========================================
+   PRENDAS QUE ALCANZARON LAS MAXIMAS DE USO HOY
+========================================== */
+
+$sql_limite = "
+SELECT *
+FROM prendas
+WHERE uso_ilimitado = 0 and estado NOT in  ('sucio', 'lavando', 'prestado')
+ORDER BY tipo, nombre
+";
+
+$resultado = $mysqli_obj->query($sql_limite);
+
+$prendas_limite = [];
+
+while ($fila = $resultado->fetch_assoc()) {
+
+    $usageStatus = getUsageLimitStatus(
+        $fila['tipo'],
+        $fila['usos_esta_semana']
+    );
+
+    if ($fila['usos_esta_semana'] >= $usageStatus['max_uses']) {
+
+        $prendas_limite[] = [
+            'id' => $fila['id'],
+            'nombre' => $fila['nombre'],
+            'tipo' => $fila['tipo'],
+            'estado' => $fila['estado'],
+            'usos_esta_semana' => $fila['usos_esta_semana'],
+            'limite' => $usageStatus['max_uses']
+        ];
+    }
 }
 
 /* ==========================================
@@ -158,13 +188,17 @@ echo json_encode([
 
         'prendas_pasaron_a_sucio_hoy' => count($prendas_sucias_hoy),
 
-        'estados_actuales' => $resumen_estados
+        'estados_actuales' => $resumen_estados,
+
+        'total_prendas_al_limite' => count($prendas_limite)
 
     ],
 
     'prendas_sucias_hoy' => $prendas_sucias_hoy,
 
     'prendas_usadas_hoy' => $prendas_hoy,
+
+    'prendas_al_limite' => $prendas_limite,
 
     'historial_hoy' => $historial_hoy
 
