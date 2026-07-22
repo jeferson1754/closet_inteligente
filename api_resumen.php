@@ -33,6 +33,27 @@ date_default_timezone_set('America/Santiago');
 $hoy = date('Y-m-d');
 
 /* ==========================================
+   OUTFIT USADO HOY
+========================================== */
+
+// Consulta SQL corregida (añadidas comillas simples alrededor de '$hoy')
+$sql_outfit_hoy = "
+    SELECT id FROM `outfits`  
+    WHERE fecha_ultimo_uso_outfit = '$hoy'
+    ORDER BY `fecha_ultimo_uso_outfit` DESC
+    LIMIT 1
+";
+
+$resultado = $mysqli_obj->query($sql_outfit_hoy);
+
+$outfit_id = null;
+
+if ($resultado && $fila = $resultado->fetch_assoc()) {
+    // Guardamos directamente el ID del outfit encontrado
+    $outfit_id = (int)$fila['id'];
+}
+
+/* ==========================================
    PRENDAS QUE PASARON A SUCIO HOY
 ========================================== */
 
@@ -181,6 +202,8 @@ echo json_encode([
     'fecha' => $hoy,
 
     'resumen' => [
+
+        'outfit_usado_hoy' => $outfit_id,
 
         'total_usos_hoy' => count($historial_hoy),
 
