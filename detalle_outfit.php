@@ -3,15 +3,14 @@ include 'bd.php'; // Asegúrate de que tu conexión a la base de datos esté aqu
 
 // Asegúrate de que el ID del outfit sea pasado por GET
 if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
-    // Redirigir o mostrar un error si no se proporciona un ID válido
-    header('Location: index.php'); // Redirige a la página principal
+    header('Location: index.php');
     exit;
 }
 
 $outfit_id = intval($_GET['id']);
 $outfit_details = null;
 $prendas_del_outfit = [];
-$mensaje_uso = ''; // Para mostrar un mensaje si se acaba de usar el outfit
+$mensaje_uso = '';
 
 // Verificar si se acaba de usar el outfit (para mostrar el mensaje)
 if (isset($_GET['usado']) && $_GET['usado'] == 'true') {
@@ -52,23 +51,17 @@ if ($stmt_prendas_ids = $mysqli_obj->prepare($sql_prendas_ids)) {
 // Obtener los detalles de las prendas si hay IDs
 if (!empty($prendas_ids)) {
     $placeholders = implode(',', array_fill(0, count($prendas_ids), '?'));
-    // Asegúrate de incluir 'detalles_adicionales' en la selección de prendas
-    $sql_detalles_prendas = "SELECT * FROM prendas WHERE id IN ($placeholders)
-    ORDER BY FIELD(LOWER(tipo), $orden_prendas) ASC";
+    $order_clause = !empty($orden_prendas) ? "ORDER BY FIELD(LOWER(tipo), $orden_prendas) ASC" : "";
+    $sql_detalles_prendas = "SELECT * FROM prendas WHERE id IN ($placeholders) $order_clause";
 
     if ($stmt_detalles = $mysqli_obj->prepare($sql_detalles_prendas)) {
-        // --- INICIO DE LA SOLUCIÓN ---
-        $types = str_repeat('i', count($prendas_ids)); // Genera el string de tipos (ej. 'iiii')
-
-        // Prepara el array de argumentos para bind_param, donde cada elemento del array $prendas_ids es una REFERENCIA
-        $bind_params_array = [$types]; // El primer elemento es el string de tipos
+        $types = str_repeat('i', count($prendas_ids));
+        $bind_params_array = [$types];
         foreach ($prendas_ids as $key => $value) {
-            $bind_params_array[] = &$prendas_ids[$key]; // ¡Pasa cada ID de prenda por referencia!
+            $bind_params_array[] = &$prendas_ids[$key];
         }
 
-        // Llama a bind_param usando call_user_func_array con el array de referencias
         call_user_func_array([$stmt_detalles, 'bind_param'], $bind_params_array);
-        // --- FIN DE LA SOLUCIÓN ---
         $stmt_detalles->execute();
         $result_detalles_prendas = $stmt_detalles->get_result();
         while ($prenda = $result_detalles_prendas->fetch_assoc()) {
@@ -78,7 +71,6 @@ if (!empty($prendas_ids)) {
         $stmt_detalles->close();
     }
 }
-
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -102,7 +94,6 @@ if (!empty($prendas_ids)) {
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
             margin: 20px auto;
             max-width: 1000px;
-            /* Ajustado para la página de detalle */
             padding: 30px;
         }
 
@@ -139,6 +130,13 @@ if (!empty($prendas_ids)) {
             padding: 5px 12px;
             font-size: 0.8em;
             margin-right: 5px;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            transition: transform 0.2s ease;
+        }
+
+        .badge:hover {
+            transform: translateY(-1px);
         }
 
         .prenda-card img {
@@ -152,7 +150,7 @@ if (!empty($prendas_ids)) {
         }
 
         .clima-frio {
-            background-color: #4a90e2;
+            background: linear-gradient(45deg, #007bff, #0056b3) !important;
             color: white;
         }
 
@@ -166,10 +164,23 @@ if (!empty($prendas_ids)) {
             color: white;
         }
 
+        .clima-soleado {
+            background: linear-gradient(45deg, #ffc107, #fd7e14) !important;
+        }
+
+        .clima-lluvioso {
+            background: linear-gradient(45deg, #6c757d, #495057) !important;
+        }
+
+        .clima-nublado {
+            background: linear-gradient(45deg, #adb5bd, #6c757d) !important;
+        }
+
         .outfit-info-container {
             background: #f8f9fa;
             border-radius: 12px;
             margin: 1rem 0;
+            padding: 1rem;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
         }
 
@@ -198,10 +209,11 @@ if (!empty($prendas_ids)) {
             border-radius: 0 8px 8px 0;
             padding: 1.25rem;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            margin-top: 1rem;
         }
 
         .comment-header {
-            margin-bottom: -1rem;
+            margin-bottom: 0.5rem;
             display: flex;
             align-items: center;
         }
@@ -219,43 +231,13 @@ if (!empty($prendas_ids)) {
             background: white;
             border-radius: 8px;
             border: 2px dashed #dee2e6;
+            margin-top: 1rem;
         }
 
-        /* Mejoras para los badges */
-        .badge {
-            font-weight: 500;
-            letter-spacing: 0.5px;
-            transition: transform 0.2s ease;
-        }
-
-        .badge:hover {
-            transform: translateY(-1px);
-        }
-
-        /* Estilos para diferentes climas (ejemplos) */
-        .clima-soleado {
-            background: linear-gradient(45deg, #ffc107, #fd7e14) !important;
-        }
-
-        .clima-lluvioso {
-            background: linear-gradient(45deg, #6c757d, #495057) !important;
-        }
-
-        .clima-nublado {
-            background: linear-gradient(45deg, #adb5bd, #6c757d) !important;
-        }
-
-        .clima-frio {
-            background: linear-gradient(45deg, #007bff, #0056b3) !important;
-        }
-
-        /* Info */
         .estado-lavando {
             background-color: #6f42c1;
             color: white;
         }
-
-        /* Purple */
 
         .badge-estado {
             font-size: 0.7em;
@@ -264,36 +246,6 @@ if (!empty($prendas_ids)) {
             margin-left: 5px;
         }
 
-        .uso-badge {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background-color: #667eea;
-            /* Color principal */
-            color: white;
-            border-radius: 50%;
-            /* Para que sea un círculo */
-            width: 30px;
-            /* Tamaño del círculo */
-            height: 30px;
-            /* Tamaño del círculo */
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.8em;
-            font-weight: bold;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-            z-index: 10;
-            /* Asegura que esté por encima de la imagen */
-        }
-
-        /* Color si los usos son altos (opcional, para avisar que está cerca del límite) */
-        .uso-badge.high-usage {
-            background-color: #dc3545;
-            /* Rojo */
-        }
-
-        /* Responsive adjustments */
         @media (max-width: 576px) {
             .outfit-info-container {
                 padding: 1rem;
@@ -323,10 +275,8 @@ if (!empty($prendas_ids)) {
             <div class="card mb-4">
                 <div class="card-body">
                     <h2 class="card-title text-center mb-1"><?php echo htmlspecialchars($outfit_details['nombre']); ?></h2>
-                    <!-- Contenedor principal con mejor estructura -->
-                    <div class="outfit-info-container">
-                        <!-- Badges con mejor espaciado y diseño -->
 
+                    <div class="outfit-info-container">
                         <div class="d-flex flex-wrap justify-content-center gap-2 mb-4 mt-2">
                             <?php if (!empty($outfit_details['contexto'])): ?>
                                 <span class="badge bg-primary px-3 py-2 rounded-pill fs-6">
@@ -340,7 +290,6 @@ if (!empty($prendas_ids)) {
                             </span>
                         </div>
 
-                        <!-- Información de fecha con mejor presentación -->
                         <div class="text-center mb-1">
                             <div class="info-card">
                                 <div class="info-label">
@@ -349,18 +298,19 @@ if (!empty($prendas_ids)) {
                                 </div>
                                 <div class="info-value">
                                     <?php
-                                    $timestamp = strtotime($outfit_details['fecha_ultimo_uso_outfit']);
-                                    $diaEn = date("l", $timestamp); // Día en inglés
-                                    $diaEs = $dias[$diaEn]; // Traducción al español
-
-                                    echo $diaEs . ", " . date("d-m-y", $timestamp);
+                                    if (!empty($outfit_details['fecha_ultimo_uso_outfit']) && $outfit_details['fecha_ultimo_uso_outfit'] !== '0000-00-00') {
+                                        $timestamp = strtotime($outfit_details['fecha_ultimo_uso_outfit']);
+                                        $diaEn = date("l", $timestamp);
+                                        $diaEs = isset($dias[$diaEn]) ? $dias[$diaEn] : $diaEn;
+                                        echo $diaEs . ", " . date("d-m-y", $timestamp);
+                                    } else {
+                                        echo '<span class="text-muted fst-italic">Nunca usado</span>';
+                                    }
                                     ?>
-
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Comentarios con mejor diseño -->
                         <div class="comments-section">
                             <?php if (!empty($outfit_details['comentarios'])): ?>
                                 <div class="comment-card">
@@ -371,8 +321,6 @@ if (!empty($prendas_ids)) {
                                     <div class="comment-content" style="white-space: pre-line;">
                                         <?php echo htmlspecialchars($outfit_details['comentarios']); ?>
                                     </div>
-
-
                                 </div>
                             <?php else: ?>
                                 <div class="no-comments">
@@ -381,11 +329,9 @@ if (!empty($prendas_ids)) {
                                 </div>
                             <?php endif; ?>
                         </div>
-
                     </div>
 
-
-                    <div class="text-center mt-1 d-flex flex-wrap justify-content-center gap-2">
+                    <div class="text-center mt-3 d-flex flex-wrap justify-content-center gap-2">
                         <button class="btn btn-primary" id="usarOutfitBtn" data-id="<?php echo $outfit_id; ?>">
                             <i class="fas fa-calendar-check me-2"></i>Usar este Outfit Hoy
                         </button>
@@ -411,18 +357,16 @@ if (!empty($prendas_ids)) {
                                 $current_garment_uses = (int)$prenda['usos_esta_semana'];
                                 $garment_type_for_function = $prenda['tipo'];
 
-                                // Utiliza la función para obtener el estado de uso
-                                $badgeUsageStatus = getUsageLimitStatus($garment_type_for_function, $current_garment_uses);
-
-                                // Aplica un color rojo/alerta si está sobreusada
-                                if (!$prenda['uso_ilimitado'] && $badgeUsageStatus['is_overused']) {
-                                    $uso_badge_class = 'bg-danger';
+                                if (function_exists('getUsageLimitStatus')) {
+                                    $badgeUsageStatus = getUsageLimitStatus($garment_type_for_function, $current_garment_uses);
+                                    if (!$prenda['uso_ilimitado'] && $badgeUsageStatus['is_overused']) {
+                                        $uso_badge_class = 'bg-danger';
+                                    }
                                 }
 
-                                // Muestra el contador circular minimalista en la esquina superior derecha
                                 if (!$prenda['uso_ilimitado']) {
                                     echo '<span class="badge position-absolute top-0 end-0 m-3 d-flex align-items-center justify-content-center ' . $uso_badge_class . '" 
-                        style="width: 24px; height: 24px; border-radius: 50%; font-size: 0.75rem; z-index: 2; box-shadow: 0 2px 6px rgba(0,0,0,0.15); font-weight: 600;">'
+                                        style="width: 24px; height: 24px; border-radius: 50%; font-size: 0.75rem; z-index: 2; box-shadow: 0 2px 6px rgba(0,0,0,0.15); font-weight: 600;">'
                                         . $current_garment_uses .
                                         '</span>';
                                 }
@@ -472,10 +416,10 @@ if (!empty($prendas_ids)) {
             <?php else: ?>
                 <p class="text-center text-muted">Este outfit no tiene prendas asociadas.</p>
             <?php endif; ?>
-
         </div>
     </div>
 
+    <!-- Modal Editar Outfit -->
     <div class="modal fade" id="modalEditarOutfit" tabindex="-1" aria-labelledby="modalEditarOutfitLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content shadow">
@@ -505,7 +449,6 @@ if (!empty($prendas_ids)) {
                             <label class="form-label">Clima Base</label>
                             <select class="form-select" name="clima_base" id="editOutfitClimaBase">
                                 <?php
-                                // Asegúrate de que $climas_outfit esté definida o usa una lista estática
                                 $climas_outfit_modal = ['todo' => 'Todo clima', 'calor' => 'Calor', 'frio' => 'Frío', 'lluvia' => 'Lluvia'];
                                 foreach ($climas_outfit_modal as $valor => $texto) {
                                     echo "<option value=\"$valor\">" . ucfirst($texto) . "</option>";
@@ -519,10 +462,9 @@ if (!empty($prendas_ids)) {
                         </div>
 
                         <h6 class="mt-4 mb-3">Prendas del Outfit:</h6>
-                        <input type="text" class="form-control mb-2" id="buscarPrendasEditOutfit" placeholder="Buscar prenda por nombre..." onkeyup="filterEditOutfitPrendas()">
+                        <input type="text" class="form-control mb-2" id="buscarPrendasEditOutfit" placeholder="Buscar prenda por nombre, tipo o color...">
                         <div id="listaPrendasEditOutfit" style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 5px;">
                             <?php
-                            // Consulta para obtener TODAS las prendas disponibles para la selección
                             $sql_all_prendas_edit = "SELECT id, nombre, tipo, color_principal, foto, estado, uso_ilimitado FROM prendas ORDER BY nombre ASC";
                             $result_all_prendas_edit = $mysqli_obj->query($sql_all_prendas_edit);
 
@@ -530,7 +472,6 @@ if (!empty($prendas_ids)) {
                                 while ($prenda_edit = $result_all_prendas_edit->fetch_assoc()) {
                                     $imagen_src_edit = !empty($prenda_edit['foto']) ? htmlspecialchars($prenda_edit['foto']) : 'https://via.placeholder.com/50x50?text=Sin+Imagen';
 
-                                    // Asignar el color y texto del badge de forma dinámica según el estado actual de la prenda
                                     $estado_actual = strtolower($prenda_edit['estado']);
                                     $badge_clase = 'bg-secondary';
                                     $badge_texto = ucfirst($prenda_edit['estado']);
@@ -558,31 +499,30 @@ if (!empty($prendas_ids)) {
                                             break;
                                     }
 
-                                    // Si es de uso ilimitado, podemos añadirle una etiqueta extra aclaratoria
                                     if ($prenda_edit['uso_ilimitado']) {
                                         $badge_texto .= ' (Ilimitado)';
                                     }
 
                                     echo '
-        <div class="form-check mb-2 prenda-edit-item"
-            data-prenda-id="' . $prenda_edit['id'] . '"
-            data-prenda-nombre="' . htmlspecialchars(strtolower($prenda_edit['nombre'])) . '"
-            data-prenda-tipo="' . htmlspecialchars(strtolower($prenda_edit['tipo'])) . '"
-            data-prenda-color="' . htmlspecialchars(strtolower($prenda_edit['color_principal'])) . '"
-            data-prenda-estado="' . htmlspecialchars($prenda_edit['estado']) . '">
-            <input class="form-check-input prenda-checkbox" type="checkbox" name="prendas[]" value="' . $prenda_edit['id'] . '" id="editPrenda' . $prenda_edit['id'] . '">
-            <label class="form-check-label d-flex align-items-center w-100 justify-content-between" for="editPrenda' . $prenda_edit['id'] . '">
-                <div class="d-flex align-items-center">
-                    <img src="' . $imagen_src_edit . '" alt="' . htmlspecialchars($prenda_edit['nombre']) . '" class="me-2 rounded" style="width: 40px; height: 40px; object-fit: cover;">
-                    <div>
-                        <strong>' . htmlspecialchars($prenda_edit['nombre']) . '</strong><br>
-                        <small class="text-muted">' . htmlspecialchars($prenda_edit['tipo']) . ' • ' . htmlspecialchars($prenda_edit['color_principal']) . '</small>
-                    </div>
-                </div>
-                <span class="badge ' . $badge_clase . ' ms-2 rounded-pill px-2 py-1" style="font-size: 0.75rem;">' . $badge_texto . '</span>
-            </label>
-        </div>
-        ';
+                                    <div class="form-check mb-2 prenda-edit-item"
+                                        data-prenda-id="' . $prenda_edit['id'] . '"
+                                        data-prenda-nombre="' . htmlspecialchars(strtolower($prenda_edit['nombre'])) . '"
+                                        data-prenda-tipo="' . htmlspecialchars(strtolower($prenda_edit['tipo'])) . '"
+                                        data-prenda-color="' . htmlspecialchars(strtolower($prenda_edit['color_principal'])) . '"
+                                        data-prenda-estado="' . htmlspecialchars($prenda_edit['estado']) . '">
+                                        <input class="form-check-input prenda-checkbox" type="checkbox" name="prendas[]" value="' . $prenda_edit['id'] . '" id="editPrenda' . $prenda_edit['id'] . '">
+                                        <label class="form-check-label d-flex align-items-center w-100 justify-content-between" for="editPrenda' . $prenda_edit['id'] . '">
+                                            <div class="d-flex align-items-center">
+                                                <img src="' . $imagen_src_edit . '" alt="' . htmlspecialchars($prenda_edit['nombre']) . '" class="me-2 rounded" style="width: 40px; height: 40px; object-fit: cover;">
+                                                <div>
+                                                    <strong>' . htmlspecialchars($prenda_edit['nombre']) . '</strong><br>
+                                                    <small class="text-muted">' . htmlspecialchars($prenda_edit['tipo']) . ' • ' . htmlspecialchars($prenda_edit['color_principal']) . '</small>
+                                                </div>
+                                            </div>
+                                            <span class="badge ' . $badge_clase . ' ms-2 rounded-pill px-2 py-1" style="font-size: 0.75rem;">' . $badge_texto . '</span>
+                                        </label>
+                                    </div>
+                                    ';
                                 }
                             } else {
                                 echo '<p class="text-muted">No hay prendas en tu clóset.</p>';
@@ -604,7 +544,6 @@ if (!empty($prendas_ids)) {
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const outfitId = document.getElementById('usarOutfitBtn').dataset.id;
-            // --- Lógica del Modal de Edición de Outfit ---
             const modalEditarOutfit = document.getElementById('modalEditarOutfit');
             const formEditarOutfit = document.getElementById('formEditarOutfit');
             const editOutfitId = document.getElementById('editOutfitId');
@@ -614,214 +553,107 @@ if (!empty($prendas_ids)) {
             const editOutfitComentarios = document.getElementById('editOutfitComentarios');
             const buscarPrendasEditOutfit = document.getElementById('buscarPrendasEditOutfit');
             const listaPrendasEditOutfit = document.getElementById('listaPrendasEditOutfit');
-            const allPrendaEditItems = listaPrendasEditOutfit.querySelectorAll('.prenda-edit-item'); // Obtener todas las prendas del modal
+            const allPrendaEditItems = listaPrendasEditOutfit.querySelectorAll('.prenda-edit-item');
 
-            let outfitPrendasActuales = []; // Para guardar los IDs de las prendas que ya están en el outfit
+            let outfitPrendasActuales = [];
 
+            // --- Función auxiliar para registrar el uso del outfit con soporte para confirmaciones encadenadas ---
+            function ejecutarRegistroOutfit(id, flags = {}) {
+                const params = new URLSearchParams();
+                params.append('outfit_id', id);
+                if (flags.forceRepetition) params.append('force_repetition', 'true');
+                if (flags.forceDirtyUse) params.append('force_dirty_use', 'true');
+                if (flags.forceOverwrite) params.append('force_overwrite', 'true');
 
-            // Funcionalidad para "Usar este Outfit Hoy"
+                fetch('registrar_uso_outfit.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: params.toString()
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            Swal.fire('¡Registrado!', data.message, 'success')
+                                .then(() => {
+                                    window.location.href = `detalle_outfit.php?id=${id}&usado=true`;
+                                });
+                        } else if (data.is_repetition) {
+                            Swal.fire({
+                                title: '¿Repetir estilo?',
+                                html: data.message.replace(/\n/g, '<br>'),
+                                icon: 'warning',
+                                showCancelButton: true,
+                                confirmButtonColor: '#667eea',
+                                cancelButtonColor: '#d33',
+                                confirmButtonText: 'Sí, usar de todos modos',
+                                cancelButtonText: 'No, elegir otro'
+                            }).then((result) => {
+                                if (result.isConfirmed) {
+                                    ejecutarRegistroOutfit(id, { ...flags, forceRepetition: true });
+                                }
+                            });
+                        } else if (data.code === 'PRENDAS_NO_DISPONIBLES') {
+                            Swal.fire({
+                                title: 'Prendas no disponibles',
+                                text: data.message,
+                                icon: 'warning',
+                                showCancelButton: true,
+                                confirmButtonColor: '#667eea',
+                                cancelButtonColor: '#d33',
+                                confirmButtonText: 'Sí, usar de todos modos',
+                                cancelButtonText: 'Cancelar'
+                            }).then((result) => {
+                                if (result.isConfirmed) {
+                                    ejecutarRegistroOutfit(id, { ...flags, forceDirtyUse: true });
+                                }
+                            });
+                        } else if (data.code === 'ALREADY_USED_TODAY') {
+                            Swal.fire({
+                                title: 'Ya usaste un outfit hoy',
+                                text: data.message,
+                                icon: 'warning',
+                                showCancelButton: true,
+                                confirmButtonColor: '#667eea',
+                                cancelButtonColor: '#d33',
+                                confirmButtonText: 'Sí, reemplazar',
+                                cancelButtonText: 'Cancelar'
+                            }).then((result) => {
+                                if (result.isConfirmed) {
+                                    ejecutarRegistroOutfit(id, { ...flags, forceOverwrite: true });
+                                }
+                            });
+                        } else {
+                            Swal.fire('Error', data.message || 'Error desconocido al registrar el uso del outfit', 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error en la solicitud AJAX:', error);
+                        Swal.fire('Error de conexión', 'No se pudo comunicar con el servidor.', 'error');
+                    });
+            }
+
+            // --- Botón: Usar este Outfit Hoy ---
             document.getElementById('usarOutfitBtn').addEventListener('click', function() {
+                const nombreOutfit = document.querySelector('.card-title').textContent;
                 Swal.fire({
                     title: '¿Usar Outfit Hoy?',
-                    text: `¿Quieres registrar el uso del outfit "${document.querySelector('.card-title').textContent}" y marcarlo como tu outfit del día?`,
+                    text: `¿Quieres registrar el uso del outfit "${nombreOutfit}" y marcarlo como tu outfit del día?`,
                     icon: 'question',
                     showCancelButton: true,
                     confirmButtonColor: '#667eea',
                     cancelButtonColor: '#dc3545',
-                    confirmButtonText: 'Sí, usar hoy'
+                    confirmButtonText: 'Sí, usar hoy',
+                    cancelButtonText: 'Cancelar'
                 }).then((result) => {
                     if (result.isConfirmed) {
-                        function ejecutarRegistroOutfit(outfitId, forceRepetition = false) {
-                            // Preparamos el cuerpo de la solicitud
-                            let bodyData = `outfit_id=${outfitId}`;
-                            if (forceRepetition) {
-                                bodyData += `&force_repetition=true`;
-                            }
-
-                            fetch('registrar_uso_outfit.php', {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/x-www-form-urlencoded',
-                                    },
-                                    body: bodyData
-                                })
-                                .then(response => response.json())
-                                .then(data => {
-                                    if (data.success) {
-                                        Swal.fire('¡Registrado!', data.message, 'success')
-                                            .then(() => {
-                                                // Redirige de nuevo a esta misma página pero con el indicador de "usado"
-                                                window.location.href = `detalle_outfit.php?id=${outfitId}&usado=true`;
-                                            });
-                                    }
-                                    // Lógica de validación de repetición (Hoy, Ayer, Semana Pasada)
-                                    else if (data.is_repetition) {
-                                        Swal.fire({
-                                            title: '¿Repetir estilo?',
-                                            text: data.message, // El mensaje dirá si fue hoy, ayer o la semana pasada
-                                            icon: 'warning',
-                                            showCancelButton: true,
-                                            html: data.message.replace(/\n/g, '<br>'),
-                                            confirmButtonColor: '#667eea',
-                                            cancelButtonColor: '#d33',
-                                            confirmButtonText: 'Sí, usar de todos modos',
-                                            cancelButtonText: 'No, elegir otro'
-                                        }).then((result) => {
-                                            if (result.isConfirmed) {
-                                                // Si confirma, volvemos a llamar a la función pasando forceRepetition como true
-                                                ejecutarRegistroOutfit(outfitId, true);
-                                            }
-                                        });
-                                    } else {
-                                        Swal.fire('Error', data.message || 'Error desconocido al registrar el uso del outfit', 'error');
-                                        if (typeof modal !== 'undefined') modal.hide();
-                                    }
-                                })
-                                .catch(error => {
-                                    console.error('Error en la solicitud AJAX:', error);
-                                    Swal.fire('Error de conexión', 'No se pudo comunicar con el servidor.', 'error');
-                                    if (typeof modal !== 'undefined') modal.hide();
-                                });
-                        }
-
-                        // Llamada inicial (reemplaza tu bloque fetch anterior con esto)
                         ejecutarRegistroOutfit(outfitId);
                     }
                 });
             });
 
-
-            // Función para filtrar prendas en el modal de edición
-            function filterEditOutfitPrendas() {
-                document.getElementById("buscarPrendasEditOutfit").addEventListener("input", function() {
-                    let filtro = this.value.toLowerCase().trim();
-                    let prendas = document.querySelectorAll("#listaPrendasEditOutfit .prenda-edit-item");
-
-                    prendas.forEach(function(prenda) {
-                        let nombre = prenda.getAttribute("data-prenda-nombre");
-                        let tipo = prenda.getAttribute("data-prenda-tipo");
-                        let color = prenda.getAttribute("data-prenda-color");
-
-                        // Mostrar si coincide en nombre, tipo o color
-                        if (nombre.includes(filtro) || tipo.includes(filtro) || color.includes(filtro)) {
-                            prenda.style.display = "";
-                        } else {
-                            prenda.style.display = "none";
-                        }
-                    });
-                });
-            }
-
-
-
-            // Evento que se dispara cuando el modal de edición de outfit se abre
-            modalEditarOutfit.addEventListener('show.bs.modal', async function(event) {
-                const button = event.relatedTarget; // Botón que disparó el modal
-                const outfitId = button.dataset.id; // Obtener el ID del outfit desde el botón
-
-                // Cargar datos del outfit actual para rellenar el formulario
-                // Necesitamos un script para obtener los detalles COMPLETOS del outfit, incluyendo sus prendas asociadas
-                try {
-                    const response = await fetch(`obtener_outfit_completo.php?outfit_id=${outfitId}`); // Nuevo script PHP
-                    const outfitData = await response.json();
-
-                    if (outfitData.success) {
-                        const outfit = outfitData.outfit;
-                        outfitPrendasActuales = outfitData.prendas_asociadas.map(p => p.id); // Guardar IDs de prendas asociadas
-
-                        editOutfitId.value = outfit.id;
-                        editOutfitNombre.value = outfit.nombre;
-                        editOutfitContexto.value = outfit.contexto;
-                        editOutfitClimaBase.value = outfit.clima_base;
-                        editOutfitComentarios.value = outfit.comentarios || '';
-
-                        // Marcar los checkboxes de las prendas que ya están en el outfit
-                        allPrendaEditItems.forEach(item => {
-                            const checkbox = item.querySelector('.prenda-checkbox');
-                            if (checkbox) {
-                                checkbox.checked = outfitPrendasActuales.includes(parseInt(checkbox.value));
-                            }
-                        });
-
-                        // Limpiar el buscador del modal al abrirlo
-                        buscarPrendasEditOutfit.value = '';
-                        filterEditOutfitPrendas(); // Aplicar filtro inicial (mostrar todo)
-
-                    } else {
-                        Swal.fire('Error', outfitData.message || 'No se pudieron cargar los datos del outfit.', 'error');
-                        modalEditarOutfit.hide(); // Cerrar modal si falla la carga
-                    }
-                } catch (error) {
-                    console.error('Error cargando outfit para edición:', error);
-                    Swal.fire('Error de Conexión', 'No se pudieron cargar los datos del outfit para edición.', 'error');
-                    modalEditarOutfit.hide();
-                }
-            });
-
-            // Listener para el formulario de edición (submit)
-            formEditarOutfit.addEventListener('submit', async function(e) {
-                e.preventDefault();
-                const formData = new FormData(this); // Captura todos los campos del formulario
-
-                // Nuevo: Leer si ya se ha forzado la edición duplicada
-                const forceDuplicateEdit = this.dataset.forceDuplicateEdit === 'true';
-                if (forceDuplicateEdit) {
-                    formData.append('force_duplicate_edit', 'true');
-                    this.dataset.forceDuplicateEdit = 'false'; // Resetear el flag después de enviarlo
-                }
-
-                Swal.fire({
-                    title: 'Guardando cambios...',
-                    text: 'Por favor espera.',
-                    allowOutsideClick: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    }
-                });
-
-                try {
-                    const response = await fetch('editar_outfit.php', { // Este script guardará los cambios
-                        method: 'POST',
-                        body: formData
-                    });
-                    const data = await response.json();
-                    Swal.close();
-
-                    if (data.success) {
-                        Swal.fire('¡Actualizado!', data.message, 'success')
-                            .then(() => {
-                                window.location.reload(); // Recargar la página para ver los cambios
-                            });
-                    } else if (data.code === 'DUPLICATE_OUTFIT_ON_EDIT') { // NUEVO: Interceptar duplicado al editar
-                        Swal.fire({
-                            title: 'Combinación de prendas duplicada',
-                            html: data.message + '<br><br>¿Deseas guardar los cambios de todas formas? Esto creará un outfit con la misma combinación de prendas que otro.',
-                            icon: 'warning',
-                            showCancelButton: true,
-                            confirmButtonText: 'Sí, guardar cambios',
-                            cancelButtonText: 'No, cancelar edición'
-                        }).then((result) => {
-                            if (result.isConfirmed) {
-                                // Si el usuario confirma, establecer un flag y re-enviar el formulario
-                                formEditarOutfit.dataset.forceDuplicateEdit = 'true';
-                                formEditarOutfit.requestSubmit(); // Re-envía el formulario
-                            } else {
-                                Swal.fire('Edición Cancelada', 'Los cambios no han sido guardados.', 'info');
-                            }
-                        });
-                    } else {
-                        Swal.fire('Error', data.message || 'Error al guardar los cambios.', 'error');
-                    }
-                } catch (error) {
-                    Swal.close();
-                    console.error('Error al enviar la solicitud de edición:', error);
-                    Swal.fire('Error de Conexión', 'No se pudo comunicar con el servidor para guardar los cambios.', 'error');
-                }
-            });
-            // --- FIN Lógica del Modal de Edición de Outfit ---
-
-            // Funcionalidad para "Verificar Uso Mañana" (SOLO VALIDACIÓN, NO REGISTRA)
-            // NUEVO: Funcionalidad para "Verificar Uso Mañana" (SOLO VALIDACIÓN)
+            // --- Botón: Verificar Uso Mañana (SOLO VALIDACIÓN) ---
             document.getElementById('usarOutfitMananaBtn').addEventListener('click', function() {
                 const nombreOutfit = document.querySelector('.card-title').textContent;
 
@@ -834,7 +666,6 @@ if (!empty($prendas_ids)) {
                     }
                 });
 
-                // Enviamos el ID del outfit, fecha_destino como mañana y el flag solo_validar en true
                 fetch('registrar_uso_outfit.php', {
                         method: 'POST',
                         headers: {
@@ -844,27 +675,32 @@ if (!empty($prendas_ids)) {
                     })
                     .then(response => response.json())
                     .then(data => {
-                        Swal.close(); // Cerramos el loader
+                        Swal.close();
 
                         if (data.success) {
-                            // Si pasó todas las reglas y no hubo conflictos
                             Swal.fire({
                                 title: '¡Outfit Disponible!',
-                                text: 'Ninguna de las prendas se repite de forma consecutiva para mañana. ¡Puedes usarlo con confianza!',
+                                text: 'Ninguna de las prendas se repite ni está sucia/lavando para mañana. ¡Puedes usarlo con confianza!',
                                 icon: 'success',
                                 confirmButtonColor: '#11998e'
                             });
                         } else if (data.is_repetition) {
-                            // Si hay un conflicto de repetición, mostramos cuáles son las prendas repetidas
                             Swal.fire({
-                                title: 'Conflicto de prendas para mañana',
-                                html: data.message.replace(/\n/g, '<br>'), // Hacemos los saltos de línea legibles en HTML
+                                title: 'Conflicto de repetición para mañana',
+                                html: data.message.replace(/\n/g, '<br>'),
+                                icon: 'warning',
+                                confirmButtonColor: '#667eea',
+                                confirmButtonText: 'Entendido'
+                            });
+                        } else if (data.code === 'PRENDAS_NO_DISPONIBLES') {
+                            Swal.fire({
+                                title: 'Prendas no disponibles para mañana',
+                                text: data.message.replace(' ¿Deseas usarlo de todos modos?', ''),
                                 icon: 'warning',
                                 confirmButtonColor: '#667eea',
                                 confirmButtonText: 'Entendido'
                             });
                         } else {
-                            // Errores de prendas sucias u otros bloqueos detectados por el backend
                             Swal.fire('Atención', data.message || 'El outfit no está disponible.', 'warning');
                         }
                     })
@@ -873,6 +709,124 @@ if (!empty($prendas_ids)) {
                         console.error('Error en la solicitud de validación:', error);
                         Swal.fire('Error de conexión', 'No se pudo comunicar con el servidor.', 'error');
                     });
+            });
+
+            // --- Filtrado de prendas en el modal de edición ---
+            function aplicarFiltroPrendasModal() {
+                const filtro = buscarPrendasEditOutfit.value.toLowerCase().trim();
+                allPrendaEditItems.forEach(prenda => {
+                    const nombre = prenda.getAttribute('data-prenda-nombre') || '';
+                    const tipo = prenda.getAttribute('data-prenda-tipo') || '';
+                    const color = prenda.getAttribute('data-prenda-color') || '';
+
+                    if (nombre.includes(filtro) || tipo.includes(filtro) || color.includes(filtro)) {
+                        prenda.style.display = '';
+                    } else {
+                        prenda.style.display = 'none';
+                    }
+                });
+            }
+
+            buscarPrendasEditOutfit.addEventListener('input', aplicarFiltroPrendasModal);
+
+            // --- Cargar datos al abrir el modal de edición ---
+            modalEditarOutfit.addEventListener('show.bs.modal', async function(event) {
+                const button = event.relatedTarget;
+                const id = button.dataset.id;
+
+                try {
+                    const response = await fetch(`obtener_outfit_completo.php?outfit_id=${id}`);
+                    const outfitData = await response.json();
+
+                    if (outfitData.success) {
+                        const outfit = outfitData.outfit;
+                        outfitPrendasActuales = outfitData.prendas_asociadas.map(p => parseInt(p.id));
+
+                        editOutfitId.value = outfit.id;
+                        editOutfitNombre.value = outfit.nombre;
+                        editOutfitContexto.value = outfit.contexto;
+                        editOutfitClimaBase.value = outfit.clima_base;
+                        editOutfitComentarios.value = outfit.comentarios || '';
+
+                        allPrendaEditItems.forEach(item => {
+                            const checkbox = item.querySelector('.prenda-checkbox');
+                            if (checkbox) {
+                                checkbox.checked = outfitPrendasActuales.includes(parseInt(checkbox.value));
+                            }
+                        });
+
+                        buscarPrendasEditOutfit.value = '';
+                        aplicarFiltroPrendasModal();
+                    } else {
+                        Swal.fire('Error', outfitData.message || 'No se pudieron cargar los datos del outfit.', 'error');
+                        const modalInstance = bootstrap.Modal.getInstance(modalEditarOutfit);
+                        if (modalInstance) modalInstance.hide();
+                    }
+                } catch (error) {
+                    console.error('Error cargando outfit para edición:', error);
+                    Swal.fire('Error de Conexión', 'No se pudieron cargar los datos del outfit para edición.', 'error');
+                    const modalInstance = bootstrap.Modal.getInstance(modalEditarOutfit);
+                    if (modalInstance) modalInstance.hide();
+                }
+            });
+
+            // --- Guardar cambios del formulario de edición ---
+            formEditarOutfit.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const formData = new FormData(this);
+
+                const forceDuplicateEdit = this.dataset.forceDuplicateEdit === 'true';
+                if (forceDuplicateEdit) {
+                    formData.append('force_duplicate_edit', 'true');
+                    this.dataset.forceDuplicateEdit = 'false';
+                }
+
+                Swal.fire({
+                    title: 'Guardando cambios...',
+                    text: 'Por favor espera.',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                try {
+                    const response = await fetch('editar_outfit.php', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await response.json();
+                    Swal.close();
+
+                    if (data.success) {
+                        Swal.fire('¡Actualizado!', data.message, 'success')
+                            .then(() => {
+                                window.location.reload();
+                            });
+                    } else if (data.code === 'DUPLICATE_OUTFIT_ON_EDIT') {
+                        Swal.fire({
+                            title: 'Combinación de prendas duplicada',
+                            html: data.message + '<br><br>¿Deseas guardar los cambios de todas formas? Esto creará un outfit con la misma combinación de prendas que otro.',
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonText: 'Sí, guardar cambios',
+                            cancelButtonText: 'No, cancelar edición'
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                formEditarOutfit.dataset.forceDuplicateEdit = 'true';
+                                formEditarOutfit.requestSubmit();
+                            } else {
+                                Swal.fire('Edición Cancelada', 'Los cambios no han sido guardados.', 'info');
+                            }
+                        });
+                    } else {
+                        Swal.fire('Error', data.message || 'Error al guardar los cambios.', 'error');
+                    }
+                } catch (error) {
+                    Swal.close();
+                    console.error('Error al enviar la solicitud de edición:', error);
+                    Swal.fire('Error de Conexión', 'No se pudo comunicar con el servidor para guardar los cambios.', 'error');
+                }
             });
         });
     </script>
