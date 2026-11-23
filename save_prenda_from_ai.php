@@ -1,117 +1,125 @@
 <?php
-include 'bd.php'; // Tu conexión a la base de datos
+include 'bd.php';
 
 header('Content-Type: application/json');
+date_default_timezone_set('America/Santiago');
 
 $response = ['success' => false, 'message' => ''];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Obtener datos del formulario (ya procesados por JS y pegados del JSON de IA)
-    $nombre = $_POST['nombre'] ?? '';
-    $tipo = $_POST['tipo'] ?? '';
-    $color_principal = $_POST['color_principal_ia'] ?? '';
-    $tela = $_POST['tela_ia'] ?? '';
-    $textura = $_POST['textura_ia'] ?? '';
-    $estampado = $_POST['estampado_ia'] ?? '';
-    $clima_apropiado = $_POST['clima_apropiado_ia'] ?? 'todo'; // Default si la IA no lo da o no se mapea
-    $formalidad = $_POST['formalidad_ia'] ?? 'casual'; // Default si la IA no lo da o no se mapea
-    $comentarios = $_POST['comentarios_ia'] ?? '';
+    $nombres = $_POST['nombre'] ?? [];
+    $tipos = $_POST['tipo'] ?? [];
+    $colores = $_POST['color_principal'] ?? [];
+    $telas = $_POST['tela'] ?? [];
+    $texturas = $_POST['textura'] ?? [];
+    $estampados = $_POST['estampado'] ?? [];
+    $climas = $_POST['clima_apropiado'] ?? [];
+    $formalidades = $_POST['formalidad'] ?? [];
+    $comentarios = $_POST['comentarios'] ?? [];
+    $fotos = $_FILES['fotos'] ?? null;
 
-    $force_duplicate = isset($_POST['force_duplicate_name']) && $_POST['force_duplicate_name'] === 'true'; // Nuevo parámetro
+    $total = count($nombres);
 
-
-    // Validaciones básicas
-    if (empty($nombre) || empty($tipo)) {
-        $response['message'] = 'Nombre y tipo son campos obligatorios.';
+    if ($total === 0 || !$fotos || empty($fotos['name'][0])) {
+        $response['message'] = 'No se recibieron prendas o imágenes válidas para guardar.';
         echo json_encode($response);
         exit;
     }
 
-    $_POST['foto'] ?? null;
-
-    if (isset($_FILES['foto']) && $_FILES['foto']['error'] === UPLOAD_ERR_OK) {
-        $nombreOriginal = $_FILES['foto']['name'];
-        $rutaTemporal = $_FILES['foto']['tmp_name'];
-        $nombreArchivo = uniqid() . '_' . basename($nombreOriginal);
-        $rutaDestino = 'uploads/' . $nombreArchivo;
-
-        if (!is_dir('uploads')) {
-            mkdir('uploads', 0777, true);
-        }
-
-        if (move_uploaded_file($rutaTemporal, $rutaDestino)) {
-            $foto = $rutaDestino;
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Error al guardar la imagen']);
-            exit;
-        }
-    } else {
-        $foto = $_POST['imagen'] ?? null; // Si no se subió una nueva imagen, usar la existente
+    $upload_dir = 'uploads/';
+    if (!is_dir($upload_dir)) {
+        mkdir($upload_dir, 0777, true);
     }
 
+    $fecha_agregado = date('Y-m-d H:i:s');
+    $guardadas = 0;
+    $errores = [];
+
+    $mysqli_obj->begin_transaction();
+
     try {
+        $sql_insert = "INSERT INTO prendas (
+            nombre, tipo, color_principal, tela, textura, estampado, 
+            clima_apropiado, formalidad, detalles_adicionales, foto, 
+            estado, usos_esta_semana, fecha_agregado
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'disponible', 0, ?)";
 
-        $sql_check_name = "SELECT id FROM prendas WHERE nombre = ?";
-        if (!$force_duplicate) {
-            if ($stmt_check = $mysqli_obj->prepare($sql_check_name)) {
-                $stmt_check->bind_param("s", $nombre);
-                $stmt_check->execute();
-                $result_check = $stmt_check->get_result();
-
-                if ($result_check->num_rows > 0) {
-                    $response['success'] = false;
-                    $response['message'] = 'Ya existe una prenda con el nombre "' . htmlspecialchars($nombre) . '". ¿Deseas guardarla de todas formas?';
-                    $response['code'] = 'DUPLICATE_PRENDA_NAME';
-                    echo json_encode($response);
-                    $stmt_check->close();
-                    $mysqli_obj->rollback();
-                    exit;
-                }
-                $stmt_check->close();
-            } else {
-                throw new Exception("Error al preparar la verificación de nombre duplicado: " . $mysqli_obj->error);
-            }
+        $stmt = $mysqli_obj->prepare($sql_insert);
+        if (!$stmt) {
+            throw new Exception("Error al preparar consulta SQL: " . $mysqli_obj->error);
         }
 
-        // Insertar en la base de datos
-        $sql = "INSERT INTO prendas (nombre, tipo, color_principal, tela, textura, estampado, clima_apropiado, formalidad, detalles_adicionales, foto, estado, fecha_agregado) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURDATE())";
+        for ($i = 0; $i < $total; $i++) {
+            $nombre = trim($nombres[$i] ?? '');
+            $tipo = trim($tipos[$i] ?? '');
 
-        if ($stmt = $mysqli_obj->prepare($sql)) {
-            // Establecer estado inicial como 'disponible' para nuevas prendas
-            $estado = 'disponible';
+            if ($nombre === '' || $tipo === '') {
+                $errores[] = "Prenda #" . ($i + 1) . ": Nombre y tipo son obligatorios.";
+                continue;
+            }
+
+            $color = trim($colores[$i] ?? '');
+            $tela = trim($telas[$i] ?? '');
+            $textura = trim($texturas[$i] ?? '');
+            $estampado = trim($estampados[$i] ?? '');
+            $clima = trim($climas[$i] ?? 'todo');
+            $formalidad = trim($formalidades[$i] ?? 'casual');
+            $comentario = trim($comentarios[$i] ?? '');
+
+            // Procesar la foto individual de la posición $i
+            $ruta_foto = '';
+            if (isset($fotos['error'][$i]) && $fotos['error'][$i] === UPLOAD_ERR_OK) {
+                $ext = pathinfo($fotos['name'][$i], PATHINFO_EXTENSION);
+                $nuevo_nombre = uniqid('prenda_') . '_' . $i . '.' . $ext;
+                $destino = $upload_dir . $nuevo_nombre;
+
+                if (move_uploaded_file($fotos['tmp_name'][$i], $destino)) {
+                    $ruta_foto = $destino;
+                } else {
+                    throw new Exception("No se pudo subir la imagen de la prenda: " . htmlspecialchars($nombre));
+                }
+            } else {
+                throw new Exception("Falta la imagen válida para la prenda #" . ($i + 1));
+            }
+
             $stmt->bind_param(
                 "sssssssssss",
                 $nombre,
                 $tipo,
-                $color_principal,
+                $color,
                 $tela,
                 $textura,
                 $estampado,
-                $clima_apropiado,
+                $clima,
                 $formalidad,
-                $comentarios,
-                $foto,
-                $estado
+                $comentario,
+                $ruta_foto,
+                $fecha_agregado
             );
 
             if ($stmt->execute()) {
-                $response['success'] = true;
-                $response['message'] = 'Prenda guardada exitosamente con descripción de IA.';
-                $response['id'] = $mysqli_obj->insert_id;
+                $guardadas++;
             } else {
-                $response['message'] = 'Error al insertar la prenda: ' . $stmt->error;
+                throw new Exception("Error al guardar '{$nombre}': " . $stmt->error);
             }
-            $stmt->close();
-        } else {
-            $response['message'] = 'Error al preparar la consulta de inserción: ' . $mysqli_obj->error;
         }
+
+        $stmt->close();
+
+        if ($guardadas === 0) {
+            throw new Exception("No se guardó ninguna prenda. " . implode(' ', $errores));
+        }
+
+        $mysqli_obj->commit();
+        $response['success'] = true;
+        $response['message'] = "Se guardaron {$guardadas} prendas de forma individual en tu clóset.";
     } catch (Exception $e) {
-        $response['message'] = $e->getMessage();
         $mysqli_obj->rollback();
+        $response['message'] = $e->getMessage();
     }
 } else {
-    $response['message'] = 'Método de solicitud no permitido.';
+    $response['message'] = 'Método no permitido.';
 }
 
 echo json_encode($response);
-// $mysqli_obj->close();
+?>

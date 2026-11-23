@@ -877,76 +877,45 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                     <div id="formAIContainer">
                                         <div class="card">
                                             <div class="card-body">
-                                                <form id="formPrendaIA">
+                                                <form id="formPrendaIA" enctype="multipart/form-data">
                                                     <div class="mb-3">
-                                                        <label class="form-label">Sube la Foto de tu Prenda</label>
-                                                        <input type="file" class="form-control" id="iaPrendaFoto" name="foto" accept="image/*" required onchange="previewImage(this, 'previewPrendaIA')">
-                                                        <div class="mt-2 text-center">
-                                                            <img id="previewPrendaIA" class="image-preview" style="display: none; max-width: 150px; max-height: 150px; border: 1px solid #ddd;">
-                                                        </div>
+                                                        <label class="form-label fw-bold">1. Sube las Fotos de tus Prendas (Lote)</label>
+                                                        <input type="file" class="form-control" id="iaPrendaFoto" name="fotos[]" accept="image/*" multiple required>
+                                                        <small class="form-text text-muted">Puedes seleccionar varias fotos a la vez. Se analizarán en el mismo orden.</small>
+
+                                                        <!-- Miniaturas numeradas de las fotos seleccionadas -->
+                                                        <div id="previewPrendasLote" class="d-flex flex-wrap gap-2 mt-2 justify-content-center"></div>
                                                     </div>
-                                                    <button type="button" class="btn btn-info w-100 mb-3" id="generarPromptPrendaBtn">
-                                                        <i class="fas fa-robot me-2"></i>Generar Prompt de Descripción
+
+                                                    <button type="button" class="btn btn-info w-100 mb-3 text-white" id="generarPromptPrendaBtn">
+                                                        <i class="fas fa-robot me-2"></i>2. Generar Prompt para el Lote (<span id="contadorFotosIA">0</span> fotos)
                                                     </button>
 
                                                     <div id="aiDescriptionSection" style="display:none;">
                                                         <div class="form-section mb-3">
-                                                            <h6>Prompt para describir la prenda con IA:</h6>
+                                                            <h6>Prompt para describir el lote con IA:</h6>
                                                             <div class="input-group">
-                                                                <textarea id="aiPrendaPrompt" class="form-control" rows="6" readonly></textarea>
+                                                                <textarea id="aiPrendaPrompt" class="form-control" rows="5" readonly></textarea>
                                                                 <button class="btn btn-outline-secondary" type="button" id="copyPrendaPromptBtn">
                                                                     <i class="fas fa-copy"></i>
                                                                 </button>
                                                             </div>
-                                                            <small class="form-text text-muted">Copia el prompt, pégalo en tu IA y luego pega la respuesta abajo.</small>
+                                                            <small class="form-text text-muted">Copia el prompt, pégalo en tu IA junto con <strong>todas las fotos seleccionadas en orden</strong>, y pega el JSON resultante abajo.</small>
                                                         </div>
 
                                                         <div class="form-section mb-3">
-                                                            <h6>Pega la Respuesta de la IA aquí:</h6>
-                                                            <textarea id="aiPrendaResponse" class="form-control" rows="6" placeholder="Pega el JSON de la IA aquí..." onkeyup="processPrendaAIResponse()"></textarea>
-                                                            <small class="form-text text-muted">Asegúrate de que sea JSON válido. Se autocompletarán los campos.</small>
+                                                            <h6>3. Pega la Respuesta JSON de la IA aquí:</h6>
+                                                            <textarea id="aiPrendaResponse" class="form-control" rows="6" placeholder='Pega aquí el arreglo JSON [ { ... }, { ... } ] que te devolvió la IA...'></textarea>
+                                                            <small class="form-text text-muted">Cada objeto del JSON rellenará automáticamente su tarjeta correspondiente.</small>
                                                         </div>
 
-                                                        <h6>Detalles de la Prenda (Auto-completado por IA):</h6>
-                                                        <div class="mb-3">
-                                                            <label class="form-label">Nombre (Sugerido por IA)</label>
-                                                            <input type="text" class="form-control" name="nombre_ia" id="iaNombre" required>
-                                                        </div>
-                                                        <div class="mb-3">
-                                                            <label class="form-label">Tipo (Sugerido por IA)</label>
-                                                            <input type="text" class="form-control" name="tipo_ia" id="iaTipo" required>
-                                                        </div>
-                                                        <div class="mb-3">
-                                                            <label class="form-label">Color Principal (Sugerido por IA)</label>
-                                                            <input type="text" class="form-control" name="color_principal_ia" id="iaColorPrincipal">
-                                                        </div>
-                                                        <div class="mb-3">
-                                                            <label class="form-label">Tela (Sugerido por IA)</label>
-                                                            <input type="text" class="form-control" name="tela_ia" id="iaTela">
-                                                        </div>
-                                                        <div class="mb-3">
-                                                            <label class="form-label">Textura (Sugerido por IA)</label>
-                                                            <input type="text" class="form-control" name="textura_ia" id="iaTextura">
-                                                        </div>
-                                                        <div class="mb-3">
-                                                            <label class="form-label">Estampado (Sugerido por IA)</label>
-                                                            <input type="text" class="form-control" name="estampado_ia" id="iaEstampado">
-                                                        </div>
-                                                        <div class="mb-3">
-                                                            <label class="form-label">Clima Apropiado (Sugerido por IA)</label>
-                                                            <input type="text" class="form-control" name="clima_apropiado_ia" id="iaClimaApropiado">
-                                                        </div>
-                                                        <div class="mb-3">
-                                                            <label class="form-label">Formalidad (Sugerido por IA)</label>
-                                                            <input type="text" class="form-control" name="formalidad_ia" id="iaFormalidad">
-                                                        </div>
-                                                        <div class="mb-3">
-                                                            <label class="form-label">Comentarios (Sugerido por IA)</label>
-                                                            <textarea class="form-control" name="comentarios_ia" id="iaComentarios" rows="3"></textarea>
-                                                        </div>
+                                                        <h6 class="mb-3"><i class="fas fa-layer-group me-2"></i>4. Revisa y Edita cada Prenda antes de Guardar:</h6>
 
-                                                        <button type="submit" class="btn btn-primary w-100" id="guardarPrendaIABtn">
-                                                            <i class="fas fa-save me-2"></i>Guardar Prenda en Clóset
+                                                        <!-- Contenedor dinámico donde aparecerá 1 tarjeta editable por cada foto -->
+                                                        <div id="contenedorTarjetasPrendasIA"></div>
+
+                                                        <button type="submit" class="btn btn-primary w-100 mt-3" id="guardarPrendaIABtn">
+                                                            <i class="fas fa-save me-2"></i>Guardar Todas las Prendas Individualmente
                                                         </button>
                                                     </div>
                                                 </form>
@@ -2661,58 +2630,254 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             });
         }
 
+        // --- FLUJO DE CREACIÓN DE PRENDAS EN LOTE CON IA ---
+        let archivosLoteIA = []; // Almacena las fotos en orden exacto
+
+        function renderizarTarjetasPrendasIA(datosIA = []) {
+            const contenedor = document.getElementById('contenedorTarjetasPrendasIA');
+            contenedor.innerHTML = '';
+
+            archivosLoteIA.forEach((archivo, index) => {
+                const item = datosIA[index] || {};
+                const imgUrl = URL.createObjectURL(archivo);
+
+                const cardHtml = `
+        <div class="card mb-3 border shadow-sm">
+            <div class="card-header bg-light d-flex align-items-center justify-content-between py-2">
+                <span class="fw-bold text-primary">Prenda #${index + 1}</span>
+                <small class="text-muted text-truncate" style="max-width: 150px;">${htmlspecialchars(archivo.name)}</small>
+            </div>
+            <div class="card-body p-3">
+                <div class="text-center mb-2">
+                    <img src="${imgUrl}" class="rounded border" style="max-height: 110px; object-fit: cover;">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small mb-1 fw-bold">Nombre *</label>
+                    <input type="text" class="form-control form-control-sm" name="nombre[]" value="${htmlspecialchars(item.nombre || '')}" required>
+                </div>
+                <div class="row g-2 mb-2">
+                    <div class="col-6">
+                        <label class="form-label small mb-1 fw-bold">Tipo *</label>
+                        <input type="text" class="form-control form-control-sm" name="tipo[]" value="${htmlspecialchars(item.tipo || '')}" required>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small mb-1">Color Principal</label>
+                        <input type="text" class="form-control form-control-sm" name="color_principal[]" value="${htmlspecialchars(item.color_principal || '')}">
+                    </div>
+                </div>
+                <div class="row g-2 mb-2">
+                    <div class="col-4">
+                        <label class="form-label small mb-1">Tela</label>
+                        <input type="text" class="form-control form-control-sm" name="tela[]" value="${htmlspecialchars(item.tela || '')}">
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label small mb-1">Textura</label>
+                        <input type="text" class="form-control form-control-sm" name="textura[]" value="${htmlspecialchars(item.textura || '')}">
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label small mb-1">Estampado</label>
+                        <input type="text" class="form-control form-control-sm" name="estampado[]" value="${htmlspecialchars(item.estampado || '')}">
+                    </div>
+                </div>
+                <div class="row g-2 mb-2">
+                    <div class="col-6">
+                        <label class="form-label small mb-1">Clima</label>
+                        <input type="text" class="form-control form-control-sm" name="clima_apropiado[]" value="${htmlspecialchars(item.clima_apropiado || 'todo')}">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small mb-1">Formalidad</label>
+                        <input type="text" class="form-control form-control-sm" name="formalidad[]" value="${htmlspecialchars(item.formalidad || 'casual')}">
+                    </div>
+                </div>
+                <div>
+                    <label class="form-label small mb-1">Comentarios</label>
+                    <textarea class="form-control form-control-sm" name="comentarios[]" rows="2">${htmlspecialchars(item.comentarios || '')}</textarea>
+                </div>
+            </div>
+        </div>`;
+
+                contenedor.insertAdjacentHTML('beforeend', cardHtml);
+            });
+        }
+
         function processPrendaAIResponse() {
-            const aiPrendaResponseTextarea = document.getElementById('aiPrendaResponse');
-            const responseText = aiPrendaResponseTextarea.value;
+            const responseText = document.getElementById('aiPrendaResponse').value.trim();
+            if (!responseText) return;
+
             try {
-                const aiData = JSON.parse(responseText);
+                // Limpiar posibles bloques markdown ```json ... ``` si la IA los incluye
+                const limpio = responseText.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+                let parsed = JSON.parse(limpio);
 
-                document.getElementById('iaNombre').value = aiData.nombre || '';
-                document.getElementById('iaTipo').value = aiData.tipo || '';
-                document.getElementById('iaColorPrincipal').value = aiData.color_principal || '';
-                document.getElementById('iaTela').value = aiData.tela || '';
-                document.getElementById('iaTextura').value = aiData.textura || '';
-                document.getElementById('iaEstampado').value = aiData.estampado || '';
-                document.getElementById('iaClimaApropiado').value = aiData.clima_apropiado || 'todo';
-                document.getElementById('iaFormalidad').value = aiData.formalidad || 'casual';
-                document.getElementById('iaComentarios').value = aiData.comentarios || '';
-
-                if (responseText.length > 0) {
-                    Swal.fire({
-                        toast: true,
-                        position: 'top-end',
-                        showConfirmButton: false,
-                        timer: 3000,
-                        timerProgressBar: true,
-                        icon: 'success',
-                        title: 'Campos autocompletados con la IA!'
-                    });
+                // Si la IA devolvió un solo objeto en vez de un array, lo envolvemos en array
+                if (!Array.isArray(parsed) && typeof parsed === 'object' && parsed !== null) {
+                    parsed = [parsed];
                 }
 
+                if (!Array.isArray(parsed)) {
+                    throw new Error('El JSON debe ser un arreglo [ {...}, {...} ].');
+                }
+
+                renderizarTarjetasPrendasIA(parsed);
+
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 3000,
+                    icon: 'success',
+                    title: `¡${parsed.length} prenda(s) autocompletada(s)!`
+                });
             } catch (e) {
-                document.getElementById('iaNombre').value = '';
-                document.getElementById('iaTipo').value = '';
-                document.getElementById('iaColorPrincipal').value = '';
-                document.getElementById('iaTela').value = '';
-                document.getElementById('iaTextura').value = '';
-                document.getElementById('iaEstampado').value = '';
-                document.getElementById('iaClimaApropiado').value = 'todo';
-                document.getElementById('iaFormalidad').value = 'casual';
-                document.getElementById('iaComentarios').value = '';
-
-                if (responseText.trim().length > 0) {
-                    Swal.fire({
-                        toast: true,
-                        position: 'top-end',
-                        showConfirmButton: false,
-                        timer: 5000,
-                        timerProgressBar: true,
-                        icon: 'error',
-                        title: 'Error: Respuesta de IA no es JSON válido.'
-                    });
-                }
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 4000,
+                    icon: 'error',
+                    title: 'JSON inválido. Revisa el formato pegado.'
+                });
             }
         }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const aiPrendaFotoInput = document.getElementById('iaPrendaFoto');
+            const previewLoteDiv = document.getElementById('previewPrendasLote');
+            const contadorFotosSpan = document.getElementById('contadorFotosIA');
+            const generarPromptPrendaBtn = document.getElementById('generarPromptPrendaBtn');
+            const aiDescriptionSection = document.getElementById('aiDescriptionSection');
+            const aiPrendaPrompt = document.getElementById('aiPrendaPrompt');
+            const copyPrendaPromptBtn = document.getElementById('copyPrendaPromptBtn');
+            const aiPrendaResponseTextarea = document.getElementById('aiPrendaResponse');
+            const formPrendaIA = document.getElementById('formPrendaIA');
+
+            // 1. Previsualizar múltiples fotos numeradas al seleccionarlas
+            if (aiPrendaFotoInput) {
+                aiPrendaFotoInput.addEventListener('change', function() {
+                    archivosLoteIA = Array.from(this.files);
+                    previewLoteDiv.innerHTML = '';
+                    contadorFotosSpan.textContent = archivosLoteIA.length;
+
+                    archivosLoteIA.forEach((file, idx) => {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            const thumb = `
+                        <div class="position-relative border rounded p-1 bg-white">
+                            <span class="badge bg-primary position-absolute top-0 start-0 m-1">#${idx + 1}</span>
+                            <img src="${e.target.result}" style="width: 75px; height: 75px; object-fit: cover; border-radius: 6px;">
+                        </div>`;
+                            previewLoteDiv.insertAdjacentHTML('beforeend', thumb);
+                        };
+                        reader.readAsDataURL(file);
+                    });
+
+                    if (archivosLoteIA.length > 0) {
+                        renderizarTarjetasPrendasIA([]);
+                    }
+                });
+            }
+
+            // 2. Generar prompt adaptado a la cantidad de fotos del lote
+            if (generarPromptPrendaBtn) {
+                generarPromptPrendaBtn.addEventListener('click', async () => {
+                    if (archivosLoteIA.length === 0) {
+                        Swal.fire('Error', 'Por favor, selecciona al menos una imagen primero.', 'error');
+                        return;
+                    }
+
+                    const cantidad = archivosLoteIA.length;
+                    const prompt = `Actúa como un experto en moda y asistente de clóset. Te voy a subir ${cantidad} imagen(es) de prendas de ropa en orden numerado (de la 1 a la ${cantidad}).
+Necesito que analices CADA imagen por separado y devuelvas un ARRAY JSON estricto con exactamente ${cantidad} objeto(s) en el mismo orden en que aparecen las imágenes. Sin texto adicional antes ni después del JSON.
+
+Estructura obligatoria del JSON:
+[
+  {
+    "nombre": "Nombre descriptivo de la prenda 1 (ej. Polera básica negra, Jeans rectos azules)",
+    "tipo": "Tipo de prenda en minúsculas (ej. polera, camiseta, camisa, pantalon, short, chaqueta, abrigo, zapatillas, vestido, accesorios)",
+    "color_principal": "Color dominante",
+    "tela": "Tipo de tela (ej. algodón, mezclilla, poliéster, lana)",
+    "textura": "Textura visual (ej. liso, acanalado, punto, rugoso)",
+    "estampado": "Estampado (ej. liso, rayas, gráfico, cuadros)",
+    "clima_apropiado": "Clima principal (calor, frio, lluvia, todo)",
+    "formalidad": "Nivel de formalidad (casual, semi-formal, formal)",
+    "comentarios": "Detalles relevantes (corte, uso ideal, etc.)"
+  }
+]`;
+
+                    aiPrendaPrompt.value = prompt;
+                    aiDescriptionSection.style.display = 'block';
+
+                    try {
+                        await navigator.clipboard.writeText(prompt);
+                        Swal.fire('¡Prompt Copiado!', `Copiado para ${cantidad} prenda(s). Pégalo en tu IA junto con las ${cantidad} fotos en orden.`, 'success');
+                    } catch (err) {
+                        Swal.fire('Prompt Generado', 'Cópialo manualmente y pégalo en tu IA junto con las fotos.', 'info');
+                    }
+                });
+            }
+
+            if (copyPrendaPromptBtn) {
+                copyPrendaPromptBtn.addEventListener('click', async () => {
+                    try {
+                        await navigator.clipboard.writeText(aiPrendaPrompt.value);
+                        Swal.fire('¡Copiado!', 'Prompt copiado al portapapeles.', 'success');
+                    } catch (err) {
+                        Swal.fire('Error', 'No se pudo copiar automáticamente.', 'error');
+                    }
+                });
+            }
+
+            if (aiPrendaResponseTextarea) {
+                aiPrendaResponseTextarea.addEventListener('input', processPrendaAIResponse);
+            }
+
+            // 3. Enviar todo el lote al backend para guardar cada prenda individualmente
+            if (formPrendaIA) {
+                formPrendaIA.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+
+                    if (archivosLoteIA.length === 0) {
+                        Swal.fire('Error', 'Debes seleccionar al menos una imagen.', 'error');
+                        return;
+                    }
+
+                    const formData = new FormData(formPrendaIA);
+                    // Asegurar que las fotos se envíen en el orden exacto de archivosLoteIA
+                    formData.delete('fotos[]');
+                    archivosLoteIA.forEach(file => {
+                        formData.append('fotos[]', file);
+                    });
+
+                    Swal.fire({
+                        title: `Guardando ${archivosLoteIA.length} prenda(s)...`,
+                        text: 'Creando registros individuales en tu clóset.',
+                        allowOutsideClick: false,
+                        didOpen: () => Swal.showLoading()
+                    });
+
+                    try {
+                        const res = await fetch('save_prendas_lote_ai.php', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const data = await res.json();
+                        Swal.close();
+
+                        if (data.success) {
+                            Swal.fire('¡Lote Guardado!', data.message, 'success').then(() => {
+                                location.reload();
+                            });
+                        } else {
+                            Swal.fire('Error', data.message || 'No se pudieron guardar las prendas.', 'error');
+                        }
+                    } catch (error) {
+                        Swal.close();
+                        console.error('Error guardando lote:', error);
+                        Swal.fire('Error de Conexión', 'No se pudo comunicar con el servidor.', 'error');
+                    }
+                });
+            }
+        });
 
         function filterPrendasForSearch() {
             const searchTerm = document.getElementById('searchPrendasFilter').value.toLowerCase().trim();
