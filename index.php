@@ -2,33 +2,25 @@
 include 'bd.php'; // conexión a la base de datos
 
 // --- NUEVO: Disparador para actualizar estados diarios ---
-// Lógica para ejecutar actualizar_estados_diarios.php una vez al día
-session_start(); // Asegúrate de iniciar la sesión si aún no lo haces
+session_start();
 
 $last_update_date = $_SESSION['last_daily_status_update'] ?? null;
 $today_date_str = date('Y-m-d');
 
 if ($last_update_date !== $today_date_str) {
-    // Si la última actualización no fue hoy, ejecutar el script de actualización
-    // Usar file_get_contents o cURL para una llamada HTTP interna
-    // Es preferible usar cURL o una función que no dependa de allow_url_fopen
     $update_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://$_SERVER[HTTP_HOST]" . dirname($_SERVER['PHP_SELF']) . "/actualizar_estados_diarios.php";
 
-    // Puedes hacer la llamada silenciosa con cURL
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $update_url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 5); // Timeout de 5 segundos
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // No recomendado para producción sin configurar CA certs
-    curl_exec($ch); // Ejecutar la llamada (ignorar la respuesta)
+    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_exec($ch);
     curl_close($ch);
 
-    $_SESSION['last_daily_status_update'] = $today_date_str; // Marcar como actualizado para hoy
-    // Opcional: Loggear si la actualización fue exitosa/fallida
-    // error_log("Estado diario de prendas actualizado en: " . $today_date_str);
+    $_SESSION['last_daily_status_update'] = $today_date_str;
 }
 // --- FIN: Disparador ---
-
 
 // Consulta para obtener prendas disponibles
 $sql = "SELECT * FROM prendas ORDER BY FIELD(estado, 'en uso', 'disponible', 'sucio', 'lavando'), `prendas`.`usos_esta_semana` DESC, `prendas`.`fecha_agregado` DESC;";
@@ -38,21 +30,19 @@ $result_prendas = $mysqli_obj->query($sql);
 $result2 = $mysqli_obj->query($sql);
 $result_prendas2 = $mysqli_obj->query($sql);
 
-
+$prendas_para_sugerencia_compras = [];
 if ($result_prendas2) {
     while ($prenda_total = $result_prendas2->fetch_assoc()) {
         $prenda_id = $prenda_total['id'];
         $usos = $prenda_total['usos_esta_semana'];
-        $prenda_tipo = $prenda_total['tipo']; // Use original case or convert to lower as needed by the function
+        $prenda_tipo = $prenda_total['tipo'];
         $es_uso_ilimitado = $prenda_total['uso_ilimitado'];
 
-        // Use the new function to get usage status
         $usageStatus = getUsageLimitStatus($prenda_tipo, $usos);
         $max_usos_permitidos = $usageStatus['max_uses'];
         $isOverused = $usageStatus['is_overused'];
 
-        // Condition for filtering: if it's unlimited use OR it's not overused
-        if ($es_uso_ilimitado || !$isOverused) { // Use the boolean result from the function
+        if ($es_uso_ilimitado || !$isOverused) {
             $prendas_para_sugerencia_compras[] = [
                 'id' => $prenda_total['id'],
                 'nombre' => $prenda_total['nombre'],
@@ -66,16 +56,11 @@ if ($result_prendas2) {
     }
 }
 
-// Convertir el array PHP a JSON para pasarlo a JavaScript
 $json_prendas_para_sugerencia_compras = json_encode($prendas_para_sugerencia_compras);
-
 
 // Consulta para obtener prendas disponibles y con menos de 3 usos esta semana
 $prendas_para_sugerencia_ia = [];
 
-
-
-// Consulta para obtener prendas disponibles
 $sql_prendas_disponibles = "SELECT 
     p.*,
     COUNT(h.id) AS usos_totales,
@@ -87,7 +72,7 @@ GROUP BY p.id
 ORDER BY 
     FIELD(p.estado, 'en uso', 'disponible', 'sucio', 'lavando'), 
     p.usos_esta_semana DESC, 
-    p.fecha_agregado DESC;"; // AÑADIR uso_ilimitado
+    p.fecha_agregado DESC;";
 $result_disponibles = $mysqli_obj->query($sql_prendas_disponibles);
 
 if ($result_disponibles) {
@@ -97,16 +82,13 @@ if ($result_disponibles) {
         $prenda_tipo = $prenda_disp['tipo'];
         $es_uso_ilimitado = $prenda_disp['uso_ilimitado'];
 
-        // Datos nuevos de la consulta optimizada
         $usos_totales = $prenda_disp['usos_totales'] ?? 0;
         $fecha_ultimo_uso = $prenda_disp['fecha_ultimo_uso'] ?? 'Nunca usado';
         $dias_desde_ultimo = $prenda_disp['dias_desde_ultimo_uso'] ?? 'N/A';
 
-        // Mantenemos tu lógica de límites de uso semanal
         $usageStatus = getUsageLimitStatus($prenda_tipo, $usos_semana);
         $isOverused = $usageStatus['is_overused'];
 
-        // Si la prenda es apta para ser sugerida (no está sobrepasada de uso semanal)
         if ($es_uso_ilimitado || !$isOverused) {
             $prendas_para_sugerencia_ia[] = [
                 'id' => $prenda_id,
@@ -115,11 +97,9 @@ if ($result_disponibles) {
                 'color' => $prenda_disp['color_principal'],
                 'estado' => $prenda_disp['estado'],
                 'usos_esta_semana' => $usos_semana,
-                // --- NUEVOS CAMPOS PARA LA IA ---
                 'usos_totales' => $usos_totales,
                 'fecha_ultimo_uso' => $fecha_ultimo_uso,
-                'dias_descanso' => $dias_desde_ultimo, // Muy útil para el prompt
-                // -------------------------------
+                'dias_descanso' => $dias_desde_ultimo,
                 'comentarios' => $prenda_disp['detalles_adicionales'] ?? '',
                 'uso_ilimitado' => $es_uso_ilimitado
             ];
@@ -127,7 +107,6 @@ if ($result_disponibles) {
     }
 }
 
-// Convertir el array PHP a JSON para pasarlo a JavaScript
 $json_prendas_para_sugerencia_ia = json_encode($prendas_para_sugerencia_ia);
 
 echo "<script>console.log('Prendas para sugerencia IA:', $json_prendas_para_sugerencia_ia);</script>";
@@ -135,13 +114,12 @@ echo "<script>console.log('Prendas para sugerencia IA:', $json_prendas_para_suge
 // --- INICIO: Consulta para obtener el historial de outfits usados ---
 $outfits_usados_history = [];
 
-// Obtener los últimos outfits usados (ej. los últimos 5, puedes ajustar el LIMIT)
 $sql_history = "
     SELECT
         o.id,
         o.nombre,
         o.comentarios,
-        o.fecha_ultimo_uso_outfit, -- NUEVO: Seleccionar la fecha de último uso
+        o.fecha_ultimo_uso_outfit,
         GROUP_CONCAT(p.nombre ORDER BY p.nombre ASC SEPARATOR ', ') AS prendas_nombres
     FROM
         outfits o
@@ -152,7 +130,7 @@ $sql_history = "
     GROUP BY
         o.id, o.nombre, o.comentarios
     ORDER BY
-        MAX(o.fecha_creado) DESC -- Ordenar por la fecha de uso más reciente del outfit
+        MAX(o.fecha_creado) DESC
     LIMIT 5;
 ";
 
@@ -162,47 +140,49 @@ if ($result_history) {
     while ($row = $result_history->fetch_assoc()) {
         $outfits_usados_history[] = [
             'nombre' => $row['nombre'],
-            'prendas' => $row['prendas_nombres'], // Esto será un string con nombres separados por coma
+            'prendas' => $row['prendas_nombres'],
             'comentarios' => $row['comentarios'],
-            'fecha_ultimo_uso' => $row['fecha_ultimo_uso_outfit'] ?? '' // Añadir la fecha para referencia en el prompt
+            'fecha_ultimo_uso' => $row['fecha_ultimo_uso_outfit'] ?? ''
         ];
     }
 }
 $json_outfits_usados_history = json_encode($outfits_usados_history, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 // --- FIN: Consulta para obtener el historial de outfits usados ---
 
+// --- INICIO: Consulta para obtener el Pijama Actual ---
+$pijama_meta = ['fecha_ultimo_uso' => null];
+$res_pijama_meta = $mysqli_obj->query("SELECT fecha_ultimo_uso FROM pijama_actual WHERE id = 1");
+if ($res_pijama_meta && $res_pijama_meta->num_rows > 0) {
+    $pijama_meta = $res_pijama_meta->fetch_assoc();
+}
+
+$pijama_usado_hoy = ($pijama_meta['fecha_ultimo_uso'] === date('Y-m-d'));
+
+$prendas_pijama_actual = [];
+$pijama_prendas_ids = [];
+$sql_pijama = "SELECT p.id, p.nombre, p.tipo, p.color_principal, p.foto, p.estado, p.usos_esta_semana, p.uso_ilimitado
+               FROM pijama_prendas pp
+               JOIN prendas p ON pp.prenda_id = p.id
+               ORDER BY p.nombre ASC";
+$res_pijama = $mysqli_obj->query($sql_pijama);
+if ($res_pijama) {
+    while ($row_p = $res_pijama->fetch_assoc()) {
+        $prendas_pijama_actual[] = $row_p;
+        $pijama_prendas_ids[] = intval($row_p['id']);
+    }
+}
+// --- FIN: Consulta para obtener el Pijama Actual ---
 
 // Consulta para obtener prendas disponibles para el formulario de outfit
 $sql = "SELECT id, nombre, tipo, color_principal, foto FROM prendas WHERE estado = 'disponible'";
 $result_for_outfit_form = $mysqli_obj->query($sql);
 
-
-
-// Consulta para obtener prendas disponibles
 $sql2 = "SELECT * FROM `historial_usos`";
 $result2 = $mysqli_obj->query($sql2);
-
 
 $city = $_GET['city'] ?? 'Santiago';
 $api_key = "22524bcc23b8c0635c013a41f40f6a4c";
 $api_url = "https://api.openweathermap.org/data/2.5/weather?q=" . urlencode($city) . "&appid=$api_key&units=metric&lang=es";
-
-/*
-// Obtener datos del clima
-$response = @file_get_contents($api_url);
-if (!$response) {
-    echo json_encode([]);
-    exit;
-}
-
-$data = json_decode($response, true);
-
-// Verificar respuesta válida
-if (!isset($data['main']['temp']) || !isset($data['weather'][0])) {
-    echo json_encode([]);
-    exit;
-}
-*/
 
 $response = @file_get_contents($api_url);
 if (!$response) {
@@ -218,9 +198,6 @@ if (!$data || !isset($data['main']['temp']) || !isset($data['weather'][0])) {
     ];
 }
 
-
-
-// --- INICIO: Clima actual y pronóstico para mañana ---
 // --- INICIO: Clima actual y pronóstico para mañana ---
 $city = $_GET['city'] ?? 'Santiago';
 define('API_KEY', '22524bcc23b8c0635c013a41f40f6a4c');
@@ -233,11 +210,10 @@ function fetch_api_data($url)
     $response = @file_get_contents($url);
     return $response ? json_decode($response, true) : null;
 }
-// --- Clima Actual ---
+
 $api_url_current = API_BASE_URL . "weather?q=" . urlencode($city) . "&appid=" . API_KEY . "&units=" . UNITS . "&lang=" . LANG;
 $data_current = fetch_api_data($api_url_current);
 
-// Datos actuales
 $temp_c = $data_current['main']['temp'] ?? '';
 $weather_desc = ucfirst($data_current['weather'][0]['description'] ?? 'No disponible');
 $icon_code = $data_current['weather'][0]['icon'] ?? '';
@@ -249,19 +225,16 @@ if (!empty($data_current['coord']['lat']) && !empty($data_current['coord']['lon'
     $lat = $data_current['coord']['lat'];
     $lon = $data_current['coord']['lon'];
 
-    // --- Pronóstico para mañana ---
     $api_url_forecast = API_BASE_URL . "forecast?lat={$lat}&lon={$lon}&appid=" . API_KEY . "&units=" . UNITS . "&lang=" . LANG;
     $data_forecast = fetch_api_data($api_url_forecast);
-    // ... (código existente hasta $data_forecast) ...
 
     if ($data_forecast && !empty($data_forecast['list'])) {
         date_default_timezone_set('America/Santiago');
         $tomorrow = (new DateTime('tomorrow'))->format('Y-m-d');
 
         $forecast_data = [];
-        $target_schedule_hours_24h = ['05', '10', '17', '22']; // Horas objetivo en formato 24h
+        $target_schedule_hours_24h = ['05', '10', '17', '22'];
 
-        // Obtener todas las entradas del pronóstico para mañana
         $tomorrow_forecast_items = array_filter($data_forecast['list'], function ($item) use ($tomorrow) {
             $dt = new DateTime($item['dt_txt'], new DateTimeZone('UTC'));
             $dt->setTimezone(new DateTimeZone('America/Santiago'));
@@ -275,7 +248,6 @@ if (!empty($data_current['coord']['lat']) && !empty($data_current['coord']['lon'
             $target_dt_obj = (new DateTime($tomorrow . ' ' . $target_hour_24 . ':00', new DateTimeZone('America/Santiago')));
             $target_dt_timestamp = $target_dt_obj->getTimestamp();
 
-            // Buscar la entrada más cercana para la descripción
             $min_time_diff = PHP_INT_MAX;
             foreach ($tomorrow_forecast_items as $item) {
                 $item_dt = (new DateTime($item['dt_txt'], new DateTimeZone('UTC')))->setTimezone(new DateTimeZone('America/Santiago'));
@@ -289,18 +261,15 @@ if (!empty($data_current['coord']['lat']) && !empty($data_current['coord']['lon'
                 $main_desc = $main_entry_for_desc['weather'][0]['description'] ?? 'No disponible';
             }
 
-            // Buscar temperaturas en un rango de +/- 3 horas de la hora objetivo
             foreach ($tomorrow_forecast_items as $item) {
                 $item_dt = (new DateTime($item['dt_txt'], new DateTimeZone('UTC')))->setTimezone(new DateTimeZone('America/Santiago'));
                 $item_timestamp = $item_dt->getTimestamp();
 
-                // Si la entrada de la API está a menos de 3 horas de nuestra hora objetivo
                 if (abs($item_timestamp - $target_dt_timestamp) <= 3 * 3600) {
                     $closest_temps[] = round($item['main']['temp']);
                 }
             }
 
-            // Si encontramos temperaturas, creamos el rango
             if (!empty($closest_temps)) {
                 $min_temp = min($closest_temps);
                 $max_temp = max($closest_temps);
@@ -316,30 +285,22 @@ if (!empty($data_current['coord']['lat']) && !empty($data_current['coord']['lon'
             ];
         }
 
-        // Opcional: Ordenar el array final para que las horas aparezcan en orden lógico
         usort($forecast_data, function ($a, $b) {
             $time_order = ['5 AM' => 1, '10 AM' => 2, '5 PM' => 3, '10 PM' => 4];
             return $time_order[$a['label']] <=> $time_order[$b['label']];
         });
     }
 }
-// --- Exportar JSON del pronóstico ---
 $json_forecast_data = json_encode($forecast_data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-
-
 // --- FIN: Clima actual y pronóstico para mañana ---
 
-// Definir los límites aquí una vez, de forma consistente con getUsageLimitStatus
 $usage_limits_by_type = [];
-$all_garment_types = ['polera', 'camiseta', 'pantalon', 'short', 'zapatillas', 'camisa', 'falda', 'vestido', 'chaqueta', 'abrigo', 'accesorios']; // Asegúrate de listar todos tus tipos
+$all_garment_types = ['polera', 'camiseta', 'pantalon', 'short', 'zapatillas', 'camisa', 'falda', 'vestido', 'chaqueta', 'abrigo', 'accesorios'];
 foreach ($all_garment_types as $type) {
-    // Usamos la función PHP getUsageLimitStatus para calcular los límites
-    $limits = getUsageLimitStatus($type, 0); // Pasamos 0 usos, solo nos interesa el max_uses
+    $limits = getUsageLimitStatus($type, 0);
     $usage_limits_by_type[$type] = $limits['max_uses'];
 }
 $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-// --- FIN NUEVO ---
-
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -350,16 +311,10 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
     <title>Clóset Inteligente</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-
-
     <!-- Bootstrap JS + Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
-
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-
     <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
-
 
     <style>
         body {
@@ -376,30 +331,17 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             max-width: 1200px;
         }
 
-        /* index.php - Dentro de la etiqueta <style> */
-
-        /* Estilo para outfits ya usados */
         .outfit-card.outfit-usado {
-            /* Fondo más sutil o borde diferente */
             background-color: #f8f9fa;
-            /* Gris muy claro */
             border-left: 5px solid #6c757d;
-            /* Borde gris sutil */
             opacity: 0.9;
-            /* Ligeramente más opaco que los nuevos */
         }
 
-        /* Estilo para outfits nuevos (que no tienen fecha de uso) */
         .outfit-card.outfit-nuevo {
-            /* Borde o sombra más prominente */
             background-color: #ffffff;
-            /* Fondo blanco brillante */
             border-left: 5px solid #28a745;
-            /* Borde verde para destacar */
             box-shadow: 0 0 10px rgba(40, 167, 69, 0.3);
-            /* Sombra verde */
         }
-
 
         .nav-pills .nav-link {
             border-radius: 25px;
@@ -429,9 +371,7 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             background: linear-gradient(135deg, #f8f9ff 0%, #e8f4f8 100%);
             border-left: 4px solid #667eea;
             position: relative;
-            /* Necesario para posicionar el contador absoluto */
             overflow: hidden;
-            /* Asegura que el contador no se salga si hay bordes */
         }
 
         .uso-badge {
@@ -439,14 +379,10 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             top: 10px;
             right: 10px;
             background-color: #667eea;
-            /* Color principal */
             color: white;
             border-radius: 50%;
-            /* Para que sea un círculo */
             width: 30px;
-            /* Tamaño del círculo */
             height: 30px;
-            /* Tamaño del círculo */
             display: flex;
             align-items: center;
             justify-content: center;
@@ -454,15 +390,11 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             font-weight: bold;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
             z-index: 10;
-            /* Asegura que esté por encima de la imagen */
         }
 
-        /* Color si los usos son altos (opcional, para avisar que está cerca del límite) */
         .uso-badge.high-usage {
             background-color: #dc3545;
-            /* Rojo */
         }
-
 
         .outfit-card {
             background: linear-gradient(135deg, #fff8f0 0%, #f0f8e8 100%);
@@ -477,7 +409,6 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             font-weight: 500;
             transition: all 0.3s ease;
         }
-
 
         .badge {
             border-radius: 15px;
@@ -614,25 +545,20 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
 
         #outfitFormContainer {
             display: block;
-            /* Oculta el elemento por defecto */
         }
 
         #toggleOutfitFormBtn {
             display: none;
         }
 
-        /* En pantallas medianas y superiores, el contenido siempre es visible (anula .hidden-mobile-content) */
         @media (max-width: 768px) {
-
             #outfitFormContainer {
                 display: none;
-                /* Oculta el elemento por defecto */
             }
 
             #toggleOutfitFormBtn {
                 display: block;
             }
-
         }
     </style>
 </head>
@@ -685,7 +611,6 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             <!-- Content -->
             <div class="tab-content p-4">
                 <!-- Inicio -->
-
                 <div class="tab-pane fade show active" id="home">
                     <?php
                     $total_prendas = $pdo->query("SELECT COUNT(*) FROM prendas")->fetchColumn() ?? 0;
@@ -711,14 +636,6 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                 <p>Disponibles</p>
                             </div>
                         </div>
-                        <?php
-
-
-
-                        ?>
-
-
-
                         <div class="col-md-3 mb-4">
                             <div class="weather-widget">
                                 <?php if ($icon_url): ?>
@@ -733,19 +650,15 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                     </div>
 
                     <div class="row">
-                        <div class="col-md-6">
-                            <div class="card">
+                        <!-- Columna 1: Prendas Más Usadas -->
+                        <div class="col-md-4 mb-4">
+                            <div class="card h-100">
                                 <div class="card-header">
-                                    <h5><i class="fas fa-clock me-2"></i>Prendas Más Usadas</h5>
+                                    <h5 class="mb-0"><i class="fas fa-clock me-2"></i>Prendas Más Usadas</h5>
                                 </div>
                                 <div class="card-body" id="prendasMasUsadas">
                                     <?php
-
-                                    // Consulta para obtener las prendas más usadas
-                                    $query = "
-                                         SELECT * FROM `prendas` ORDER BY `prendas`.`usos_esta_semana` DESC LIMIT 5;
-                                        ";
-
+                                    $query = "SELECT * FROM `prendas` ORDER BY `prendas`.`usos_esta_semana` DESC LIMIT 5;";
                                     $resultado = $mysqli_proc->query($query);
 
                                     if ($resultado && $resultado->num_rows > 0) {
@@ -764,17 +677,19 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="card">
+
+                        <!-- Columna 2: Outfit del Día -->
+                        <div class="col-md-4 mb-4">
+                            <div class="card h-100">
                                 <div class="card-header">
-                                    <h5><i class="fas fa-calendar-day me-2"></i>Outfit del Día</h5>
+                                    <h5 class="mb-0"><i class="fas fa-calendar-day me-2"></i>Outfit del Día</h5>
                                 </div>
-                                <div class="card-body" id="outfitDelDia">
+                                <div class="card-body d-flex flex-column justify-content-center" id="outfitDelDia">
                                     <?php
                                     $sql_outfit_dia = "SELECT id, nombre, contexto, clima_base, fecha_ultimo_uso_outfit
                                         FROM outfits
                                         WHERE fecha_ultimo_uso_outfit = ?
-                                        ORDER BY fecha_ultimo_uso_outfit DESC, id DESC LIMIT 1"; // En caso de múltiples usos hoy, coge el último
+                                        ORDER BY fecha_ultimo_uso_outfit DESC, id DESC LIMIT 1";
 
                                     if ($stmt_outfit_dia = $mysqli_obj->prepare($sql_outfit_dia)) {
                                         $stmt_outfit_dia->bind_param("s", $fecha_actual);
@@ -784,7 +699,7 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                         $stmt_outfit_dia->close();
                                     }
 
-                                    if ($outfit_del_dia) {
+                                    if (!empty($outfit_del_dia)) {
                                         echo '
                                         <div class="suggestion-card text-center">
                                             <h6>' . htmlspecialchars($outfit_del_dia['nombre']) . '</h6>
@@ -793,10 +708,9 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                                 <span class="badge bg-primary">' . htmlspecialchars($outfit_del_dia['contexto']) . '</span>
                                                 <span class="badge clima-' . htmlspecialchars($outfit_del_dia['clima_base']) . '">' . htmlspecialchars($outfit_del_dia['clima_base']) . '</span>
                                             </div>
-                              
                                             <a href="detalle_outfit.php?id=' . $outfit_del_dia['id'] . '" class="btn btn-light btn-sm mt-3">
-                                                    <i class="fas fa-eye me-1"></i>Ver Detalles
-                                             </a>
+                                                <i class="fas fa-eye me-1"></i>Ver Detalles
+                                            </a>
                                         </div>';
                                     } else {
                                         echo '<div class="text-center text-muted">
@@ -806,6 +720,62 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                               </div>';
                                     }
                                     ?>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Columna 3: Pijama de Hoy -->
+                        <div class="col-md-4 mb-4">
+                            <div class="card h-100">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h5 class="mb-0"><i class="fas fa-moon me-2 text-primary"></i>Pijama de Hoy</h5>
+                                    <?php if (!empty($prendas_pijama_actual)): ?>
+                                        <?php if ($pijama_usado_hoy): ?>
+                                            <span class="badge bg-success"><i class="fas fa-check me-1"></i>Registrada hoy</span>
+                                        <?php else: ?>
+                                            <span class="badge bg-warning text-dark">Pendiente hoy</span>
+                                        <?php endif; ?>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="card-body d-flex flex-column justify-content-between">
+                                    <?php if (!empty($prendas_pijama_actual)): ?>
+                                        <div class="mb-3">
+                                            <?php foreach ($prendas_pijama_actual as $p_pijama): ?>
+                                                <?php $img_p = !empty($p_pijama['foto']) ? htmlspecialchars($p_pijama['foto']) : 'https://via.placeholder.com/45x45?text=Sin+Img'; ?>
+                                                <div class="d-flex align-items-center justify-content-between p-2 mb-2 rounded bg-light border">
+                                                    <div class="d-flex align-items-center">
+                                                        <img src="<?= $img_p ?>" alt="<?= htmlspecialchars($p_pijama['nombre']) ?>" class="rounded me-2" style="width: 42px; height: 42px; object-fit: cover;">
+                                                        <div>
+                                                            <div class="fw-bold small"><?= htmlspecialchars($p_pijama['nombre']) ?></div>
+                                                            <small class="text-muted"><?= htmlspecialchars($p_pijama['tipo']) ?> • <?= htmlspecialchars($p_pijama['color_principal']) ?></small>
+                                                        </div>
+                                                    </div>
+                                                    <div class="text-end">
+                                                        <?php if (!$p_pijama['uso_ilimitado']): ?>
+                                                            <span class="badge bg-primary rounded-pill" title="Usos esta semana"><?= (int)$p_pijama['usos_esta_semana'] ?> usos</span>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+
+                                        <div class="d-flex gap-2 mt-auto">
+                                            <button type="button" class="btn btn-primary flex-grow-1" id="btnUsarPijamaHoy">
+                                                <i class="fas fa-bed me-1"></i><?= $pijama_usado_hoy ? 'Usada hoy ✓' : 'Usar hoy' ?>
+                                            </button>
+                                            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalCambiarPijama">
+                                                <i class="fas fa-exchange-alt me-1"></i>Cambiar
+                                            </button>
+                                        </div>
+                                    <?php else: ?>
+                                        <div class="text-center text-muted my-auto py-3">
+                                            <i class="fas fa-moon fa-3x mb-3 opacity-50"></i>
+                                            <p class="mb-2">No tienes un pijama configurado todavía.</p>
+                                            <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalCambiarPijama">
+                                                <i class="fas fa-plus me-1"></i>Elegir prendas de pijama
+                                            </button>
+                                        </div>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         </div>
@@ -903,6 +873,7 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                             </button>
                                         </form>
                                     </div>
+
                                     <div id="formAIContainer">
                                         <div class="card">
                                             <div class="card-body">
@@ -984,17 +955,14 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                     </div>
                                 </div>
                             </div>
-                            <!--
-                        
-                                -->
                         </div>
 
                         <div class="col-md-8">
                             <div class="card">
                                 <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
                                     <h5 class="mb-0 me-3"><i class="fas fa-list me-2"></i>Mi Clóset</h5>
-                                    <div class="d-flex align-items-center gap-2 flex-grow-1 justify-content-end"> <input type="text" class="form-control" style="max-width: 200px;"
-                                            placeholder="Buscar prendas..." id="buscarPrendas" onkeyup="filtrarPrendas()">
+                                    <div class="d-flex align-items-center gap-2 flex-grow-1 justify-content-end">
+                                        <input type="text" class="form-control" style="max-width: 200px;" placeholder="Buscar prendas..." id="buscarPrendas" onkeyup="filtrarPrendas()">
 
                                         <select class="form-select" id="filterPrendaTipo" style="max-width: 150px;" onchange="filtrarPrendas()">
                                             <option value="todos">Todos los Tipos</option>
@@ -1026,22 +994,17 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                                     $current_garment_uses = (int)$row['usos_esta_semana'];
                                                     $garment_type_for_function = $row['tipo'];
 
-                                                    // Utiliza la función para obtener el estado de uso
                                                     $badgeUsageStatus = getUsageLimitStatus($garment_type_for_function, $current_garment_uses);
 
-                                                    // Aplica la clase 'high-usage' si la prenda está sobreusada Y no es de uso ilimitado
                                                     if (!$row['uso_ilimitado'] && $badgeUsageStatus['is_overused']) {
                                                         $uso_badge_class = ' high-usage';
                                                     }
 
-                                                    // Muestra el badge solo si la prenda NO es de uso ilimitado
-                                                    // (Si quieres mostrar el contador para prendas de uso ilimitado también, elimina este 'if')
                                                     if (!$row['uso_ilimitado']) {
                                                         echo '<span class="uso-badge' . $uso_badge_class . '">' . $current_garment_uses . '</span>';
                                                     }
                                                     ?>
 
-                                                    <!-- Imagen de la prenda o fondo gris si no hay -->
                                                     <?php if (!empty($row['foto'])): ?>
                                                         <img src="<?php echo $row['foto']; ?>" class="card-img-top" alt="Imagen de <?php echo $row['nombre']; ?>" style="object-fit: cover; max-height: 200px;">
                                                     <?php else: ?>
@@ -1058,8 +1021,6 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                                                     <small class="text-muted"><?php echo $row['tipo']; ?> • <?php echo $row['color_principal']; ?></small><br>
                                                                     <small><?php echo $row['tela']; ?> • <?php echo $row['textura']; ?></small>
                                                                 </p>
-
-
                                                             </div>
                                                         </div>
 
@@ -1079,22 +1040,15 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                                                 Eliminar
                                                             </button>
                                                         </div>
-
                                                     </div>
                                                 </div>
-
-
                                             </div>
-
-                                            <!-- Modal simple por prenda -->
 
                                         <?php
                                             include('modal_editar.php');
                                             include('modal_eliminar.php');
                                         endwhile; ?>
                                     </div>
-
-
                                 </div>
                             </div>
                         </div>
@@ -1144,9 +1098,7 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                                 <label class="form-label">Clima Base</label>
                                                 <select class="form-select" name="clima_base">
                                                     <?php
-                                                    // Asegúrate de que $climas_outfit esté definida en tu PHP inicial si no lo está globalmente
-                                                    // $climas_outfit = ['todo' => 'Todo clima', 'calor' => 'Calor', 'frio' => 'Frío', 'lluvia' => 'Lluvia'];
-                                                    if (!isset($climas_outfit)) { // Definir si no está definida globalmente
+                                                    if (!isset($climas_outfit)) {
                                                         $climas_outfit = ['todo' => 'Todo clima', 'calor' => 'Calor', 'frio' => 'Frío', 'lluvia' => 'Lluvia'];
                                                     }
                                                     foreach ($climas_outfit as $valor => $texto) {
@@ -1165,7 +1117,6 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                                 <input type="text" class="form-control mb-2" id="buscarPrendasOutfit" placeholder="Buscar prenda por nombre, tipo o color..." onkeyup="filterOutfitPrendas()">
                                                 <div id="listaPrendasOutfit">
                                                     <?php
-                                                    // Asegúrate de que $mysqli_obj esté disponible aquí
                                                     $sql_prendas_outfit_form = "SELECT id, nombre, tipo, color_principal, foto, uso_ilimitado FROM prendas WHERE estado = 'disponible' OR uso_ilimitado = TRUE";
                                                     $result_prendas_outfit_form = $mysqli_obj->query($sql_prendas_outfit_form);
 
@@ -1210,12 +1161,9 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                 </div>
                                 <div class="card-body row" id="outfitsListContainer">
                                     <?php
-
-                                    // 1. Definir el límite de resultados por página/carga
                                     $outfits_por_carga = 20;
-                                    $offset_inicial = 0; // Siempre empezamos desde 0
+                                    $offset_inicial = 0;
 
-                                    // 2. Aplicar la lógica de ordenamiento más completa (Nuevos al inicio, luego por fecha)
                                     $ordenamiento_sql = "
                                         ORDER BY 
                                             o.fecha_ultimo_uso_outfit IS NULL DESC, 
@@ -1223,7 +1171,6 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                             o.id DESC
                                     ";
 
-                                    // Consulta que obtiene outfits y la cantidad de prendas asociadas
                                     $sql = "
                                     SELECT 
                                         o.id, o.nombre, o.contexto, o.clima_base, 
@@ -1236,9 +1183,8 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                     {$ordenamiento_sql}
                                     LIMIT {$outfits_por_carga} 
                                     OFFSET {$offset_inicial}; 
-";
+                                    ";
 
-                                    // 3. Obtener el total de outfits para saber si mostrar el botón "Cargar Más"
                                     $sql_total = "SELECT COUNT(id) AS total FROM outfits;";
                                     $total_outfits_result = $mysqli_obj->query($sql_total)->fetch_assoc();
                                     $total_outfits = $total_outfits_result['total'];
@@ -1250,67 +1196,55 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                             $prendas_ids = $outfit['prendas_ids'] ? explode(',', $outfit['prendas_ids']) : [];
                                             $data_prendas = htmlspecialchars(json_encode($prendas_ids));
 
-                                            // NUEVA LÓGICA: Determinar la clase visual
-                                            $clase_estado_uso = '';
-                                            $etiqueta_estado = '';
-
-                                            if (empty($outfit['fecha_ultimo_uso_outfit'])) {
-                                                // Outfit completamente nuevo, sin usar
-                                                $clase_estado_uso = 'outfit-nuevo';
-                                            } else {
-                                                // Outfit ya usado, lo marcamos para el orden
-                                                $clase_estado_uso = '';
-                                            }
+                                            $clase_estado_uso = empty($outfit['fecha_ultimo_uso_outfit']) ? 'outfit-nuevo' : '';
 
                                             echo '
-        <div class="col-md-6 mb-3">
-            <div class="card outfit-card ' . $clase_estado_uso . '" data-outfit-id="' . $outfit['id'] . '" data-prendas=\'' . $data_prendas . '\'>
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                            <h6 class="card-title"><a style="text-decoration: none;" href="detalle_outfit.php?id=' . $outfit['id'] . '">' . htmlspecialchars($outfit['nombre']) . '</a></h6>
-                            <p class="card-text">
-                                <small class="text-muted">' . htmlspecialchars($outfit['contexto']) . ' • ' . htmlspecialchars($outfit['clima_base']) . '</small><br>
-                                <small>' . $outfit['total_prendas'] . ' prendas</small>
-                            </p>
-                        </div>
-                   <div class="dropdown">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="fas fa-ellipsis-v"></i>
-                        </button>
-                        <ul class="dropdown-menu">
-                            <li>
-                                <a class="dropdown-item ver-detalles" href="#" data-id="' . $outfit['id'] . '" data-action="ver">
-                                    <i class="fas fa-eye me-2"></i>Ver detalles
-                                </a>
-                                
-                            </li>
-                            <li>
-                                <a class="dropdown-item usar-outfit" href="#" data-id="' . $outfit['id'] . '" data-action="usar">
-                                    <i class="fas fa-play me-2"></i>Usar hoy
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item eliminar-outfit" href="#" data-id="' . $outfit['id'] . '" data-action="eliminar">
-                                    <i class="fas fa-trash me-2"></i>Eliminar
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
-                    </div>
-                    <div class="mt-2">
-                        <span class="badge bg-primary">' . htmlspecialchars($outfit['contexto']) . '</span>
-                        <span class="badge clima-' . htmlspecialchars($outfit['clima_base']) . '">' . htmlspecialchars($outfit['clima_base']) . '</span>
-                    </div>
-                </div>
-            </div>
-        </div>';
+                                            <div class="col-md-6 mb-3">
+                                                <div class="card outfit-card ' . $clase_estado_uso . '" data-outfit-id="' . $outfit['id'] . '" data-prendas=\'' . $data_prendas . '\'>
+                                                    <div class="card-body">
+                                                        <div class="d-flex justify-content-between align-items-start">
+                                                            <div>
+                                                                <h6 class="card-title"><a style="text-decoration: none;" href="detalle_outfit.php?id=' . $outfit['id'] . '">' . htmlspecialchars($outfit['nombre']) . '</a></h6>
+                                                                <p class="card-text">
+                                                                    <small class="text-muted">' . htmlspecialchars($outfit['contexto']) . ' • ' . htmlspecialchars($outfit['clima_base']) . '</small><br>
+                                                                    <small>' . $outfit['total_prendas'] . ' prendas</small>
+                                                                </p>
+                                                            </div>
+                                                            <div class="dropdown">
+                                                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown" aria-expanded="false">
+                                                                    <i class="fas fa-ellipsis-v"></i>
+                                                                </button>
+                                                                <ul class="dropdown-menu">
+                                                                    <li>
+                                                                        <a class="dropdown-item ver-detalles" href="#" data-id="' . $outfit['id'] . '" data-action="ver">
+                                                                            <i class="fas fa-eye me-2"></i>Ver detalles
+                                                                        </a>
+                                                                    </li>
+                                                                    <li>
+                                                                        <a class="dropdown-item usar-outfit" href="#" data-id="' . $outfit['id'] . '" data-action="usar">
+                                                                            <i class="fas fa-play me-2"></i>Usar hoy
+                                                                        </a>
+                                                                    </li>
+                                                                    <li>
+                                                                        <a class="dropdown-item eliminar-outfit" href="#" data-id="' . $outfit['id'] . '" data-action="eliminar">
+                                                                            <i class="fas fa-trash me-2"></i>Eliminar
+                                                                        </a>
+                                                                    </li>
+                                                                </ul>
+                                                            </div>
+                                                        </div>
+                                                        <div class="mt-2">
+                                                            <span class="badge bg-primary">' . htmlspecialchars($outfit['contexto']) . '</span>
+                                                            <span class="badge clima-' . htmlspecialchars($outfit['clima_base']) . '">' . htmlspecialchars($outfit['clima_base']) . '</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>';
                                         }
                                     } else {
                                         echo '<div class="col-12"><p class="text-muted text-center">No hay outfits creados aún</p></div>';
                                     }
                                     ?>
-
                                 </div>
                                 <div class="row mt-4">
                                     <div class="col-12 text-center">
@@ -1345,7 +1279,6 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                         </div>
                                     </div>
                                 </div>
-
                             </div>
                         </div>
                     </div>
@@ -1408,12 +1341,11 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                             <label for="reglasEspecificas" class="form-label">Reglas o Requisitos Específicos (opcional)</label>
                                             <textarea class="form-control" id="reglasEspecificas" name="reglas_especificas" rows="3" placeholder="Ej: 'Obligado a usar la chaqueta azul de la empresa', 'No se permiten jeans rotos', 'Debe incluir un sombrero'."></textarea>
                                         </div>
-                                        <div class=" mb-3">
+                                        <div class="mb-3">
                                             <label for="pronosticoPersonalizado" class="form-label">Pronóstico del Clima de Mañana (Opcional)</label>
                                             <textarea class="form-control" id="pronosticoPersonalizado" rows="5" placeholder="Ej: '5 AM: 10°C, soleado. 5 PM: 20°C, despejado. 10 PM: 15°C, nublado.'"></textarea>
                                             <small class="form-text text-muted">Si no ingresas un pronóstico, se usará el de Santiago por defecto.</small>
                                         </div>
-
                                     </form>
                                 </div>
                             </div>
@@ -1468,37 +1400,78 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
         </div>
     </div>
 
-    <?php
-    include('modal_busqueda_prendas.php');
-    ?>
+    <?php include('modal_busqueda_prendas.php'); ?>
 
+    <!-- Modal Cambiar Pijama -->
+    <div class="modal fade" id="modalCambiarPijama" tabindex="-1" aria-labelledby="modalCambiarPijamaLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow">
+                <form id="formCambiarPijama">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title" id="modalCambiarPijamaLabel"><i class="fas fa-moon me-2"></i>Configurar Pijama Actual</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="small text-muted mb-2">Selecciona las prendas de tu clóset que estás usando actualmente como pijama:</p>
+                        <input type="text" class="form-control mb-2" id="buscarPrendasPijama" placeholder="Buscar prenda por nombre, tipo o color...">
+
+                        <div id="listaPrendasPijama" style="max-height: 320px; overflow-y: auto; border: 1px solid #dee2e6; padding: 10px; border-radius: 8px;">
+                            <?php
+                            $sql_todas_pijama = "SELECT id, nombre, tipo, color_principal, foto, estado FROM prendas ORDER BY nombre ASC";
+                            $res_todas_pijama = $mysqli_obj->query($sql_todas_pijama);
+                            if ($res_todas_pijama && $res_todas_pijama->num_rows > 0) {
+                                while ($pr = $res_todas_pijama->fetch_assoc()) {
+                                    $checked = in_array(intval($pr['id']), $pijama_prendas_ids) ? 'checked' : '';
+                                    $img_modal = !empty($pr['foto']) ? htmlspecialchars($pr['foto']) : 'https://via.placeholder.com/40x40?text=Sin+Img';
+                                    $estado_pr = strtolower($pr['estado']);
+                                    $badge_pr = ($estado_pr === 'disponible') ? 'bg-success' : (($estado_pr === 'sucio') ? 'bg-danger' : 'bg-warning text-dark');
+
+                                    echo '
+                                    <div class="form-check mb-2 pijama-prenda-item" 
+                                         data-nombre="' . htmlspecialchars(strtolower($pr['nombre'])) . '" 
+                                         data-tipo="' . htmlspecialchars(strtolower($pr['tipo'])) . '" 
+                                         data-color="' . htmlspecialchars(strtolower($pr['color_principal'])) . '">
+                                        <input class="form-check-input" type="checkbox" name="prendas[]" value="' . $pr['id'] . '" id="pijamaCheck' . $pr['id'] . '" ' . $checked . '>
+                                        <label class="form-check-label d-flex align-items-center justify-content-between w-100" for="pijamaCheck' . $pr['id'] . '">
+                                            <div class="d-flex align-items-center">
+                                                <img src="' . $img_modal . '" class="rounded me-2" style="width: 38px; height: 38px; object-fit: cover;">
+                                                <div>
+                                                    <strong class="small">' . htmlspecialchars($pr['nombre']) . '</strong><br>
+                                                    <small class="text-muted">' . htmlspecialchars($pr['tipo']) . ' • ' . htmlspecialchars($pr['color_principal']) . '</small>
+                                                </div>
+                                            </div>
+                                            <span class="badge ' . $badge_pr . ' rounded-pill" style="font-size: 0.7rem;">' . htmlspecialchars($pr['estado']) . '</span>
+                                        </label>
+                                    </div>';
+                                }
+                            }
+                            ?>
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>Guardar Pijama</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <!-- Bootstrap 5 JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
-
-    <!-- Bootstrap JS Bundle (incluye Popper) al final del <body> -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        // --- FUNCIÓN ESENCIAL DE ESCAPE EN JAVASCRIPT (CORREGIDA) ---
-        // Esta versión solo escapa el delimitador de atributo (' y &) 
-        // y deja las comillas dobles (") sin tocar, lo cual es vital para JSON.parse.
         function htmlspecialchars(str) {
             if (typeof str !== 'string') return str;
 
             return str.replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
-                // IMPORTANTE: NO TOCAR LAS COMILLAS DOBLES (") para que JSON.parse funcione.
-                // Solo reemplazamos la comilla simple, que es el delimitador del atributo HTML.
                 .replace(/'/g, '&#39;');
         }
-        // ----------------------------------------------------------------
 
-        // Asegúrate de que esta función esté fuera del DOMContentLoaded para ser global
         async function sendCreateOutfitRequest(formData, forceDuplicate = false) {
             if (forceDuplicate) {
                 formData.append('force_duplicate', 'true');
@@ -1514,7 +1487,7 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             });
 
             try {
-                const response = await fetch('crear_outfit.php', { // Endpoint para creación manual
+                const response = await fetch('crear_outfit.php', {
                     method: 'POST',
                     body: formData
                 });
@@ -1536,7 +1509,6 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                         cancelButtonText: 'No, cancelar'
                     }).then((result) => {
                         if (result.isConfirmed) {
-                            // Si el usuario confirma, re-enviar la solicitud con el mismo formData y forzando
                             sendCreateOutfitRequest(formData, true);
                         } else {
                             Swal.fire('Creación Cancelada', 'El outfit no ha sido creado.', 'info');
@@ -1567,7 +1539,7 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             });
 
             try {
-                const response = await fetch(endpoint, { // El endpoint es variable (crear_prenda.php o upload_and_process_ai.php)
+                const response = await fetch(endpoint, {
                     method: 'POST',
                     body: formData
                 });
@@ -1587,7 +1559,6 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                         cancelButtonText: 'No, cancelar'
                     }).then((result) => {
                         if (result.isConfirmed) {
-                            // Re-enviar la solicitud forzando la creación
                             sendPrendaRequest(formData, endpoint, true);
                         } else {
                             Swal.fire('Guardado Cancelado', 'La prenda no ha sido guardada.', 'info');
@@ -1602,20 +1573,50 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                 Swal.fire('Error de Conexión', 'No se pudo comunicar con el servidor.', 'error');
             }
         }
-        // --- NUEVA LÓGICA: Alternar formularios de agregar prenda ---
 
-        // Agregar prenda
         const formPrendaManual = document.getElementById('formPrenda');
         if (formPrendaManual) {
             formPrendaManual.addEventListener('submit', function(e) {
                 e.preventDefault();
                 const formData = new FormData(this);
-                sendPrendaRequest(formData, 'crear_prenda.php'); // Llama a la función unificada
+                sendPrendaRequest(formData, 'crear_prenda.php');
             });
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            // ... (Tu código JavaScript existente, variables, funciones como previewImage, etc.) ...
+
+            // --- PERSISTENCIA DE PESTAÑAS EN LA URL ---
+            const tabLinks = document.querySelectorAll('#mainTabs a[data-bs-toggle="pill"]');
+
+            // 1. Al cargar o recargar la página: activar la pestaña correspondiente al hash de la URL
+            const hashActual = window.location.hash;
+            if (hashActual) {
+                const tabObjetivo = document.querySelector(`#mainTabs a[href="${hashActual}"]`);
+                if (tabObjetivo) {
+                    const bsTab = new bootstrap.Tab(tabObjetivo);
+                    bsTab.show();
+                }
+            }
+
+            // 2. Al hacer clic en cualquier pestaña: actualizar la URL sin saltar el scroll
+            tabLinks.forEach(tab => {
+                tab.addEventListener('shown.bs.tab', function(event) {
+                    const nuevoHash = event.target.getAttribute('href');
+                    if (nuevoHash && nuevoHash.startsWith('#')) {
+                        history.replaceState(null, null, nuevoHash);
+                    }
+                });
+            });
+
+            // 3. Soporte por si el usuario usa los botones Atrás/Adelante del navegador
+            window.addEventListener('hashchange', () => {
+                const tabDesdeHash = document.querySelector(`#mainTabs a[href="${window.location.hash}"]`);
+                if (tabDesdeHash) {
+                    new bootstrap.Tab(tabDesdeHash).show();
+                }
+            });
+            // --- FIN PERSISTENCIA DE PESTAÑAS ---
+
             const addManualRadio = document.getElementById('addManual');
             const addWithAIRadio = document.getElementById('addWithAI');
             const formManualContainer = document.getElementById('formManualContainer');
@@ -1631,15 +1632,10 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                 }
             }
 
-            // Escuchar cambios en los botones de radio
             addManualRadio.addEventListener('change', togglePrendaForms);
             addWithAIRadio.addEventListener('change', togglePrendaForms);
-
-            // Ejecutar al cargar para asegurar que el formulario correcto se muestre al inicio
             togglePrendaForms();
-            // --- FIN NUEVA LÓGICA ---
 
-            // --- Control de rotación del icono para "Crear Outfit" ---
             var collapseElementCreateOutfit = document.getElementById('collapseFormOutfit');
             var collapseButtonCreateOutfitIcon = document.getElementById('createOutfitToggleIcon');
 
@@ -1655,19 +1651,15 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                 });
             }
 
-            // Agregar nuevo outfit
             const formOutfit = document.getElementById('formOutfit');
             if (formOutfit) {
                 formOutfit.addEventListener('submit', function(e) {
                     e.preventDefault();
-                    const formData = new FormData(this); // Captura todos los campos del formulario
-
-                    // Llamar a la función unificada de envío
+                    const formData = new FormData(this);
                     sendCreateOutfitRequest(formData);
                 });
             }
 
-            // --- NUEVO: Cargar reglas guardadas al inicio ---
             const reglasEspecificasTextarea = document.getElementById('reglasEspecificas');
             if (reglasEspecificasTextarea) {
                 fetch('obtener_reglas_sugerencia.php')
@@ -1676,18 +1668,16 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                         if (data.success && data.reglas_especificas) {
                             reglasEspecificasTextarea.value = data.reglas_especificas;
                         } else if (data.message) {
-                            console.log(data.message); // Por si no hay reglas
+                            console.log(data.message);
                         }
                     })
                     .catch(error => console.error('Error al cargar reglas:', error));
             }
-            // --- FIN NUEVO ---
 
             const guardarReglasBtn = document.getElementById('guardarReglasBtn');
             if (guardarReglasBtn) {
                 guardarReglasBtn.addEventListener('click', function() {
-                    const reglas = reglasEspecificasTextarea.value; // Ya definida arriba
-
+                    const reglas = reglasEspecificasTextarea.value;
                     const formData = new FormData();
                     formData.append('reglas_especificas', reglas);
 
@@ -1710,9 +1700,99 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                 });
             }
 
-        });
+            // --- LÓGICA SECCIÓN PIJAMA ---
+            const inputBuscarPijama = document.getElementById('buscarPrendasPijama');
+            if (inputBuscarPijama) {
+                inputBuscarPijama.addEventListener('input', function() {
+                    const filtro = this.value.toLowerCase().trim();
+                    document.querySelectorAll('#listaPrendasPijama .pijama-prenda-item').forEach(item => {
+                        const texto = `${item.dataset.nombre} ${item.dataset.tipo} ${item.dataset.color}`;
+                        item.style.display = texto.includes(filtro) ? '' : 'none';
+                    });
+                });
+            }
 
-        // index.php - Dentro de las etiquetas <script>
+            const formCambiarPijama = document.getElementById('formCambiarPijama');
+            if (formCambiarPijama) {
+                formCambiarPijama.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    const formData = new FormData(this);
+
+                    try {
+                        const res = await fetch('guardar_pijama.php', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const data = await res.json();
+
+                        if (data.success) {
+                            Swal.fire('¡Actualizado!', data.message, 'success').then(() => location.reload());
+                        } else {
+                            Swal.fire('Atención', data.message, 'warning');
+                        }
+                    } catch (err) {
+                        Swal.fire('Error', 'No se pudo guardar el pijama.', 'error');
+                    }
+                });
+            }
+
+            function ejecutarUsoPijama(flags = {}) {
+                const params = new URLSearchParams();
+                if (flags.forceDirtyUse) params.append('force_dirty_use', 'true');
+                if (flags.forceRepeatDay) params.append('force_repeat_day', 'true');
+
+                fetch('registrar_uso_pijama.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        },
+                        body: params.toString()
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            Swal.fire('¡Registrado!', data.message, 'success').then(() => location.reload());
+                        } else if (data.code === 'PIJAMA_ALREADY_USED_TODAY') {
+                            Swal.fire({
+                                title: 'Ya registrado hoy',
+                                text: data.message,
+                                icon: 'info',
+                                showCancelButton: true,
+                                confirmButtonText: 'Sí, sumar otro uso',
+                                cancelButtonText: 'Cancelar'
+                            }).then(r => {
+                                if (r.isConfirmed) ejecutarUsoPijama({
+                                    ...flags,
+                                    forceRepeatDay: true
+                                });
+                            });
+                        } else if (data.code === 'PRENDAS_NO_DISPONIBLES') {
+                            Swal.fire({
+                                title: 'Prendas no disponibles',
+                                text: data.message,
+                                icon: 'warning',
+                                showCancelButton: true,
+                                confirmButtonText: 'Sí, usar igual',
+                                cancelButtonText: 'Cancelar'
+                            }).then(r => {
+                                if (r.isConfirmed) ejecutarUsoPijama({
+                                    ...flags,
+                                    forceDirtyUse: true
+                                });
+                            });
+                        } else {
+                            Swal.fire('Error', data.message || 'No se pudo registrar el pijama.', 'error');
+                        }
+                    })
+                    .catch(() => Swal.fire('Error', 'Error de conexión con el servidor.', 'error'));
+            }
+
+            const btnUsarPijamaHoy = document.getElementById('btnUsarPijamaHoy');
+            if (btnUsarPijamaHoy) {
+                btnUsarPijamaHoy.addEventListener('click', () => ejecutarUsoPijama());
+            }
+            // --- FIN LÓGICA SECCIÓN PIJAMA ---
+        });
 
         function cargarMasOutfits(limit) {
             const offsetInput = document.getElementById('outfitOffset');
@@ -1721,13 +1801,11 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             const loadBtn = document.getElementById('btnCargarMasOutfits');
             const spinner = document.getElementById('spinnerCarga');
 
-            // Si ya estamos cargando o no hay más outfits, salimos
             if (loadBtn.disabled) return;
 
             const currentOffset = parseInt(offsetInput.value);
             const totalOutfits = parseInt(totalOutfitsInput.value);
 
-            // Deshabilitar botón y mostrar spinner
             loadBtn.disabled = true;
             loadBtn.style.display = 'none';
             spinner.style.display = 'inline-block';
@@ -1744,10 +1822,7 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                     if (data.success && data.outfits.length > 0) {
                         let html = '';
 
-                        // Generar el HTML para cada outfit recibido
                         data.outfits.forEach(outfit => {
-                            // Aquí debes replicar la estructura HTML de la tarjeta de outfit 
-                            // Usando los datos recibidos en 'outfit'.
                             html += `
                 <div class="col-md-6 mb-3">
                     <div class="card outfit-card" 
@@ -1764,7 +1839,7 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                         <small>${outfit.total_prendas} prendas</small>
                                     </p>
                                 </div>
-                                </div>
+                            </div>
                             <div class="mt-2">
                                 <span class="badge bg-primary">${outfit.contexto}</span>
                                 <span class="badge clima-${outfit.clima_base}">${outfit.clima_base}</span>
@@ -1774,20 +1849,17 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                 </div>`;
                         });
 
-                        // 4. Añadir el nuevo HTML al contenedor y actualizar el offset
                         container.innerHTML += html;
                         const newOffset = currentOffset + data.outfits.length;
                         offsetInput.value = newOffset;
 
-                        // 5. Ocultar botón si ya no hay más outfits
                         if (newOffset >= totalOutfits) {
-                            loadBtn.remove(); // Ocultar el botón definitivamente
+                            loadBtn.remove();
                         } else {
                             loadBtn.disabled = false;
                             loadBtn.style.display = 'inline-block';
                         }
                     } else {
-                        // Si no hay más datos o falla
                         loadBtn.remove();
                     }
                 })
@@ -1821,7 +1893,7 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                     switch (accionActual) {
                         case 'ver':
                             titulo.textContent = 'Detalles del Outfit';
-                            cuerpo.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin fa-2x"></i><p>Cargando prendas...</p></div>'; // Mensaje de carga
+                            cuerpo.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin fa-2x"></i><p>Cargando prendas...</p></div>';
                             btnConfirmar.style.display = 'none';
 
                             fetch(`obtener_prendas_outfit.php?outfit_id=${outfitIdActual}`)
@@ -1830,20 +1902,14 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                     if (data.success) {
                                         let contentHtml = '';
 
-                                        // Detalles del Outfit (nuevo)
-                                        // Detalles del Outfit (mejorado)
-                                        // Detalles del Outfit (mejorado)
                                         if (data.outfit_details) {
                                             contentHtml += `
         <div class="outfit-details-container mb-4">
-            <!-- Header del outfit -->
             <div class="outfit-header text-center mb-3">
                 <h4 class="outfit-title mb-2">
                     <i class="fas fa-tshirt me-2 text-primary"></i>
                     ${data.outfit_details.nombre}
                 </h4>
-                
-                <!-- Badges mejorados -->
                 <div class="d-flex flex-wrap justify-content-center gap-2 mb-3">
                     <span class="badge bg-primary px-3 py-2 rounded-pill">
                         <i class="fas fa-tag me-1"></i>
@@ -1856,33 +1922,31 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                 </div>
             </div>
 
-                            <div class="text-center mb-1">
-                            <div class="info-card">
-                                <div class="info-label">
-                                    <i class="fas fa-calendar-alt me-2 text-muted"></i>
-                                    <small class="text-muted text-uppercase fw-bold">Último uso</small>
-                                </div>
-                          <div class="info-value">
-                                <span class="text-muted capitalized">
-                                  ${data.outfit_details.fecha_ultimo_uso_outfit 
-                                    ? (() => {
-                                        let fecha = new Date(data.outfit_details.fecha_ultimo_uso_outfit);
-                                        fecha.setDate(fecha.getDate() + 1); // ➕ Sumar 1 día
-                                        return fecha.toLocaleDateString('es-ES', { 
-                                            weekday: 'long', 
-                                            day: '2-digit', 
-                                            month: '2-digit', 
-                                            year: '2-digit' 
-                                        });
-                                    })() 
-                                    : 'No disponible'}
-                                </span>
-                                </div>
+            <div class="text-center mb-1">
+                <div class="info-card">
+                    <div class="info-label">
+                        <i class="fas fa-calendar-alt me-2 text-muted"></i>
+                        <small class="text-muted text-uppercase fw-bold">Último uso</small>
+                    </div>
+                    <div class="info-value">
+                        <span class="text-muted capitalized">
+                          ${data.outfit_details.fecha_ultimo_uso_outfit 
+                            ? (() => {
+                                let fecha = new Date(data.outfit_details.fecha_ultimo_uso_outfit);
+                                fecha.setDate(fecha.getDate() + 1);
+                                return fecha.toLocaleDateString('es-ES', { 
+                                    weekday: 'long', 
+                                    day: '2-digit', 
+                                    month: '2-digit', 
+                                    year: '2-digit' 
+                                });
+                            })() 
+                            : 'No disponible'}
+                        </span>
+                    </div>
+                </div>
+            </div>
 
-                            </div>
-                        </div>
-
-            <!-- Comentarios con diseño mejorado -->
             ${data.outfit_details.comentarios ? `
                 <div class="outfit-comments">
                     <div class="comment-card">
@@ -1901,184 +1965,9 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                     <span class="text-muted fst-italic">Sin detalles adicionales</span>
                 </div>
             `}
-
-        </div>
-
-        <style>
-        .outfit-details-container {
-            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-            border-radius: 15px;
-            padding: 1.5rem;
-            border: 1px solid rgba(0,123,255,0.1);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .outfit-details-container::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: linear-gradient(90deg, #007bff, #6f42c1, #e83e8c, #fd7e14);
-        }
-
-        .outfit-title {
-            color: #2c3e50;
-            font-weight: 600;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.05);
-        }
-
-        .badge {
-            font-weight: 500;
-            letter-spacing: 0.3px;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .badge:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-        }
-
-        /* Estilos mejorados para diferentes climas */
-        .clima-soleado {
-            background: linear-gradient(45deg, #ffc107, #fd7e14) !important;
-            color: white !important;
-        }
-
-        .clima-lluvioso {
-            background: linear-gradient(45deg, #6c757d, #495057) !important;
-            color: white !important;
-        }
-
-        .clima-nublado {
-            background: linear-gradient(45deg, #adb5bd, #6c757d) !important;
-            color: white !important;
-        }
-
-        .clima-frio {
-            background: linear-gradient(45deg, #007bff, #0056b3) !important;
-            color: white !important;
-        }
-
-        .clima-calido {
-            background: linear-gradient(45deg, #dc3545, #fd7e14) !important;
-            color: white !important;
-        }
-
-        .comment-card {
-            background: white;
-            border-radius: 10px;
-            padding: 1.25rem;
-            border-left: 4px solid #007bff;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            transition: transform 0.2s ease;
-        }
-
-        .comment-card:hover {
-            transform: translateY(-1px);
-        }
-
-        .comment-header {
-            display: flex;
-            align-items: center;
-        }
-
-        .comment-label {
-            font-size: 0.75rem;
-            letter-spacing: 1px;
-        }
-
-        .comment-content {
-            font-size: 1rem;
-            line-height: 1.6;
-            color: #495057;
-            font-style: italic;
-            margin: 0;
-        }
-
-        .no-comments {
-            padding: 1.5rem;
-            background: white;
-            border-radius: 10px;
-            border: 2px dashed #dee2e6;
-            transition: border-color 0.3s ease;
-        }
-
-        .no-comments:hover {
-            border-color: #adb5bd;
-        }
-
-        .separator {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 1.5rem 0;
-        }
-
-        .separator-line {
-            flex: 1;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, #dee2e6, transparent);
-        }
-
-        .separator-icon {
-            margin: 0 1rem;
-            color: #007bff;
-            font-size: 0.8rem;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 0.6; }
-            50% { opacity: 1; }
-        }
-
-        /* Responsive design */
-        @media (max-width: 576px) {
-            .outfit-details-container {
-                padding: 1rem;
-                margin: 0.5rem 0;
-                border-radius: 10px;
-            }
-            
-            .badge {
-                font-size: 0.8rem;
-                padding: 0.5rem 1rem !important;
-            }
-            
-            .comment-card {
-                padding: 1rem;
-            }
-            
-            .outfit-title {
-                font-size: 1.25rem;
-            }
-        }
-
-        /* Animación de entrada */
-        .outfit-details-container {
-            animation: slideInUp 0.5s ease-out;
-        }
-
-        @keyframes slideInUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        </style>
-    `;
+        </div>`;
                                         }
 
-                                        // Prendas del Outfit
                                         if (data.prendas.length > 0) {
                                             contentHtml += '<h6 class="mb-3">Prendas que componen este outfit:</h6><div class="row">';
                                             data.prendas.forEach(prenda => {
@@ -2131,11 +2020,8 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             btnConfirmar.addEventListener('click', () => {
                 if (!outfitIdActual || !accionActual) return;
 
-                // Aquí colocas la lógica para confirmar la acción:
                 if (accionActual === 'usar') {
-                    // Función para procesar el registro (la envolvemos para poder re-llamarla si el usuario confirma)
                     function ejecutarRegistroOutfit(outfitId, forceRepetition = false) {
-                        // Preparamos el cuerpo de la solicitud
                         let bodyData = `outfit_id=${outfitId}`;
                         if (forceRepetition) {
                             bodyData += `&force_repetition=true`;
@@ -2156,12 +2042,10 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                             if (typeof modal !== 'undefined') modal.hide();
                                             location.reload();
                                         });
-                                }
-                                // Lógica de validación de repetición (Hoy, Ayer, Semana Pasada)
-                                else if (data.is_repetition) {
+                                } else if (data.is_repetition) {
                                     Swal.fire({
                                         title: '¿Repetir estilo?',
-                                        text: data.message, // El mensaje dirá si fue hoy, ayer o la semana pasada
+                                        text: data.message,
                                         icon: 'warning',
                                         showCancelButton: true,
                                         confirmButtonColor: '#667eea',
@@ -2170,7 +2054,6 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                         cancelButtonText: 'No, elegir otro'
                                     }).then((result) => {
                                         if (result.isConfirmed) {
-                                            // Si confirma, volvemos a llamar a la función pasando forceRepetition como true
                                             ejecutarRegistroOutfit(outfitId, true);
                                         }
                                     });
@@ -2186,25 +2069,23 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                             });
                     }
 
-                    // Llamada inicial (reemplaza tu bloque fetch anterior con esto)
                     ejecutarRegistroOutfit(outfitIdActual);
 
                 } else if (accionActual === 'eliminar') {
-                    // Lógica para ELIMINAR el outfit en la base de datos
                     fetch('eliminar_outfit.php', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/x-www-form-urlencoded',
                             },
-                            body: `outfit_id=${outfitIdActual}` // Envía el ID del outfit
+                            body: `outfit_id=${outfitIdActual}`
                         })
                         .then(response => response.json())
                         .then(data => {
                             if (data.success) {
                                 Swal.fire('Eliminado', data.message, 'success')
                                     .then(() => {
-                                        modal.hide(); // Oculta el modal
-                                        location.reload(); // Recarga la página para mostrar los cambios
+                                        modal.hide();
+                                        location.reload();
                                     });
                             } else {
                                 Swal.fire('Error', data.message || 'Error desconocido al eliminar el outfit', 'error');
@@ -2269,24 +2150,22 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             }
         }
 
-        // Función para filtrar prendas en tiempo real
         function filtrarPrendas() {
             const searchTerm = document.getElementById('buscarPrendas').value.toLowerCase().trim();
-            const selectedType = document.getElementById('filterPrendaTipo').value; // Obtener el tipo seleccionado
-            const prendaItems = document.querySelectorAll('.prenda-item'); // Seleccionar todas las tarjetas de prendas
+            const selectedType = document.getElementById('filterPrendaTipo').value;
+            const prendaItems = document.querySelectorAll('.prenda-item');
 
             prendaItems.forEach(item => {
                 const nombrePrenda = item.getAttribute('data-nombre-prenda');
-                const tipoPrenda = item.getAttribute('data-prenda-tipo'); // Obtener el tipo de la prenda
+                const tipoPrenda = item.getAttribute('data-prenda-tipo');
 
-                // Lógica de filtrado
                 const matchesSearch = nombrePrenda.includes(searchTerm);
                 const matchesType = (selectedType === 'todos' || tipoPrenda === selectedType);
 
                 if (matchesSearch && matchesType) {
-                    item.style.display = ''; // Mostrar si coincide con ambos filtros
+                    item.style.display = '';
                 } else {
-                    item.style.display = 'none'; // Ocultar si no coincide con alguno
+                    item.style.display = 'none';
                 }
             });
         }
@@ -2294,31 +2173,22 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
         const availableFilteredPrendas = <?php echo $json_prendas_para_sugerencia_ia; ?>;
         const availablePrendas = <?php echo $json_prendas_para_sugerencia_compras; ?>;
         const tomorrowForecast = <?php echo $json_forecast_data; ?>;
-        const outfitsUsedHistory = <?php echo $json_outfits_usados_history; ?>; // NUEVA LÍNEA
-        const garmentUsageLimits = <?php echo $json_usage_limits_by_type; ?>; // NUEVA LÍNEA
+        const outfitsUsedHistory = <?php echo $json_outfits_usados_history; ?>;
+        const garmentUsageLimits = <?php echo $json_usage_limits_by_type; ?>;
 
-
-        // Nueva función para generar el prompt para la IA
         function generarPrompt() {
-            // Obtener todos los valores seleccionados del selector múltiple de contexto
-            // Reemplaza la obtención del contexto del select por la de los checkboxes
             const selectedContexts = Array.from(document.querySelectorAll('#formSugerencia input[name="contexto[]"]:checked'))
                 .map(checkbox => checkbox.value);
 
-            // Formatear los contextos para el prompt
             let contextoForIA = '';
             if (selectedContexts.length > 0) {
-                // Unir los contextos con " y " para una frase más natural
                 contextoForIA = selectedContexts.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(' y ');
             } else {
-                // Si por alguna razón no se selecciona nada, dar un valor por defecto
-                // Aunque el 'required' del HTML implica que al menos uno debe ser seleccionado.
                 contextoForIA = 'General';
             }
             const espacio_mochila = document.querySelector('#formSugerencia select[name="espacio_mochila"]').value;
             const muda_extra = document.getElementById('mudaExtra').checked;
-            // NUEVA LÍNEA: Obtener las reglas específicas
-            const reglas_especificas = document.getElementById('reglasEspecificas').value.trim(); // .trim() para quitar espacios al inicio/final
+            const reglas_especificas = document.getElementById('reglasEspecificas').value.trim();
 
             let prendasListForIA = '';
 
@@ -2327,15 +2197,11 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                 prendasListForIA += 'Utiliza los datos de "Días de descanso" para evitar repetir lo usado recientemente y "Usos totales" para dar rotación al clóset:\n\n';
 
                 availableFilteredPrendas.forEach(prenda => {
-                    // Formateamos los comentarios
                     const comments = prenda.comentarios ? ` | Nota: "${prenda.comentarios}"` : '';
-
-                    // Manejo de prendas nuevas (si dias_descanso es muy alto o null)
                     const descanso = (prenda.dias_descanso === null || prenda.dias_descanso > 99) ?
                         'Nueva/Sin uso reciente' :
                         `${prenda.dias_descanso} días`;
 
-                    // Construcción de la línea de la prenda con datos estratégicos
                     prendasListForIA += `- **${prenda.nombre}** [ID: ${prenda.id}]\n`;
                     prendasListForIA += `  Categoría: ${prenda.tipo} | Color: ${prenda.color}\n`;
                     prendasListForIA += `  Estadísticas: Semanal: ${prenda.usos_esta_semana} | Total: ${prenda.usos_totales} | Descanso: ${descanso}${comments}\n`;
@@ -2355,22 +2221,19 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             } else if (tomorrowForecast.length > 0) {
                 tomorrowForecastForIA = '\n\nPronóstico del clima para mañana (basado en Santiago):\n';
                 tomorrowForecast.forEach(forecast => {
-                    // Usar forecast.temp_range en lugar de forecast.temp
                     tomorrowForecastForIA += `- ${forecast.label}: ${forecast.temp_range}, ${forecast.desc}\n`;
                 });
                 tomorrowForecastForIA += '\n';
             } else {
                 tomorrowForecastForIA = '\n\nNo se pudo obtener el pronóstico del clima. Considera un clima general para la temporada.\n';
             }
-            // --- FIN NUEVO ---
 
-            // --- INICIO: Historial de Outfits Usados para el prompt ---
             let outfitsHistoryForIA = '';
             if (outfitsUsedHistory.length > 0) {
                 outfitsHistoryForIA = '\n\nMis outfits anteriores que podrías usar como referencia o inspiración:\n';
                 outfitsUsedHistory.forEach(outfit => {
-                    const lastUsedDate = outfit.fecha_ultimo_uso ? ` (Último uso: ${outfit.fecha_ultimo_uso})` : ''; // Formato de fecha
-                    outfitsHistoryForIA += `- Nombre: "${outfit.nombre}"${lastUsedDate}\n`; // Añadir la fecha al nombre
+                    const lastUsedDate = outfit.fecha_ultimo_uso ? ` (Último uso: ${outfit.fecha_ultimo_uso})` : '';
+                    outfitsHistoryForIA += `- Nombre: "${outfit.nombre}"${lastUsedDate}\n`;
                     outfitsHistoryForIA += `  Prendas: ${outfit.prendas}\n`;
                     if (outfit.comentarios) {
                         outfitsHistoryForIA += `  Comentarios: "${outfit.comentarios}"\n`;
@@ -2380,15 +2243,13 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             } else {
                 outfitsHistoryForIA = '\n\nNo tengo historial de outfits usados para referencia.\n';
             }
-            // --- FIN: Historial de Outfits Usados para el prompt ---
-
 
             let prompt = `\nComo experto en moda y estilismo, necesito una sugerencia de outfit detallada para las siguientes condiciones. Me gustaría que la ropa sugerida sea cómoda, adecuada para los cambios de temperatura y el pronóstico detallado. Por favor, sé creativo y proporciona la información de forma estructurada para que pueda ser parseada fácilmente.
 
             Condiciones para el outfit:
-            - Contexto: ${contextoForIA}
-            - Espacio en mochila disponible: ${espacio_mochila.charAt(0).toUpperCase() + espacio_mochila.slice(1)}
-            - ¿Posibilidad de llevar muda extra?: ${muda_extra ? 'Sí' : 'No'}
+- Contexto: ${contextoForIA}
+- Espacio en mochila disponible: ${espacio_mochila.charAt(0).toUpperCase() + espacio_mochila.slice(1)}
+- ¿Posibilidad de llevar muda extra?: ${muda_extra ? 'Sí' : 'No'}
             ${tomorrowForecastForIA}
 
             ${reglas_especificas ? `**Reglas o Requisitos Obligatorios:**\n- ${reglas_especificas}\n\n` : ''}
@@ -2397,9 +2258,7 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             
             ${prendasListForIA}
 
-
             ${outfitsHistoryForIA}
-            
 
            Tu respuesta debe tener el siguiente formato JSON estricto: un **objeto principal** que contenga una clave "type" (que será "outfit_suggestions") y una clave "suggestions" que sea un array de objetos. Proporciona **3 ideas de outfit distintas**. Sin texto adicional antes ni después del JSON. Cada objeto de outfit en el array "suggestions" debe tener las propiedades "titulo", "descripcion", "prendas_sugeridas" (un array de strings concisos) y "tips_adicionales".
             
@@ -2409,32 +2268,32 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
               "type": "outfit_suggestions",
               "suggestions": [
                 {
-                "titulo": "Un título atractivo para el Outfit 1",
-                "descripcion": "Una descripción breve y convincente del Outfit 1, explicando por qué es adecuado y cómo se adapta al clima y la comodidad.",
-                "prendas_sugeridas": [
-                  "Nombre Exacto de Prenda de tu lista 1", // Ejemplo: "Camiseta Naranja Salmón"
-                  "Tipo de prenda - Color (ej. 'pantalon - Azul Claro/Medio')", // Si no hay nombre exacto
-                  "Chaqueta Softshell Negra" // Otro ejemplo de nombre exacto
-                ],
-                "tips_adicionales": "Un consejo de estilo o practicidad relacionado con el Outfit 1 (ej. 'No olvides una bufanda ligera para la mañana fría.')"
-              },
-              {
-                "titulo": "Un título atractivo para el Outfit 2",
-                "descripcion": "Una descripción breve y convincente del Outfit 2.",
-                "prendas_sugeridas": [
-                  "Nombre Exacto de Prenda 1", "Nombre Exacto de Prenda 2"
-                ],
-                "tips_adicionales": "Tip para Outfit 2."
-              },
-              {
-                "titulo": "Un título atractivo para el Outfit 3",
-                "descripcion": "Una descripción breve y convincente del Outfit 3.",
-                "prendas_sugeridas": [
-                  "Nombre Exacto de Prenda X", "Nombre Exacto de Prenda Y"
-                ],
-                "tips_adicionales": "Tip para Outfit 3."
-              }
-            ]
+                "titulo": "Un título atractivo para el Outfit 1",
+                "descripcion": "Una descripción breve y convincente del Outfit 1, explicando por qué es adecuado y cómo se adapta al clima y la comodidad.",
+                "prendas_sugeridas": [
+                  "Nombre Exacto de Prenda de tu lista 1",
+                  "Tipo de prenda - Color (ej. 'pantalon - Azul Claro/Medio')",
+                  "Chaqueta Softshell Negra"
+                ],
+                "tips_adicionales": "Un consejo de estilo o practicidad relacionado con el Outfit 1 (ej. 'No olvides una bufanda ligera para la mañana fría.')"
+              },
+              {
+                "titulo": "Un título atractivo para el Outfit 2",
+                "descripcion": "Una descripción breve y convincente del Outfit 2.",
+                "prendas_sugeridas": [
+                  "Nombre Exacto de Prenda 1", "Nombre Exacto de Prenda 2"
+                ],
+                "tips_adicionales": "Tip para Outfit 2."
+              },
+              {
+                "titulo": "Un título atractivo para el Outfit 3",
+                "descripcion": "Una descripción breve y convincente del Outfit 3.",
+                "prendas_sugeridas": [
+                  "Nombre Exacto de Prenda X", "Nombre Exacto de Prenda Y"
+                ],
+                "tips_adicionales": "Tip para Outfit 3."
+              }
+            ]
         }
 `;
 
@@ -2452,11 +2311,9 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             }
         }
 
-        // Nueva función para generar el prompt para recomendaciones de compra
         function generarPromptCompra() {
-            // Recopilar datos generales del clóset
             let prendasInventarioForIA = '';
-            if (availablePrendas.length > 0) { // availablePrendas ahora contiene TODAS las prendas
+            if (availablePrendas.length > 0) {
                 prendasInventarioForIA = '\n\nMi inventario actual de prendas (incluye usos semanales y comentarios):\n';
                 availablePrendas.forEach(prenda => {
                     const comments = prenda.comentarios ? ` - Comentarios: "${prenda.comentarios}"` : '';
@@ -2467,19 +2324,15 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                 prendasInventarioForIA = '\n\nNo tienes prendas registradas en tu clóset. La recomendación será genérica.\n';
             }
 
-            // Datos de uso y posibles "sobreusadas"
             let prendasSobreusadasForIA = '';
             const overusedGarments = availablePrendas.filter(p => {
-                // Si no es de uso ilimitado y ha excedido sus usos semanales
-                // Obtener el límite del objeto garmentUsageLimits
-                const maxUsesForType = garmentUsageLimits[p.tipo.toLowerCase()] || 2; // Default 2 si el tipo no está en la lista
+                const maxUsesForType = garmentUsageLimits[p.tipo.toLowerCase()] || 2;
                 return !p.uso_ilimitado && p.usos_esta_semana >= maxUsesForType;
             });
 
             if (overusedGarments.length > 0) {
                 prendasSobreusadasForIA = '\n\nLas siguientes prendas han sido sobreusadas esta semana (quizás necesito más opciones de este tipo o categoría):\n';
                 overusedGarments.forEach(prenda => {
-                    // Obtener el límite del objeto garmentUsageLimits para mostrarlo
                     const maxUsesForDisplay = garmentUsageLimits[prenda.tipo.toLowerCase()] || 2;
                     prendasSobreusadasForIA += `- ${prenda.nombre} (Tipo: ${prenda.tipo}, Usos esta semana: ${prenda.usos_esta_semana}, Límite: ${maxUsesForDisplay})\n`;
                 });
@@ -2488,7 +2341,6 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                 prendasSobreusadasForIA = '\n\nNinguna prenda ha sido sobreusada esta semana.\n';
             }
 
-            // Historial de outfits usados (reutiliza la variable ya generada)
             let outfitsHistoryForIA = '';
             if (outfitsUsedHistory.length > 0) {
                 outfitsHistoryForIA = '\n\nMis outfits anteriores que podrían indicar mi estilo o necesidades:\n';
@@ -2505,17 +2357,16 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                 outfitsHistoryForIA = '\n\nNo tengo historial de outfits usados para referencia.\n';
             }
 
-            // Prompt principal
             let prompt = `Como experto en moda, estilismo y optimización de guardarropas, necesito tu ayuda para identificar qué prendas debería considerar comprar para mejorar y complementar mi clóset existente.
 
             Analiza la información de mi clóset a continuación, incluyendo mi inventario actual, mis patrones de uso semanal y mis outfits anteriores.
 
             **Mi Objetivo:** Quiero prendas que:
-            - Rellenen "huecos" en mi guardarropa.
-            - Reduzcan el sobreuso de ciertas prendas.
-            - Aumenten la versatilidad de mis outfits.
-            - Se adapten a mi estilo (inferido de mis outfits anteriores).
-            - Consideren la comodidad y funcionalidad para mis contextos habituales.
+- Rellenen "huecos" en mi guardarropa.
+- Reduzcan el sobreuso de ciertas prendas.
+- Aumenten la versatilidad de mis outfits.
+- Se adapten a mi estilo (inferido de mis outfits anteriores).
+- Consideren la comodidad y funcionalidad para mis contextos habituales.
 
             ${prendasInventarioForIA}
             ${prendasSobreusadasForIA}
@@ -2554,7 +2405,6 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             }
         }
 
-        // Event listener para el botón de copiar prompt
         document.getElementById('copyPromptBtn').addEventListener('click', function() {
             const aiPromptElement = document.getElementById('aiPrompt');
             aiPromptElement.select();
@@ -2568,13 +2418,11 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             }
         });
 
-        // Función para procesar la respuesta de la IA
-        // Función para procesar la respuesta de la IA (MEJORADA)
         document.getElementById('processResponseBtn').addEventListener('click', function() {
-            const aiResponseText = document.getElementById('aiResponse').value.trim(); // .trim() para limpiar espacios
+            const aiResponseText = document.getElementById('aiResponse').value.trim();
             const processedSuggestionDiv = document.getElementById('processedSuggestion');
 
-            processedSuggestionDiv.innerHTML = ''; // Limpiar el contenido anterior de sugerencias
+            processedSuggestionDiv.innerHTML = '';
 
             if (aiResponseText === '') {
                 Swal.fire('Atención', 'Por favor, pega la respuesta JSON de la IA en el campo.', 'info');
@@ -2582,14 +2430,12 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             }
 
             try {
-                const aiResponseData = JSON.parse(aiResponseText); // Ahora esperamos un OBJETO principal
+                const aiResponseData = JSON.parse(aiResponseText);
 
-                // 1. Validar que sea un objeto y tenga una propiedad 'type'
                 if (typeof aiResponseData !== 'object' || aiResponseData === null || !aiResponseData.type) {
                     throw new Error('La respuesta de la IA no es un objeto JSON válido o no contiene una propiedad "type" que indique el tipo de sugerencia.');
                 }
 
-                // 2. Delegar el renderizado basado en el 'type'
                 if (aiResponseData.type === 'outfit_suggestions') {
                     if (!Array.isArray(aiResponseData.suggestions) || aiResponseData.suggestions.length === 0) {
                         throw new Error('El tipo es "outfit_suggestions" pero "suggestions" no es un array o está vacío.');
@@ -2620,8 +2466,6 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             }
         });
 
-
-        // Función para renderizar sugerencias de outfits
         function renderOutfitSuggestions(suggestions) {
             const processedSuggestionDiv = document.getElementById('processedSuggestion');
             let allOutfitsHtml = '';
@@ -2629,16 +2473,8 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             suggestions.forEach((suggestion, index) => {
                 if (suggestion && suggestion.titulo && suggestion.descripcion && suggestion.prendas_sugeridas && Array.isArray(suggestion.prendas_sugeridas) && suggestion.tips_adicionales) {
                     let prendasListHtml = suggestion.prendas_sugeridas.map(prenda => `<li>${htmlspecialchars(prenda)}</li>`).join('');
-
-                    // 1. Convertir el objeto a JSON
                     let suggestionJson = JSON.stringify(suggestion);
-
-                    // 3. LIMPIEZA DE CARACTERES: Eliminar saltos de línea (que pueden romper el atributo)
-                    // Reemplaza newlines o retornos de carro por un espacio simple.
                     suggestionJson = suggestionJson.replace(/[\n\r]/g, ' ');
-
-                    // 4. ESCAPAR el JSON para hacerlo seguro dentro del atributo HTML
-                    // Esto convierte comillas dobles y simples dentro del JSON a entidades HTML (ej: &quot; y &#039;)
                     const suggestionJsonSeguro = htmlspecialchars(suggestionJson);
 
                     allOutfitsHtml += `
@@ -2675,7 +2511,6 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             });
             processedSuggestionDiv.innerHTML = allOutfitsHtml;
 
-            // Añadir event listeners a los nuevos botones "Crear este Outfit"
             document.querySelectorAll('.crear-outfit-sugerido').forEach(button => {
                 button.addEventListener('click', function() {
                     try {
@@ -2683,14 +2518,12 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                         createOutfitFromSuggestion(outfitData);
                     } catch (e) {
                         console.error("Error al parsear el JSON de data-outfit-data:", e);
-                        console.log("Contenido del atributo data-outfit-data:", this.dataset.outfitData);
                         Swal.fire('Error de Parsing', 'No se pudo leer la información del outfit sugerido. Revisa la consola para más detalles.', 'error');
                     }
                 });
             });
         }
 
-        // Función para renderizar recomendaciones de compra
         function renderPurchaseRecommendations(recommendations) {
             const processedSuggestionDiv = document.getElementById('processedSuggestion');
             let allRecommendationsHtml = '<h5>Recomendaciones de Compra:</h5><div class="list-group">';
@@ -2718,38 +2551,32 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             processedSuggestionDiv.innerHTML = allRecommendationsHtml;
         }
 
-        // Función para crear un outfit en la DB a partir de una sugerencia de la IA
         async function createOutfitFromSuggestion(suggestion, forceDuplicate = false) {
             Swal.fire({
                 title: 'Crear Outfit Sugerido',
                 html: `¿Quieres crear el outfit "${htmlspecialchars(suggestion.titulo)}" en tu clóset?`,
                 icon: 'question',
                 showCancelButton: true,
-                confirmButtonColor: '#28a745', // Color verde
+                confirmButtonColor: '#28a745',
                 cancelButtonColor: '#dc3545',
                 confirmButtonText: 'Sí, Crear Outfit'
-            }).then(async (result) => { // Usamos 'async' aquí porque dentro usaremos 'await'
+            }).then(async (result) => {
                 if (result.isConfirmed) {
-                    // --- MOVER LA DECLARACIÓN DE formData AQUÍ ---
-                    const formData = new FormData(); // Declara formData al inicio del bloque isConfirmed
+                    const formData = new FormData();
 
                     const outfitName = suggestion.titulo;
-                    const outfitDescription = suggestion.descripcion;
-                    // Note: outfitContext was previously a selector, let's make sure to get the actual selected values
-                    const outfitContextSelect = document.querySelector('#formSugerencia select[name="contexto[]"]'); // If it's still a select
-                    const outfitContextCheckboxes = document.querySelectorAll('#formSugerencia input[name="contexto[]"]:checked'); // If it's checkboxes
+                    const outfitContextSelect = document.querySelector('#formSugerencia select[name="contexto[]"]');
+                    const outfitContextCheckboxes = document.querySelectorAll('#formSugerencia input[name="contexto[]"]:checked');
 
-                    // Determine which 'contexts' to use based on your current HTML structure
                     let contextsToUse = [];
-                    if (outfitContextCheckboxes.length > 0) { // If using checkboxes
+                    if (outfitContextCheckboxes.length > 0) {
                         contextsToUse = Array.from(outfitContextCheckboxes).map(cb => cb.value);
-                    } else if (outfitContextSelect && outfitContextSelect.selectedOptions) { // If still using a multiple select
+                    } else if (outfitContextSelect && outfitContextSelect.selectedOptions) {
                         contextsToUse = Array.from(outfitContextSelect.selectedOptions).map(option => option.value);
                     }
 
                     const outfitComments = suggestion.descripcion + "<br>" + suggestion.tips_adicionales;
 
-                    // --- Mapear nombres de prendas sugeridas a IDs de prendas existentes ---
                     const selectedPrendaIds = [];
                     const unmatchedPrendas = [];
 
@@ -2758,18 +2585,14 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
 
                         const foundPrenda = availableFilteredPrendas.find(p => {
                             const pNameLower = p.nombre.toLowerCase();
-                            const pTypeColorLower = `${p.tipo.toLowerCase()} - ${p.color.toLowerCase()}`; // Ejemplo: "camiseta - naranja salmón"
+                            const pTypeColorLower = `${p.tipo.toLowerCase()} - ${p.color.toLowerCase()}`;
 
-                            // Intentar coincidencia exacta primero con el nombre de la prenda
                             if (suggestedLower === pNameLower) {
                                 return true;
                             }
-                            // Intentar coincidencia con la combinación tipo - color
                             if (suggestedLower === pTypeColorLower) {
                                 return true;
                             }
-                            // Si no hay coincidencia exacta, buscar si el nombre sugerido CONTIENE el nombre de la prenda o tipo/color
-                            // (Esto puede ser más flexible, pero puede dar falsos positivos)
                             return suggestedLower.includes(pNameLower) || suggestedLower.includes(pTypeColorLower);
                         });
 
@@ -2785,9 +2608,6 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                         return;
                     }
 
-                    // --- REORGANIZACIÓN DE LAS ADVERTENCIAS/CONFIRMACIONES ---
-
-                    // 1. Advertencia si hay prendas que la IA sugirió pero no se encontraron en el clóset
                     if (unmatchedPrendas.length > 0) {
                         const confirmProceedUnmatched = await Swal.fire({
                             title: 'Algunas prendas sugeridas no se encontraron',
@@ -2798,17 +2618,15 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                             cancelButtonText: 'No, cancelar'
                         });
                         if (!confirmProceedUnmatched.isConfirmed) {
-                            return; // Cancelar si el usuario no quiere crear con prendas faltantes
+                            return;
                         }
                     }
 
-                    // 2. Advertencia si hay prendas seleccionadas que no están "disponibles"
                     const nonAvailablePrendas = [];
                     selectedPrendaIds.forEach(prendaId => {
                         const prendaActual = availableFilteredPrendas.find(p => p.id === prendaId);
                         const nonAvailableStates = ['sucio', 'prestado', 'lavando'];
 
-                        // Asegúrate de que prendaActual exista y que no sea una prenda de uso ilimitado
                         if (prendaActual && nonAvailableStates.includes(prendaActual.estado) && !prendaActual.uso_ilimitado) {
                             nonAvailablePrendas.push(prendaActual.nombre);
                         }
@@ -2826,22 +2644,17 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                             cancelButtonText: 'No, cancelar'
                         });
                         if (!confirmProceedNonAvailable.isConfirmed) {
-                            return; // Cancelar si el usuario no quiere crear con prendas no disponibles
+                            return;
                         }
                     }
-                    // --- FIN REORGANIZACIÓN ---
 
-
-                    // Append data to formData
                     formData.append('nombre', outfitName);
-                    // Append only the first context, or 'General'
                     formData.append('contexto', contextsToUse.length > 0 ? contextsToUse[0] : 'General');
-                    formData.append('clima_base', 'todo'); // Default or derived from forecast if needed
+                    formData.append('clima_base', 'todo');
                     formData.append('comentarios', outfitComments);
                     selectedPrendaIds.forEach(id => {
                         formData.append('prendas[]', id);
                     });
-
 
                     await sendCreateOutfitRequest(formData, forceDuplicate);
                 }
@@ -2849,24 +2662,21 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
         }
 
         function processPrendaAIResponse() {
-            // Obtener el elemento textarea directamente dentro de la función
             const aiPrendaResponseTextarea = document.getElementById('aiPrendaResponse');
             const responseText = aiPrendaResponseTextarea.value;
             try {
                 const aiData = JSON.parse(responseText);
 
-                // Autocompletar campos si el JSON es válido
                 document.getElementById('iaNombre').value = aiData.nombre || '';
                 document.getElementById('iaTipo').value = aiData.tipo || '';
                 document.getElementById('iaColorPrincipal').value = aiData.color_principal || '';
                 document.getElementById('iaTela').value = aiData.tela || '';
                 document.getElementById('iaTextura').value = aiData.textura || '';
                 document.getElementById('iaEstampado').value = aiData.estampado || '';
-                document.getElementById('iaClimaApropiado').value = aiData.clima_apropiado || 'todo'; // Default si IA no lo da
-                document.getElementById('iaFormalidad').value = aiData.formalidad || 'casual'; // Default si IA no lo da
+                document.getElementById('iaClimaApropiado').value = aiData.clima_apropiado || 'todo';
+                document.getElementById('iaFormalidad').value = aiData.formalidad || 'casual';
                 document.getElementById('iaComentarios').value = aiData.comentarios || '';
 
-                // Mostrar mensaje de éxito si ya se pegó y es válido
                 if (responseText.length > 0) {
                     Swal.fire({
                         toast: true,
@@ -2880,7 +2690,6 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                 }
 
             } catch (e) {
-                // Limpiar campos si el JSON no es válido
                 document.getElementById('iaNombre').value = '';
                 document.getElementById('iaTipo').value = '';
                 document.getElementById('iaColorPrincipal').value = '';
@@ -2891,7 +2700,6 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                 document.getElementById('iaFormalidad').value = 'casual';
                 document.getElementById('iaComentarios').value = '';
 
-                // Solo mostrar error si el usuario ha pegado algo que no es vacío y no es JSON
                 if (responseText.trim().length > 0) {
                     Swal.fire({
                         toast: true,
@@ -2906,46 +2714,27 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             }
         }
 
-        // index.php - Dentro de las etiquetas <script> existentes
-
-        // Función para filtrar las prendas dentro del modal (se mantiene igual)
-        // index.php - Dentro de las etiquetas <script> existentes
-
         function filterPrendasForSearch() {
-            // 1. Obtener el texto de búsqueda, convertirlo a minúsculas y eliminar espacios extras.
             const searchTerm = document.getElementById('searchPrendasFilter').value.toLowerCase().trim();
-
-            // 2. Seleccionar TODOS los elementos de prenda dentro del contenedor.
             const prendaItems = document.querySelectorAll('#listaPrendasBusqueda .prenda-search-item');
 
             prendaItems.forEach(item => {
-                // 3. Obtener los atributos de datos. Usamos '|| '' ' por si alguno fuera nulo.
                 const nombre = item.getAttribute('data-nombre-prenda') || '';
                 const tipo = item.getAttribute('data-tipo-prenda') || '';
-
-                // 4. Combinar el texto de búsqueda.
                 const fullText = `${nombre} ${tipo}`;
 
-                // 5. Aplicar el filtro.
                 if (fullText.includes(searchTerm)) {
-                    // Si coincide, lo mostramos.
-                    // Al usar '' (cadena vacía), eliminamos el 'display: none' en línea y permitimos que 
-                    // la clase 'd-flex' de Bootstrap lo muestre correctamente.
                     item.style.display = '';
                 } else {
-                    // Si no coincide, lo ocultamos.
                     item.style.display = 'none';
                 }
             });
         }
 
-        // Lógica de Búsqueda AVANZADA: Ahora se ejecuta localmente
         function buscarOutfitsAvanzada() {
-            // 1. Recolectar los IDs de las prendas seleccionadas
             const checkboxes = document.querySelectorAll('#listaPrendasBusqueda input[type="checkbox"]:checked');
-            const selectedIds = Array.from(checkboxes).map(cb => cb.value); // Array de strings de IDs seleccionados
+            const selectedIds = Array.from(checkboxes).map(cb => cb.value);
 
-            // Ocultar el modal
             const searchModalEl = document.getElementById('searchOutfitModal');
             const searchModal = bootstrap.Modal.getInstance(searchModalEl);
             if (searchModal) {
@@ -2953,46 +2742,37 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             }
 
             if (selectedIds.length === 0) {
-                // Si no seleccionó nada, restaurar la vista original
                 resetOutfitsView();
                 return;
             }
 
-            // 2. Ejecutar el filtro localmente en los elementos del DOM
             mostrarOutfitsFiltrados(selectedIds);
         }
 
-        // Función principal para mostrar los resultados filtrados
         function mostrarOutfitsFiltrados(selectedIds) {
             const outfitCards = document.querySelectorAll('#outfitsListContainer .outfit-card');
             const container = document.getElementById('outfitsListContainer');
             let foundCount = 0;
 
-            // Iterar sobre todas las tarjetas de outfits
             outfitCards.forEach(card => {
-                // Obtener la lista de IDs de prendas que contiene este outfit
-                // Se debe parsear el atributo 'data-prendas'
                 const outfitPrendasData = card.getAttribute('data-prendas');
                 let outfitPrendasIds;
 
                 try {
                     outfitPrendasIds = JSON.parse(outfitPrendasData);
-                    // Convertir IDs de prendas del outfit a strings para fácil comparación
                     outfitPrendasIds = Array.isArray(outfitPrendasIds) ? outfitPrendasIds.map(String) : [];
                 } catch (e) {
                     console.error("Error al parsear prendas IDs para el outfit:", card.getAttribute('data-outfit-id'), e);
                     outfitPrendasIds = [];
                 }
 
-                // 3. Lógica de Filtrado: Verificar si TODAS las prendas seleccionadas están en el outfit
                 const allSelectedFound = selectedIds.every(selectedId =>
                     outfitPrendasIds.includes(selectedId)
                 );
 
-                const parentCol = card.closest('.col-md-6'); // Obtener el contenedor 'col' de Bootstrap
+                const parentCol = card.closest('.col-md-6');
 
                 if (allSelectedFound) {
-                    // Mostrar el outfit
                     if (parentCol) {
                         parentCol.style.display = 'block';
                     } else {
@@ -3000,7 +2780,6 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                     }
                     foundCount++;
                 } else {
-                    // Ocultar el outfit
                     if (parentCol) {
                         parentCol.style.display = 'none';
                     } else {
@@ -3009,7 +2788,6 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                 }
             });
 
-            // 4. Actualizar el encabezado y mostrar el estado del filtro
             const headerDiv = document.getElementById('outfitsListHeader');
             if (headerDiv) {
                 headerDiv.innerHTML = `<h4 class="mb-0">
@@ -3020,11 +2798,9 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
         </h4>`;
             }
 
-            // 5. Manejar el mensaje "No se encontraron resultados" si es necesario
             const noResultsMessage = document.getElementById('noOutfitsFoundMessage');
             if (foundCount === 0) {
                 if (!noResultsMessage) {
-                    // Añadir el mensaje si no existe
                     container.innerHTML += `<div class="col-12" id="noOutfitsFoundMessage"><div class="alert alert-warning text-center" role="alert">
                 <i class="fas fa-exclamation-triangle me-2"></i> No se encontraron outfits que contengan **TODAS** las prendas seleccionadas.
             </div></div>`;
@@ -3032,19 +2808,15 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                     noResultsMessage.style.display = 'block';
                 }
             } else if (noResultsMessage) {
-                // Ocultar el mensaje si hay resultados
                 noResultsMessage.style.display = 'none';
             }
         }
 
-
-        // Función para restaurar la vista original
         function resetOutfitsView() {
             const outfitCards = document.querySelectorAll('#outfitsListContainer .outfit-card');
             const headerDiv = document.getElementById('outfitsListHeader');
             const noResultsMessage = document.getElementById('noOutfitsFoundMessage');
 
-            // Mostrar todos los outfits
             outfitCards.forEach(card => {
                 const parentCol = card.closest('.col-md-6');
                 if (parentCol) {
@@ -3054,32 +2826,23 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                 }
             });
 
-            // Restaurar el encabezado
             if (headerDiv) {
                 headerDiv.innerHTML = `<h4 class="mb-0">Lista de Outfits</h4>`;
             }
 
-            // Ocultar mensaje de no resultados
             if (noResultsMessage) {
                 noResultsMessage.style.display = 'none';
             }
         }
 
-
-        // --- NUEVA LÓGICA: Subir Prenda con Asistencia IA ---
         document.addEventListener('DOMContentLoaded', () => {
-            const formPrendaIA = document.getElementById('formPrendaIA');
             const generarPromptPrendaBtn = document.getElementById('generarPromptPrendaBtn');
             const aiDescriptionSection = document.getElementById('aiDescriptionSection');
             const aiPrendaPrompt = document.getElementById('aiPrendaPrompt');
             const copyPrendaPromptBtn = document.getElementById('copyPrendaPromptBtn');
             const aiPrendaFotoInput = document.getElementById('iaPrendaFoto');
-            const aiPrendaResponseTextarea = document.getElementById('aiPrendaResponse');
             const guardarPrendaIABtn = document.getElementById('guardarPrendaIABtn');
 
-            let currentUploadedPrendaPath = ''; // Variable para guardar la ruta de la foto subida temporalmente
-
-            // Listener para el botón "Generar Prompt de Descripción"
             generarPromptPrendaBtn.addEventListener('click', async () => {
                 const file = aiPrendaFotoInput.files[0];
                 if (!file) {
@@ -3087,24 +2850,6 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                     return;
                 }
 
-                // 1. Subir la imagen temporalmente (simulado o a un script que la guarde y devuelva la ruta)
-                // Por la "mecánica de copiar y pegar", no subiremos la imagen real a un script de IA.
-                // En su lugar, el prompt dirá a la IA "describe la imagen que te pegaré".
-                // La imagen se subirá REALMENTE a 'save_prenda_from_ai.php' más tarde.
-
-                // Aquí podríamos subir la imagen a un script PHP para obtener una URL temporal si tu IA lo permite.
-                // O si la IA puede procesar imágenes directamente (como Gemini Vision), el usuario la pegaría allí.
-                // Para este flujo "copiar y pegar prompt", asumimos que la imagen se verá visualmente en la IA por el usuario.
-
-                // Por ahora, solo guardaremos el archivo localmente para la previsualización y la subida final.
-                // La URL de la foto en el prompt es un placeholder para que la IA sepa qué tipo de input esperar.
-
-                // Simular una subida temporal para obtener la URL para el prompt
-                // En una app real, aquí enviarías la imagen a un script PHP que la guarda
-                // y devuelve su URL pública. Por ahora, solo indicamos el nombre del archivo.
-                const simulatedFileName = file.name;
-
-                // 2. Generar el prompt con instrucciones para describir la imagen.
                 const prompt = `Actúa como un experto en moda y un asistente de clóset. Necesito que describas una prenda de ropa basándote en la imagen que te voy a proporcionar. Por favor, sé extremadamente detallado y proporciona las características exactas para catalogarla en mi clóset inteligente.
 
                 Tu respuesta debe ser un objeto JSON estricto con las siguientes propiedades. Si una característica no es clara en la imagen, omítela o usa "N/A" (No Aplicable):
@@ -3123,9 +2868,8 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                 `;
 
                 aiPrendaPrompt.value = prompt;
-                aiDescriptionSection.style.display = 'block'; // Mostrar la sección de descripción
+                aiDescriptionSection.style.display = 'block';
 
-                // Copiar el prompt al portapapeles
                 aiPrendaPrompt.select();
                 aiPrendaPrompt.setSelectionRange(0, 99999);
                 try {
@@ -3137,7 +2881,6 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                 }
             });
 
-            // Listener para copiar el prompt manualmente
             copyPrendaPromptBtn.addEventListener('click', async () => {
                 aiPrendaPrompt.select();
                 aiPrendaPrompt.setSelectionRange(0, 99999);
@@ -3150,23 +2893,17 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                 }
             });
 
-
-            // Función para procesar la respuesta de la IA y autocompletar campos
-
-            // Listener para el botón "Guardar Prenda en Clóset" (final)
             if (guardarPrendaIABtn) {
                 guardarPrendaIABtn.addEventListener('click', async (e) => {
-                    e.preventDefault(); // Esto es un click listener, así que prevenimos el submit si es un botón type="submit"
+                    e.preventDefault();
 
-                    // Validar que la foto esté seleccionada
-                    const iaPrendaFotoInput = document.getElementById('iaPrendaFotoAutomatica') || document.getElementById('iaPrendaFoto'); // Asegúrate del ID correcto
+                    const iaPrendaFotoInput = document.getElementById('iaPrendaFotoAutomatica') || document.getElementById('iaPrendaFoto');
                     const fotoFile = iaPrendaFotoInput.files[0];
                     if (!fotoFile) {
                         Swal.fire('Error', 'Debes seleccionar una imagen de la prenda.', 'error');
                         return;
                     }
 
-                    // Validar campos autocompletados (nombre, tipo)
                     const iaNombre = document.getElementById('iaNombre').value.trim();
                     const iaTipo = document.getElementById('iaTipo').value.trim();
                     if (!iaNombre || !iaTipo) {
@@ -3176,7 +2913,7 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
 
                     const formData2 = new FormData();
                     formData2.append('foto', fotoFile);
-                    formData2.append('nombre', iaNombre); // Usar 'nombre' para consistencia con backend
+                    formData2.append('nombre', iaNombre);
                     formData2.append('tipo', iaTipo);
                     formData2.append('color_principal_ia', document.getElementById('iaColorPrincipal').value.trim());
                     formData2.append('tela_ia', document.getElementById('iaTela').value.trim());
@@ -3186,33 +2923,29 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                     formData2.append('formalidad_ia', document.getElementById('iaFormalidad').value.trim());
                     formData2.append('comentarios_ia', document.getElementById('iaComentarios').value.trim());
 
-                    sendPrendaRequest(formData2, 'save_prenda_from_ai.php'); // Llama a la función unificada
+                    sendPrendaRequest(formData2, 'save_prenda_from_ai.php');
                 });
             }
         });
 
-        // Función para filtrar prendas en el formulario de creación de outfits
         function filterOutfitPrendas() {
             const searchTerm = document.getElementById('buscarPrendasOutfit').value.toLowerCase();
-            const prendaItems = document.querySelectorAll('#listaPrendasOutfit .prenda-outfit-item'); // Seleccionar solo los ítems dentro del contenedor
+            const prendaItems = document.querySelectorAll('#listaPrendasOutfit .prenda-outfit-item');
 
             prendaItems.forEach(item => {
                 const nombre = item.getAttribute('data-nombre-prenda');
                 const tipo = item.getAttribute('data-tipo-prenda');
                 const color = item.getAttribute('data-color-prenda');
-
-                // Combinar los atributos para la búsqueda
                 const fullText = `${nombre} ${tipo} ${color}`;
 
                 if (fullText.includes(searchTerm)) {
-                    item.style.display = ''; // Mostrar el ítem
+                    item.style.display = '';
                 } else {
-                    item.style.display = 'none'; // Ocultar el ítem
+                    item.style.display = 'none';
                 }
             });
         }
-    </script>
-    <script>
+
         function toggleOutfitForm() {
             const formContainer = document.getElementById('outfitFormContainer');
             const toggleBtn = document.getElementById('toggleOutfitFormBtn');
