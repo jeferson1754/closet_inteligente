@@ -312,7 +312,6 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap JS + Popper -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
 
@@ -1081,36 +1080,90 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                                 <textarea class="form-control" name="comentarios" rows="3"></textarea>
                                             </div>
                                             <div class="mb-3">
-                                                <label class="form-label">Seleccionar Prendas</label>
+                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                    <label class="form-label fw-bold mb-0">Seleccionar Prendas</label>
+                                                    <span class="badge bg-primary rounded-pill" id="contadorPrendasOutfit">0 seleccionadas</span>
+                                                </div>
 
-                                                <input type="text" class="form-control mb-2" id="buscarPrendasOutfit" placeholder="Buscar prenda por nombre, tipo o color..." onkeyup="filterOutfitPrendas()">
-                                                <div id="listaPrendasOutfit">
+                                                <!-- Barra de filtros rápidos -->
+                                                <div class="row g-2 mb-2">
+                                                    <div class="col-12">
+                                                        <div class="input-group input-group-sm">
+                                                            <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
+                                                            <input type="text" class="form-control" id="buscarPrendasOutfit" placeholder="Buscar por nombre, tipo, color o tela...">
+                                                            <button class="btn btn-outline-secondary" type="button" id="limpiarFiltroPrendasOutfit" title="Limpiar filtros">
+                                                                <i class="fas fa-times"></i>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <select class="form-select form-select-sm" id="filtroTipoPrendaOutfit">
+                                                            <option value="todos">Todos los tipos</option>
+                                                            <?php
+                                                            $res_tipos_outfit = $mysqli_obj->query("SELECT DISTINCT(tipo) FROM prendas ORDER BY tipo ASC");
+                                                            if ($res_tipos_outfit) {
+                                                                while ($t_row = $res_tipos_outfit->fetch_assoc()) {
+                                                                    $tipo_val = htmlspecialchars(strtolower($t_row['tipo']));
+                                                                    $tipo_lbl = htmlspecialchars(ucfirst($t_row['tipo']));
+                                                                    echo "<option value=\"{$tipo_val}\">{$tipo_lbl}</option>";
+                                                                }
+                                                            }
+                                                            ?>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <select class="form-select form-select-sm" id="filtroEstadoPrendaOutfit">
+                                                            <option value="todos">Todos los estados</option>
+                                                            <option value="disponible" selected>Solo disponibles</option>
+                                                            <option value="seleccionadas">Solo marcadas ✓</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Lista con scroll controlado -->
+                                                <div id="listaPrendasOutfit" style="max-height: 340px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 10px; padding: 10px; background: #fafafa;">
                                                     <?php
-                                                    $sql_prendas_outfit_form = "SELECT id, nombre, tipo, color_principal, foto, uso_ilimitado FROM prendas WHERE estado = 'disponible' OR uso_ilimitado = TRUE";
+                                                    $sql_prendas_outfit_form = "SELECT id, nombre, tipo, color_principal, tela, estado, foto, uso_ilimitado 
+                                    FROM prendas 
+                                    ORDER BY FIELD(estado, 'disponible', 'en uso', 'sucio', 'lavando'), nombre ASC";
                                                     $result_prendas_outfit_form = $mysqli_obj->query($sql_prendas_outfit_form);
 
                                                     if ($result_prendas_outfit_form && $result_prendas_outfit_form->num_rows > 0) {
                                                         while ($prenda = $result_prendas_outfit_form->fetch_assoc()) {
+                                                            $imagen_src = !empty($prenda['foto']) ? htmlspecialchars($prenda['foto']) : 'https://via.placeholder.com/50x50?text=Sin+Img';
+                                                            $estado_lower = strtolower($prenda['estado']);
+                                                            $es_disponible = ($estado_lower === 'disponible' || $prenda['uso_ilimitado']);
+                                                            $badge_estado = ($estado_lower === 'disponible') ? 'bg-success' : (($estado_lower === 'sucio') ? 'bg-danger' : 'bg-warning text-dark');
+
                                                             echo '
-                                                            <div class="form-check mb-2 prenda-outfit-item" data-nombre-prenda="' . htmlspecialchars(strtolower($prenda['nombre'])) . '" data-tipo-prenda="' . htmlspecialchars(strtolower($prenda['tipo'])) . '" data-color-prenda="' . htmlspecialchars(strtolower($prenda['color_principal'])) . '">
-                                                                <input class="form-check-input" type="checkbox" name="prendas[]" value="' . $prenda['id'] . '" id="prendaOutfit' . $prenda['id'] . '">
-                                                                <label class="form-check-label d-flex align-items-center" for="prendaOutfit' . $prenda['id'] . '">
-                                                                    ';
-                                                            $imagen_src = !empty($prenda['foto']) ? htmlspecialchars($prenda['foto']) : 'https://via.placeholder.com/50x50?text=Sin+Imagen';
-                                                            echo '<img src="' . $imagen_src . '" alt="Imagen de ' . htmlspecialchars($prenda['nombre']) . '" class="me-2 rounded" style="width: 50px; height: 50px; object-fit: cover;">';
-                                                            echo '
-                                                                    <div>
-                                                                        <strong>' . htmlspecialchars($prenda['nombre']) . '</strong><br>
-                                                                        <small class="text-muted">' . htmlspecialchars($prenda['tipo']) . ' • ' . htmlspecialchars($prenda['color_principal']) . '</small>
-                                                                    </div>
-                                                                </label>
-                                                            </div>
-                                                            ';
+                <div class="form-check mb-2 p-2 rounded bg-white border prenda-outfit-item d-flex align-items-center justify-content-between"
+                     data-nombre-prenda="' . htmlspecialchars(strtolower($prenda['nombre'])) . '"
+                     data-tipo-prenda="' . htmlspecialchars(strtolower($prenda['tipo'])) . '"
+                     data-color-prenda="' . htmlspecialchars(strtolower($prenda['color_principal'])) . '"
+                     data-tela-prenda="' . htmlspecialchars(strtolower($prenda['tela'] ?? '')) . '"
+                     data-estado-prenda="' . ($es_disponible ? 'disponible' : $estado_lower) . '">
+                    
+                    <div class="d-flex align-items-center flex-grow-1">
+                        <input class="form-check-input me-2 checkbox-prenda-outfit" type="checkbox" name="prendas[]" value="' . $prenda['id'] . '" id="prendaOutfit' . $prenda['id'] . '">
+                        <label class="form-check-label d-flex align-items-center w-100 cursor-pointer" for="prendaOutfit' . $prenda['id'] . '">
+                            <img src="' . $imagen_src . '" alt="' . htmlspecialchars($prenda['nombre']) . '" class="me-2 rounded" style="width: 44px; height: 44px; object-fit: cover;">
+                            <div>
+                                <strong class="small d-block lh-sm">' . htmlspecialchars($prenda['nombre']) . '</strong>
+                                <small class="text-muted" style="font-size: 0.75rem;">' . htmlspecialchars($prenda['tipo']) . ' • ' . htmlspecialchars($prenda['color_principal']) . '</small>
+                            </div>
+                        </label>
+                    </div>
+                    <span class="badge ' . $badge_estado . ' rounded-pill ms-1" style="font-size: 0.65rem;">' . htmlspecialchars($prenda['estado']) . '</span>
+                </div>';
                                                         }
                                                     } else {
-                                                        echo '<p class="text-muted">No hay prendas disponibles para seleccionar.</p>';
+                                                        echo '<p class="text-muted text-center my-3">No hay prendas registradas.</p>';
                                                     }
                                                     ?>
+                                                    <div id="sinResultadosPrendasOutfit" class="text-center text-muted py-3" style="display: none;">
+                                                        <i class="fas fa-search mb-1"></i>
+                                                        <p class="small mb-0">Ninguna prenda coincide con el filtro.</p>
+                                                    </div>
                                                 </div>
                                             </div>
 
@@ -1818,15 +1871,27 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                 </div>`;
                         });
 
-                        container.innerHTML += html;
+                        container.insertAdjacentHTML('beforeend', html);
                         const newOffset = currentOffset + data.outfits.length;
                         offsetInput.value = newOffset;
+
+                        // Si hay prendas marcadas en el filtro, reaplicar el filtro a los nuevos outfits
+                        // Si hay prendas marcadas en el filtro, reaplicar el filtro a los nuevos outfits
+                        const marcadas = document.querySelectorAll('#listaPrendasBusqueda .checkbox-prenda-busqueda:checked');
+                        if (marcadas.length > 0) {
+                            const selectedIds = Array.from(marcadas).map(cb => cb.value);
+                            const modo = document.querySelector('input[name="modoFiltroOutfits"]:checked')?.value || 'todas';
+                            mostrarOutfitsFiltrados(selectedIds, modo);
+                        }
 
                         if (newOffset >= totalOutfits) {
                             loadBtn.remove();
                         } else {
                             loadBtn.disabled = false;
-                            loadBtn.style.display = 'inline-block';
+                            // Solo mostrar el botón si NO hay un filtro activo
+                            if (marcadas.length === 0) {
+                                loadBtn.style.display = 'inline-block';
+                            }
                         }
                     } else {
                         loadBtn.remove();
@@ -1848,12 +1913,17 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
             const titulo = modalElement.querySelector('.modal-title');
             const cuerpo = modalElement.querySelector('.modal-body');
             const btnConfirmar = modalElement.querySelector('#btnConfirmarAccion');
+            const outfitsContainer = document.getElementById('outfitsListContainer');
 
             let outfitIdActual = null;
             let accionActual = null;
 
-            document.querySelectorAll('.dropdown-menu a').forEach(link => {
-                link.addEventListener('click', e => {
+            // 1. Delegación de eventos: funciona con los iniciales, los de "Cargar más" y los de "buscar_outfits_por_prendas.php"
+            if (outfitsContainer) {
+                outfitsContainer.addEventListener('click', e => {
+                    const link = e.target.closest('.dropdown-menu a');
+                    if (!link) return;
+
                     e.preventDefault();
 
                     outfitIdActual = link.getAttribute('data-id');
@@ -1873,92 +1943,90 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
 
                                         if (data.outfit_details) {
                                             contentHtml += `
-        <div class="outfit-details-container mb-4">
-            <div class="outfit-header text-center mb-3">
-                <h4 class="outfit-title mb-2">
-                    <i class="fas fa-tshirt me-2 text-primary"></i>
-                    ${data.outfit_details.nombre}
-                </h4>
-                <div class="d-flex flex-wrap justify-content-center gap-2 mb-3">
-                    <span class="badge bg-primary px-3 py-2 rounded-pill">
-                        <i class="fas fa-tag me-1"></i>
-                        ${data.outfit_details.contexto}
-                    </span>
-                    <span class="badge clima-${data.outfit_details.clima_base.toLowerCase()} px-3 py-2 rounded-pill">
-                        <i class="fas fa-cloud-sun me-1"></i>
-                        ${data.outfit_details.clima_base}
-                    </span>
-                </div>
-            </div>
+                                    <div class="outfit-details-container mb-4">
+                                        <div class="outfit-header text-center mb-3">
+                                            <h4 class="outfit-title mb-2">
+                                                <i class="fas fa-tshirt me-2 text-primary"></i>
+                                                ${htmlspecialchars(data.outfit_details.nombre)}
+                                            </h4>
+                                            <div class="d-flex flex-wrap justify-content-center gap-2 mb-3">
+                                                <span class="badge bg-primary px-3 py-2 rounded-pill">
+                                                    <i class="fas fa-tag me-1"></i>
+                                                    ${htmlspecialchars(data.outfit_details.contexto)}
+                                                </span>
+                                                <span class="badge clima-${htmlspecialchars(data.outfit_details.clima_base.toLowerCase())} px-3 py-2 rounded-pill">
+                                                    <i class="fas fa-cloud-sun me-1"></i>
+                                                    ${htmlspecialchars(data.outfit_details.clima_base)}
+                                                </span>
+                                            </div>
+                                        </div>
 
-            <div class="text-center mb-1">
-                <div class="info-card">
-                    <div class="info-label">
-                        <i class="fas fa-calendar-alt me-2 text-muted"></i>
-                        <small class="text-muted text-uppercase fw-bold">Último uso</small>
-                    </div>
-                    <div class="info-value">
-                        <span class="text-muted capitalized">
-                          ${data.outfit_details.fecha_ultimo_uso_outfit 
-                            ? (() => {
-                                let fecha = new Date(data.outfit_details.fecha_ultimo_uso_outfit);
-                                fecha.setDate(fecha.getDate() + 1);
-                                return fecha.toLocaleDateString('es-ES', { 
-                                    weekday: 'long', 
-                                    day: '2-digit', 
-                                    month: '2-digit', 
-                                    year: '2-digit' 
-                                });
-                            })() 
-                            : 'No disponible'}
-                        </span>
-                    </div>
-                </div>
-            </div>
+                                        <div class="text-center mb-1">
+                                            <div class="info-card">
+                                                <div class="info-label">
+                                                    <i class="fas fa-calendar-alt me-2 text-muted"></i>
+                                                    <small class="text-muted text-uppercase fw-bold">Último uso</small>
+                                                </div>
+                                                <div class="info-value">
+                                                    <span class="text-muted capitalized">
+                                                      ${data.outfit_details.fecha_ultimo_uso_outfit 
+                                                        ? (() => {
+                                                            let fecha = new Date(data.outfit_details.fecha_ultimo_uso_outfit);
+                                                            fecha.setDate(fecha.getDate() + 1);
+                                                            return fecha.toLocaleDateString('es-ES', { 
+                                                                weekday: 'long', 
+                                                                day: '2-digit', 
+                                                                month: '2-digit', 
+                                                                year: '2-digit' 
+                                                            });
+                                                        })() 
+                                                        : 'No disponible'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
 
-            ${data.outfit_details.comentarios ? `
-                <div class="outfit-comments">
-                    <div class="comment-card">
-                        <div class="comment-header mb-2">
-                            <i class="fas fa-quote-left text-primary me-2"></i>
-                            <span class="comment-label text-muted text-uppercase fw-bold fs-7">Comentarios</span>
-                        </div>
-                        <div class="comment-content">
-                            ${data.outfit_details.comentarios.replace(/\n/g, '<br>')}
-                        </div>
-                    </div>
-                </div>
-            ` : `
-                <div class="no-comments text-center">
-                    <i class="fas fa-comment-slash text-muted me-2"></i>
-                    <span class="text-muted fst-italic">Sin detalles adicionales</span>
-                </div>
-            `}
-        </div>`;
+                                        ${data.outfit_details.comentarios ? `
+                                            <div class="outfit-comments mt-3">
+                                                <div class="comment-card">
+                                                    <div class="comment-header mb-2">
+                                                        <i class="fas fa-quote-left text-primary me-2"></i>
+                                                        <span class="comment-label text-muted text-uppercase fw-bold fs-7">Comentarios</span>
+                                                    </div>
+                                                    <div class="comment-content">
+                                                        ${htmlspecialchars(data.outfit_details.comentarios).replace(/\n/g, '<br>')}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ` : `
+                                            <div class="no-comments text-center mt-3">
+                                                <i class="fas fa-comment-slash text-muted me-2"></i>
+                                                <span class="text-muted fst-italic">Sin detalles adicionales</span>
+                                            </div>
+                                        `}
+                                    </div>`;
                                         }
 
-                                        if (data.prendas.length > 0) {
+                                        if (data.prendas && data.prendas.length > 0) {
                                             contentHtml += '<h6 class="mb-3">Prendas que componen este outfit:</h6><div class="row">';
                                             data.prendas.forEach(prenda => {
                                                 contentHtml += `
-                                                <div class="col-6 col-md-4 mb-3">
-                                                    <div class="card h-100">
-                                                        <img src="${prenda.foto}" class="card-img-top" alt="${prenda.nombre}" style="height: 120px; object-fit: cover;">
-                                                        <div class="card-body p-2">
-                                                            <h6 class="card-title mb-0">${prenda.nombre}</h6>
-                                                            <small class="text-muted">${prenda.tipo} - ${prenda.color_principal}</small>
-                                                            ${prenda.detalles_adicionales ? `<p class="card-text"><small class="text-muted"><em>"${prenda.detalles_adicionales.substring(0, 50)}..."</em></small></p>` : ''}
-                                                        </div>
-                                                    </div>
+                                        <div class="col-6 col-md-4 mb-3">
+                                            <div class="card h-100">
+                                                <img src="${prenda.foto}" class="card-img-top" alt="${htmlspecialchars(prenda.nombre)}" style="height: 120px; object-fit: cover;">
+                                                <div class="card-body p-2">
+                                                    <h6 class="card-title mb-0">${htmlspecialchars(prenda.nombre)}</h6>
+                                                    <small class="text-muted">${htmlspecialchars(prenda.tipo)} - ${htmlspecialchars(prenda.color_principal)}</small>
+                                                    ${prenda.detalles_adicionales ? `<p class="card-text"><small class="text-muted"><em>"${htmlspecialchars(prenda.detalles_adicionales.substring(0, 50))}..."</em></small></p>` : ''}
                                                 </div>
-                                            `;
+                                            </div>
+                                        </div>`;
                                             });
                                             contentHtml += '</div>';
                                         } else {
                                             contentHtml += `<p class="text-muted text-center">${data.message || 'No se encontraron prendas para este outfit.'}</p>`;
                                         }
                                         cuerpo.innerHTML = contentHtml;
-
                                     } else {
                                         cuerpo.innerHTML = `<p class="text-danger text-center">${data.message || 'Error al obtener los detalles del outfit.'}</p>`;
                                     }
@@ -1968,107 +2036,145 @@ $json_usage_limits_by_type = json_encode($usage_limits_by_type, JSON_UNESCAPED_U
                                     cuerpo.innerHTML = '<p class="text-danger text-center">Error al cargar los detalles del outfit.</p>';
                                 });
                             break;
+
                         case 'usar':
                             titulo.textContent = 'Usar Outfit #' + outfitIdActual;
-                            cuerpo.innerHTML = `<p>¿Quieres usar el outfit <strong>${outfitIdActual}</strong> hoy?</p>`;
+                            cuerpo.innerHTML = `<p>¿Quieres usar el outfit <strong>#${outfitIdActual}</strong> hoy?</p>`;
                             btnConfirmar.style.display = 'inline-block';
+                            btnConfirmar.className = 'btn btn-primary';
                             btnConfirmar.textContent = 'Usar ahora';
                             break;
+
                         case 'eliminar':
                             titulo.textContent = 'Eliminar Outfit #' + outfitIdActual;
-                            cuerpo.innerHTML = `<p>¿Estás seguro que deseas eliminar el outfit <strong>${outfitIdActual}</strong>? Esta acción no se puede deshacer.</p>`;
+                            cuerpo.innerHTML = `<p>¿Estás seguro que deseas eliminar el outfit <strong>#${outfitIdActual}</strong>? Esta acción no se puede deshacer.</p>`;
                             btnConfirmar.style.display = 'inline-block';
+                            btnConfirmar.className = 'btn btn-danger';
                             btnConfirmar.textContent = 'Eliminar';
                             break;
                     }
 
                     modal.show();
                 });
-            });
+            }
 
+            // 2. Función con soporte para todas las confirmaciones del backend
+            function ejecutarRegistroOutfit(outfitId, flags = {}) {
+                const params = new URLSearchParams();
+                params.append('outfit_id', outfitId);
+                if (flags.forceRepetition) params.append('force_repetition', 'true');
+                if (flags.forceDirtyUse) params.append('force_dirty_use', 'true');
+                if (flags.forceOverwrite) params.append('force_overwrite', 'true');
+
+                fetch('registrar_uso_outfit.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        },
+                        body: params.toString()
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            modal.hide();
+                            Swal.fire('¡Outfit Usado!', data.message, 'success')
+                                .then(() => location.reload());
+                        } else if (data.is_repetition) {
+                            Swal.fire({
+                                title: '¿Repetir estilo?',
+                                html: data.message.replace(/\n/g, '<br>'),
+                                icon: 'warning',
+                                showCancelButton: true,
+                                confirmButtonColor: '#667eea',
+                                cancelButtonColor: '#d33',
+                                confirmButtonText: 'Sí, usar de todos modos',
+                                cancelButtonText: 'No, elegir otro'
+                            }).then(result => {
+                                if (result.isConfirmed) {
+                                    ejecutarRegistroOutfit(outfitId, {
+                                        ...flags,
+                                        forceRepetition: true
+                                    });
+                                }
+                            });
+                        } else if (data.code === 'PRENDAS_NO_DISPONIBLES') {
+                            Swal.fire({
+                                title: 'Prendas no disponibles',
+                                text: data.message,
+                                icon: 'warning',
+                                showCancelButton: true,
+                                confirmButtonColor: '#667eea',
+                                cancelButtonColor: '#d33',
+                                confirmButtonText: 'Sí, usar de todos modos',
+                                cancelButtonText: 'Cancelar'
+                            }).then(result => {
+                                if (result.isConfirmed) {
+                                    ejecutarRegistroOutfit(outfitId, {
+                                        ...flags,
+                                        forceDirtyUse: true
+                                    });
+                                }
+                            });
+                        } else if (data.code === 'ALREADY_USED_TODAY') {
+                            Swal.fire({
+                                title: 'Ya usaste un outfit hoy',
+                                text: data.message,
+                                icon: 'warning',
+                                showCancelButton: true,
+                                confirmButtonColor: '#667eea',
+                                cancelButtonColor: '#d33',
+                                confirmButtonText: 'Sí, reemplazar',
+                                cancelButtonText: 'Cancelar'
+                            }).then(result => {
+                                if (result.isConfirmed) {
+                                    ejecutarRegistroOutfit(outfitId, {
+                                        ...flags,
+                                        forceOverwrite: true
+                                    });
+                                }
+                            });
+                        } else {
+                            modal.hide();
+                            Swal.fire('Error', data.message || 'Error desconocido al registrar el uso del outfit', 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error en la solicitud AJAX:', error);
+                        modal.hide();
+                        Swal.fire('Error de conexión', 'No se pudo comunicar con el servidor.', 'error');
+                    });
+            }
+
+            // 3. Confirmación de acciones del modal
             btnConfirmar.addEventListener('click', () => {
                 if (!outfitIdActual || !accionActual) return;
 
                 if (accionActual === 'usar') {
-                    function ejecutarRegistroOutfit(outfitId, forceRepetition = false) {
-                        let bodyData = `outfit_id=${outfitId}`;
-                        if (forceRepetition) {
-                            bodyData += `&force_repetition=true`;
-                        }
-
-                        fetch('registrar_uso_outfit.php', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/x-www-form-urlencoded',
-                                },
-                                body: bodyData
-                            })
-                            .then(response => response.json())
-                            .then(data => {
-                                if (data.success) {
-                                    Swal.fire('¡Outfit Usado!', data.message, 'success')
-                                        .then(() => {
-                                            if (typeof modal !== 'undefined') modal.hide();
-                                            location.reload();
-                                        });
-                                } else if (data.is_repetition) {
-                                    Swal.fire({
-                                        title: '¿Repetir estilo?',
-                                        text: data.message,
-                                        icon: 'warning',
-                                        showCancelButton: true,
-                                        confirmButtonColor: '#667eea',
-                                        cancelButtonColor: '#d33',
-                                        confirmButtonText: 'Sí, usar de todos modos',
-                                        cancelButtonText: 'No, elegir otro'
-                                    }).then((result) => {
-                                        if (result.isConfirmed) {
-                                            ejecutarRegistroOutfit(outfitId, true);
-                                        }
-                                    });
-                                } else {
-                                    Swal.fire('Error', data.message || 'Error desconocido al registrar el uso del outfit', 'error');
-                                    if (typeof modal !== 'undefined') modal.hide();
-                                }
-                            })
-                            .catch(error => {
-                                console.error('Error en la solicitud AJAX:', error);
-                                Swal.fire('Error de conexión', 'No se pudo comunicar con el servidor.', 'error');
-                                if (typeof modal !== 'undefined') modal.hide();
-                            });
-                    }
-
                     ejecutarRegistroOutfit(outfitIdActual);
-
                 } else if (accionActual === 'eliminar') {
                     fetch('eliminar_outfit.php', {
                             method: 'POST',
                             headers: {
-                                'Content-Type': 'application/x-www-form-urlencoded',
+                                'Content-Type': 'application/x-www-form-urlencoded'
                             },
                             body: `outfit_id=${outfitIdActual}`
                         })
                         .then(response => response.json())
                         .then(data => {
+                            modal.hide();
                             if (data.success) {
                                 Swal.fire('Eliminado', data.message, 'success')
-                                    .then(() => {
-                                        modal.hide();
-                                        location.reload();
-                                    });
+                                    .then(() => location.reload());
                             } else {
                                 Swal.fire('Error', data.message || 'Error desconocido al eliminar el outfit', 'error');
-                                modal.hide();
                             }
                         })
                         .catch(error => {
                             console.error('Error en la solicitud AJAX de eliminación:', error);
-                            Swal.fire('Error de conexión', 'No se pudo comunicar con el servidor para eliminar el outfit.', 'error');
                             modal.hide();
+                            Swal.fire('Error de conexión', 'No se pudo comunicar con el servidor para eliminar el outfit.', 'error');
                         });
                 }
-
-                modal.hide();
             });
         });
 
@@ -2879,126 +2985,332 @@ Estructura obligatoria del JSON:
             }
         });
 
+
+        // --- FILTRADO AVANZADO DE OUTFITS POR PRENDAS ---
         function filterPrendasForSearch() {
-            const searchTerm = document.getElementById('searchPrendasFilter').value.toLowerCase().trim();
+            const searchTerm = (document.getElementById('searchPrendasFilter')?.value || '').toLowerCase().trim();
+            const tipoFilter = document.getElementById('filtroTipoBusquedaModal')?.value || 'todos';
+            const vistaFilter = document.getElementById('filtroVistaBusquedaModal')?.value || 'todas';
             const prendaItems = document.querySelectorAll('#listaPrendasBusqueda .prenda-search-item');
+            const msgSinResultados = document.getElementById('sinResultadosBusquedaModal');
+
+            let visibles = 0;
 
             prendaItems.forEach(item => {
-                const nombre = item.getAttribute('data-nombre-prenda') || '';
-                const tipo = item.getAttribute('data-tipo-prenda') || '';
-                const fullText = `${nombre} ${tipo}`;
+                const checkbox = item.querySelector('.checkbox-prenda-busqueda');
+                const nombre = item.dataset.nombrePrenda || '';
+                const tipo = item.dataset.tipoPrenda || '';
+                const color = item.dataset.colorPrenda || '';
+                const tela = item.dataset.telaPrenda || '';
+                const estado = item.dataset.estadoPrenda || '';
 
-                if (fullText.includes(searchTerm)) {
+                const fullText = `${nombre} ${tipo} ${color} ${tela}`;
+                const matchesText = searchTerm === '' || fullText.includes(searchTerm);
+                const matchesTipo = tipoFilter === 'todos' || tipo === tipoFilter;
+
+                let matchesVista = true;
+                if (vistaFilter === 'marcadas') {
+                    matchesVista = checkbox && checkbox.checked;
+                } else if (vistaFilter === 'disponibles') {
+                    matchesVista = estado === 'disponible';
+                }
+
+                if (matchesText && matchesTipo && matchesVista) {
                     item.style.display = '';
+                    visibles++;
                 } else {
                     item.style.display = 'none';
                 }
             });
+
+            if (msgSinResultados) {
+                msgSinResultados.style.display = (visibles === 0) ? 'block' : 'none';
+            }
         }
 
-        function buscarOutfitsAvanzada() {
-            const checkboxes = document.querySelectorAll('#listaPrendasBusqueda input[type="checkbox"]:checked');
-            const selectedIds = Array.from(checkboxes).map(cb => cb.value);
+        function actualizarContadorBusquedaModal() {
+            const marcadas = document.querySelectorAll('#listaPrendasBusqueda .checkbox-prenda-busqueda:checked').length;
+            const badge = document.getElementById('contadorPrendasBusqueda');
+            if (badge) {
+                badge.textContent = `${marcadas} prenda${marcadas === 1 ? '' : 's'} seleccionada${marcadas === 1 ? '' : 's'}`;
+            }
+        }
 
+        document.addEventListener('DOMContentLoaded', () => {
+            const inputSearchModal = document.getElementById('searchPrendasFilter');
+            const selectTipoModal = document.getElementById('filtroTipoBusquedaModal');
+            const selectVistaModal = document.getElementById('filtroVistaBusquedaModal');
+            const btnLimpiarSearchModal = document.getElementById('limpiarFiltroBusquedaModal');
+            const btnDesmarcarTodas = document.getElementById('desmarcarTodasBusquedaBtn');
+
+            if (inputSearchModal) inputSearchModal.addEventListener('input', filterPrendasForSearch);
+            if (selectTipoModal) selectTipoModal.addEventListener('change', filterPrendasForSearch);
+            if (selectVistaModal) selectVistaModal.addEventListener('change', filterPrendasForSearch);
+
+            if (btnLimpiarSearchModal) {
+                btnLimpiarSearchModal.addEventListener('click', () => {
+                    inputSearchModal.value = '';
+                    selectTipoModal.value = 'todos';
+                    selectVistaModal.value = 'todas';
+                    filterPrendasForSearch();
+                });
+            }
+
+            if (btnDesmarcarTodas) {
+                btnDesmarcarTodas.addEventListener('click', () => {
+                    document.querySelectorAll('#listaPrendasBusqueda .checkbox-prenda-busqueda').forEach(cb => {
+                        cb.checked = false;
+                        const card = cb.closest('.card-check-busqueda');
+                        if (card) {
+                            card.classList.remove('border-primary', 'bg-primary-subtle');
+                            card.classList.add('bg-white');
+                        }
+                    });
+                    actualizarContadorBusquedaModal();
+                    filterPrendasForSearch();
+                });
+            }
+
+            document.querySelectorAll('#listaPrendasBusqueda .checkbox-prenda-busqueda').forEach(cb => {
+                cb.addEventListener('change', () => {
+                    actualizarContadorBusquedaModal();
+                    const card = cb.closest('.card-check-busqueda');
+                    if (card) {
+                        card.classList.toggle('border-primary', cb.checked);
+                        card.classList.toggle('bg-primary-subtle', cb.checked);
+                        card.classList.toggle('bg-white', !cb.checked);
+                    }
+                    if (selectVistaModal && selectVistaModal.value === 'marcadas') {
+                        filterPrendasForSearch();
+                    }
+                });
+            });
+        });
+
+        // --- BÚSQUEDA AVANZADA DE OUTFITS EN TODA LA BASE DE DATOS ---
+        let htmlOutfitsOriginal = null; // Guarda el estado inicial de #outfitsListContainer
+
+        async function buscarOutfitsAvanzada() {
+            const checkboxes = document.querySelectorAll('#listaPrendasBusqueda .checkbox-prenda-busqueda:checked');
+            const selectedIds = Array.from(checkboxes).map(cb => cb.value);
+            const modo = document.querySelector('input[name="modoFiltroOutfits"]:checked')?.value || 'todas';
+
+            // Cerrar el modal limpiamente
             const searchModalEl = document.getElementById('searchOutfitModal');
-            const searchModal = bootstrap.Modal.getInstance(searchModalEl);
-            if (searchModal) {
+            if (searchModalEl) {
+                const searchModal = bootstrap.Modal.getOrCreateInstance(searchModalEl);
                 searchModal.hide();
             }
+            setTimeout(() => {
+                document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+                document.body.classList.remove('modal-open');
+                document.body.style.removeProperty('overflow');
+                document.body.style.removeProperty('padding-right');
+            }, 300);
 
             if (selectedIds.length === 0) {
                 resetOutfitsView();
                 return;
             }
 
-            mostrarOutfitsFiltrados(selectedIds);
+            const container = document.getElementById('outfitsListContainer');
+            const headerDiv = document.getElementById('outfitsListHeader');
+            const btnCargarMas = document.getElementById('btnCargarMasOutfits');
+
+            // Guardar respaldo del HTML original antes de reemplazarlo por resultados filtrados
+            if (htmlOutfitsOriginal === null) {
+                htmlOutfitsOriginal = container.innerHTML;
+            }
+
+            if (btnCargarMas) btnCargarMas.style.display = 'none';
+
+            container.innerHTML = `
+        <div class="col-12 text-center py-4">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="text-muted mt-2 mb-0">Buscando en todos tus outfits...</p>
+        </div>`;
+
+            try {
+                const formData = new FormData();
+                selectedIds.forEach(id => formData.append('prendas[]', id));
+                formData.append('modo', modo);
+
+                const response = await fetch('buscar_outfits_por_prendas.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                const modoTexto = (modo === 'alguna') ? 'al menos 1 prenda' : 'todas las prendas';
+
+                if (data.success) {
+                    const encontrados = data.outfits.length;
+
+                    if (headerDiv) {
+                        headerDiv.innerHTML = `<h4 class="mb-0">
+                    Outfits filtrados (${encontrados} encontrados • ${modoTexto})
+                    <button class="btn btn-sm btn-warning ms-2" onclick="resetOutfitsView()">
+                        <i class="fas fa-undo me-1"></i>Borrar Filtro
+                    </button>
+                </h4>`;
+                    }
+
+                    if (encontrados === 0) {
+                        container.innerHTML = `
+                    <div class="col-12" id="noOutfitsFoundMessage">
+                        <div class="alert alert-warning text-center" role="alert">
+                            <i class="fas fa-exclamation-triangle me-2"></i> No se encontraron outfits en todo tu clóset que contengan <strong>${modoTexto}</strong> seleccionadas.
+                        </div>
+                    </div>`;
+                        return;
+                    }
+
+                    let htmlResultados = '';
+                    data.outfits.forEach(outfit => {
+                        htmlResultados += `
+                <div class="col-md-6 mb-3">
+                    <div class="card outfit-card ${outfit.clase_estado || ''}" data-outfit-id="${outfit.id}" data-prendas='${outfit.data_prendas_json}'>
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="card-title">
+                                        <a style="text-decoration: none;" href="detalle_outfit.php?id=${outfit.id}">${htmlspecialchars(outfit.nombre)}</a>
+                                    </h6>
+                                    <p class="card-text">
+                                        <small class="text-muted">${htmlspecialchars(outfit.contexto)} • ${htmlspecialchars(outfit.clima_base)}</small><br>
+                                        <small>${outfit.total_prendas} prendas</small>
+                                    </p>
+                                </div>
+                                <div class="dropdown">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="fas fa-ellipsis-v"></i>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li>
+                                            <a class="dropdown-item ver-detalles" href="#" data-id="${outfit.id}" data-action="ver">
+                                                <i class="fas fa-eye me-2"></i>Ver detalles
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item usar-outfit" href="#" data-id="${outfit.id}" data-action="usar">
+                                                <i class="fas fa-play me-2"></i>Usar hoy
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item eliminar-outfit" href="#" data-id="${outfit.id}" data-action="eliminar">
+                                                <i class="fas fa-trash me-2"></i>Eliminar
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <span class="badge bg-primary">${htmlspecialchars(outfit.contexto)}</span>
+                                <span class="badge clima-${htmlspecialchars(outfit.clima_base)}">${htmlspecialchars(outfit.clima_base)}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+                    });
+
+                    container.innerHTML = htmlResultados;
+                } else {
+                    Swal.fire('Error', data.message || 'No se pudo realizar la búsqueda.', 'error');
+                    resetOutfitsView();
+                }
+            } catch (error) {
+                console.error('Error en búsqueda avanzada:', error);
+                Swal.fire('Error de conexión', 'No se pudo consultar el servidor.', 'error');
+                resetOutfitsView();
+            }
         }
 
-        function mostrarOutfitsFiltrados(selectedIds) {
+        function mostrarOutfitsFiltrados(selectedIds, modo = 'todas') {
             const outfitCards = document.querySelectorAll('#outfitsListContainer .outfit-card');
             const container = document.getElementById('outfitsListContainer');
             let foundCount = 0;
 
             outfitCards.forEach(card => {
                 const outfitPrendasData = card.getAttribute('data-prendas');
-                let outfitPrendasIds;
+                let outfitPrendasIds = [];
 
                 try {
-                    outfitPrendasIds = JSON.parse(outfitPrendasData);
-                    outfitPrendasIds = Array.isArray(outfitPrendasIds) ? outfitPrendasIds.map(String) : [];
+                    const parsed = JSON.parse(outfitPrendasData);
+                    outfitPrendasIds = Array.isArray(parsed) ? parsed.map(String) : [];
                 } catch (e) {
-                    console.error("Error al parsear prendas IDs para el outfit:", card.getAttribute('data-outfit-id'), e);
                     outfitPrendasIds = [];
                 }
 
-                const allSelectedFound = selectedIds.every(selectedId =>
-                    outfitPrendasIds.includes(selectedId)
-                );
+                // Evaluar según modo seleccionado (TODAS vs ALGUNA)
+                const cumpleFiltro = (modo === 'alguna') ?
+                    selectedIds.some(id => outfitPrendasIds.includes(id)) :
+                    selectedIds.every(id => outfitPrendasIds.includes(id));
 
                 const parentCol = card.closest('.col-md-6');
 
-                if (allSelectedFound) {
-                    if (parentCol) {
-                        parentCol.style.display = 'block';
-                    } else {
-                        card.style.display = 'block';
-                    }
+                if (cumpleFiltro) {
+                    if (parentCol) parentCol.style.display = 'block';
+                    else card.style.display = 'block';
                     foundCount++;
                 } else {
-                    if (parentCol) {
-                        parentCol.style.display = 'none';
-                    } else {
-                        card.style.display = 'none';
-                    }
+                    if (parentCol) parentCol.style.display = 'none';
+                    else card.style.display = 'none';
                 }
             });
 
             const headerDiv = document.getElementById('outfitsListHeader');
+            const modoTexto = (modo === 'alguna') ? 'al menos 1 prenda' : 'todas las prendas';
             if (headerDiv) {
                 headerDiv.innerHTML = `<h4 class="mb-0">
-            Resultados de Búsqueda Avanzada (${foundCount} encontrados)
+            Outfits filtrados (${foundCount} encontrados • ${modoTexto})
             <button class="btn btn-sm btn-warning ms-2" onclick="resetOutfitsView()">
-                <i class="fas fa-undo"></i> Borrar Filtro
+                <i class="fas fa-undo me-1"></i>Borrar Filtro
             </button>
         </h4>`;
             }
 
-            const noResultsMessage = document.getElementById('noOutfitsFoundMessage');
+            let noResultsMessage = document.getElementById('noOutfitsFoundMessage');
             if (foundCount === 0) {
+                const alertaHtml = `<div class="alert alert-warning text-center" role="alert">
+            <i class="fas fa-exclamation-triangle me-2"></i> No se encontraron outfits que contengan <strong>${modoTexto}</strong> seleccionadas.
+        </div>`;
+
                 if (!noResultsMessage) {
-                    container.innerHTML += `<div class="col-12" id="noOutfitsFoundMessage"><div class="alert alert-warning text-center" role="alert">
-                <i class="fas fa-exclamation-triangle me-2"></i> No se encontraron outfits que contengan **TODAS** las prendas seleccionadas.
-            </div></div>`;
+                    container.insertAdjacentHTML('beforeend', `<div class="col-12" id="noOutfitsFoundMessage">${alertaHtml}</div>`);
                 } else {
+                    noResultsMessage.innerHTML = alertaHtml;
                     noResultsMessage.style.display = 'block';
                 }
             } else if (noResultsMessage) {
                 noResultsMessage.style.display = 'none';
             }
+
+            const btnCargarMas = document.getElementById('btnCargarMasOutfits');
+            if (btnCargarMas) btnCargarMas.style.display = 'none';
         }
 
         function resetOutfitsView() {
-            const outfitCards = document.querySelectorAll('#outfitsListContainer .outfit-card');
+            const container = document.getElementById('outfitsListContainer');
             const headerDiv = document.getElementById('outfitsListHeader');
-            const noResultsMessage = document.getElementById('noOutfitsFoundMessage');
+            const btnCargarMas = document.getElementById('btnCargarMasOutfits');
 
-            outfitCards.forEach(card => {
-                const parentCol = card.closest('.col-md-6');
-                if (parentCol) {
-                    parentCol.style.display = 'block';
-                } else {
-                    card.style.display = 'block';
-                }
-            });
+            if (htmlOutfitsOriginal !== null) {
+                container.innerHTML = htmlOutfitsOriginal;
+                htmlOutfitsOriginal = null;
+            }
 
             if (headerDiv) {
                 headerDiv.innerHTML = `<h4 class="mb-0">Lista de Outfits</h4>`;
             }
 
-            if (noResultsMessage) {
-                noResultsMessage.style.display = 'none';
+            if (btnCargarMas) {
+                btnCargarMas.style.display = 'inline-block';
             }
         }
+        // --- FIN FILTRADO AVANZADO DE OUTFITS ---
+
+
+
 
         document.addEventListener('DOMContentLoaded', () => {
             const generarPromptPrendaBtn = document.getElementById('generarPromptPrendaBtn');
@@ -3093,23 +3405,96 @@ Estructura obligatoria del JSON:
             }
         });
 
-        function filterOutfitPrendas() {
-            const searchTerm = document.getElementById('buscarPrendasOutfit').value.toLowerCase();
-            const prendaItems = document.querySelectorAll('#listaPrendasOutfit .prenda-outfit-item');
+        // --- FILTRADO AVANZADO DE PRENDAS EN CREAR OUTFIT ---
+        function filtrarPrendasCrearOutfit() {
+            const texto = (document.getElementById('buscarPrendasOutfit')?.value || '').toLowerCase().trim();
+            const tipo = document.getElementById('filtroTipoPrendaOutfit')?.value || 'todos';
+            const estado = document.getElementById('filtroEstadoPrendaOutfit')?.value || 'todos';
+            const items = document.querySelectorAll('#listaPrendasOutfit .prenda-outfit-item');
+            const msgSinResultados = document.getElementById('sinResultadosPrendasOutfit');
 
-            prendaItems.forEach(item => {
-                const nombre = item.getAttribute('data-nombre-prenda');
-                const tipo = item.getAttribute('data-tipo-prenda');
-                const color = item.getAttribute('data-color-prenda');
-                const fullText = `${nombre} ${tipo} ${color}`;
+            let visibles = 0;
 
-                if (fullText.includes(searchTerm)) {
-                    item.style.display = '';
+            items.forEach(item => {
+                const checkbox = item.querySelector('.checkbox-prenda-outfit');
+                const nombre = item.dataset.nombrePrenda || '';
+                const itemTipo = item.dataset.tipoPrenda || '';
+                const color = item.dataset.colorPrenda || '';
+                const tela = item.dataset.telaPrenda || '';
+                const itemEstado = item.dataset.estadoPrenda || '';
+
+                const textoCompleto = `${nombre} ${itemTipo} ${color} ${tela}`;
+                const coincideTexto = texto === '' || textoCompleto.includes(texto);
+                const coincideTipo = tipo === 'todos' || itemTipo === tipo;
+
+                let coincideEstado = true;
+                if (estado === 'disponible') {
+                    coincideEstado = (itemEstado === 'disponible');
+                } else if (estado === 'seleccionadas') {
+                    coincideEstado = checkbox && checkbox.checked;
+                }
+
+                if (coincideTexto && coincideTipo && coincideEstado) {
+                    item.classList.remove('d-none');
+                    item.classList.add('d-flex');
+                    visibles++;
                 } else {
-                    item.style.display = 'none';
+                    item.classList.remove('d-flex');
+                    item.classList.add('d-none');
                 }
             });
+
+            if (msgSinResultados) {
+                msgSinResultados.style.display = (visibles === 0) ? 'block' : 'none';
+            }
         }
+
+        function actualizarContadorPrendasOutfit() {
+            const totalMarcadas = document.querySelectorAll('#listaPrendasOutfit .checkbox-prenda-outfit:checked').length;
+            const badge = document.getElementById('contadorPrendasOutfit');
+            if (badge) {
+                badge.textContent = `${totalMarcadas} seleccionada${totalMarcadas === 1 ? '' : 's'}`;
+            }
+        }
+
+        // Listeners del filtro de Crear Outfit
+        const inputBuscarOutfit = document.getElementById('buscarPrendasOutfit');
+        const selectTipoOutfit = document.getElementById('filtroTipoPrendaOutfit');
+        const selectEstadoOutfit = document.getElementById('filtroEstadoPrendaOutfit');
+        const btnLimpiarOutfit = document.getElementById('limpiarFiltroPrendasOutfit');
+
+        if (inputBuscarOutfit) inputBuscarOutfit.addEventListener('input', filtrarPrendasCrearOutfit);
+        if (selectTipoOutfit) selectTipoOutfit.addEventListener('change', filtrarPrendasCrearOutfit);
+        if (selectEstadoOutfit) selectEstadoOutfit.addEventListener('change', filtrarPrendasCrearOutfit);
+
+        if (btnLimpiarOutfit) {
+            btnLimpiarOutfit.addEventListener('click', () => {
+                inputBuscarOutfit.value = '';
+                selectTipoOutfit.value = 'todos';
+                selectEstadoOutfit.value = 'disponible';
+                filtrarPrendasCrearOutfit();
+            });
+        }
+
+        document.querySelectorAll('#listaPrendasOutfit .checkbox-prenda-outfit').forEach(cb => {
+            cb.addEventListener('change', () => {
+                actualizarContadorPrendasOutfit();
+                // Resaltar visualmente la tarjeta marcada
+                const cardItem = cb.closest('.prenda-outfit-item');
+                if (cardItem) {
+                    cardItem.classList.toggle('border-primary', cb.checked);
+                    cardItem.classList.toggle('bg-primary-subtle', cb.checked);
+                    cardItem.classList.toggle('bg-white', !cb.checked);
+                }
+                if (selectEstadoOutfit && selectEstadoOutfit.value === 'seleccionadas') {
+                    filtrarPrendasCrearOutfit();
+                }
+            });
+        });
+
+        // Ejecutar filtro inicial al cargar (muestra 'disponible' por defecto)
+        filtrarPrendasCrearOutfit();
+        // --- FIN FILTRADO AVANZADO ---
 
         function toggleOutfitForm() {
             const formContainer = document.getElementById('outfitFormContainer');
